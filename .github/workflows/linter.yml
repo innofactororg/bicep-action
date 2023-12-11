@@ -1,4 +1,4 @@
-name: 'Lint Code (audit)'
+name: "Lint Code (audit)"
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0 # Need full history for `super-linter`
 
       - name: Lint Code Base
-        uses: super-linter/super-linter:slim-v5
+        uses: super-linter/super-linter/slim@v5
         env:
           VALIDATE_ALL_CODEBASE: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
