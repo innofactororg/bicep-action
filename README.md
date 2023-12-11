@@ -1,2 +1,250 @@
-# bicep-action
-Reusable workflow to perform infrastructure as code deployments using bicep
+# Bicep workflow
+
+[![GitHub Super-Linter](https://github.com/innofactororg/bicep-action/actions/workflows/linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
+
+A reusable workflow to to manage Azure infrastructure with Bicep.
+
+## Getting Started
+
+To use the workflow, several prerequisite steps are required.
+
+1. **Create GitHub Environment**
+
+   The workflow utilizes GitHub Environments to enable an approval process for the deployment.
+
+   Create an environment by following these [instructions](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
+
+   Add a protection rule and required approvers that need to sign off on deployments. Limit the environment to the main branch. See [detailed instructions](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#environment-protection-rules).
+
+1. **Setup Azure Identity**
+
+   A Microsoft Entra ID application is required by this workload. It must have permission to deploy the code.
+
+   Create a single application and give it the appropriate read/write permissions in Azure.
+
+   Setup the federated credentials to allow GitHub to use OpenID Connect.
+
+   See the [Azure documentation](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for detailed instructions.
+
+   Three federated credentials will need to be added:
+
+   - Set Entity Type to **Environment** and specify the environment name, e.g. `production`.
+   - Set Entity Type to**`Pull Request**.
+   - Set Entity Type to **Branch** and use the `main` branch name.
+
+## Workflow
+
+The workflow is designed to run on new and updated pull requests.
+
+The workflow start by running [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if). This report is then attached to the PR for easy review.
+
+The workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure after a manual review has been approved.
+
+![Bicep workflow](images/deployment-action-flow.png)
+
+1. Create a new branch and check in the needed code.
+1. Create a Pull Request (PR) in GitHub once the changes are ready.
+1. A GitHub Actions workflow will trigger to ensure the code is well formatted, internally consistent, and produces secure infrastructure. In addition, a What-If analysis will run to generate a preview of the changes that will happen in Azure.
+1. Once appropriately reviewed, the PR can be merged into the main branch.
+1. The changes are deployed to Azure.
+
+## Usage
+
+<!-- start usage -->
+
+```yaml
+name: Azure Deploy
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - "**.json"
+      - "**.bicep"
+      - "**.bicepparam"
+
+jobs:
+  deploy:
+    name: 🔧 Bootstrap
+    uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
+    with:
+      # The GitHub environment name for the Azure deploy job.
+      #
+      # Default: production
+      environment: production
+
+      # The tenant ID in which the subscription exists.
+      #
+      # Required
+      azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
+
+      # The client ID of the service principal for login to Azure.
+      #
+      # This service principal must have permission to deploy within the
+      # Azure subscription.
+      #
+      # Required
+      azure_ad_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
+
+      # The subscription ID in which to deploy the resources.
+      #
+      # Required
+      azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
+
+      # The Azure location to store the deployment metadata.
+      #
+      # Default: westeurope
+      location: westeurope
+
+      # The deployment scope. Accepted values: tenant, mg, sub, group.
+      #
+      # Default: sub
+      scope: sub
+
+      # The management group id to create deployment at. Only required when scope is mg.
+      #
+      # Default: ''
+      management_group:
+
+      # The resource group to create deployment at. Only required when scope is group.
+      #
+      # Default: ''
+      resource_group:
+
+      # Only required when scope is group. Accepted values: Complete, Incremental.
+      #
+      # Default: 'Incremental'
+      deployment_mode: Incremental
+
+      # The path or URI to the template or Bicep file or a template spec resource id.
+      #
+      # Default: main.bicep
+      code_template: main.bicep
+
+      # Deployment parameter values.
+      #
+      # Parameters may be supplied from a file using the @{path} syntax, a JSON string,
+      # or as <KEY=VALUE> pairs. Parameters are evaluated in order, so when a value is
+      # assigned twice, the latter value will be used. It is recommended that you supply
+      # your parameters file first, and then override selectively using KEY=VALUE syntax.
+      #
+      # Default: ''
+      parameters: main.bicepparam
+
+      # Require a CODEOWNERS file before allowing deployment.
+      #
+      # The check will fail if the repository don't have a CODEOWNERS file in
+      # either the root, docs/, or .github/ directory.
+      # About code owners: https://t.ly/8KUb
+      #
+      # The CODEOWNERS file is retrieved from the base branch of a
+      # pull request (e.g. main), so it can be protected.
+      #
+      # Default: false
+      require_codeowners_file: false
+
+      # Check that actor is code owner before allowing deployment.
+      #
+      # Without a CODEOWNERS file, everyone is considered a code owner.
+      # The check will fail if the actor (the user that initiated this check)
+      # is not a code owner.
+      #
+      # Default: true
+      require_code_owner: true
+
+      # Check that a code owner has reviewed and approved the pull request.
+      # The code owner can't be the user who opened the pull request.
+      #
+      # Note: This action will ignore emails and teams specified in CODEOWNERS file.
+      #
+      # Default: true
+      require_code_owner_review: true
+
+      # Require a CODETEAMS file before allowing deployment.
+      #
+      # The check will fail if the repository don't have a CODETEAMS file in
+      # either the root, docs/, or .github/ directory.
+      #
+      # The CODETEAMS file is retrieved from the base branch of a
+      # pull request (e.g. main), so it can be protected.
+      #
+      # Default: false
+      require_codeteams_file: false
+
+      # Check that a code team member has reviewed and approved the pull request.
+      # The code team member can't be the user who opened the pull request.
+      #
+      # For the check to run, the repository must have a CODETEAMS file in
+      # either the root, docs/, or .github/ directory of the repository.
+      #
+      # Default: true
+      require_code_team_review: true
+
+      # Check that at least one approved review exist for the pull request.
+      # The reviewer can't be the user who opened the pull request.
+      #
+      # Default: true
+      require_approved_review: true
+
+      # Check that the pull request mergable state is in one of the specified states.
+      #
+      # The value is a JSON-stringified list of one or more states:
+      # clean
+      # has_hooks
+      # unstable
+      # behind
+      # blocked
+      # dirty
+      # draft
+      #
+      # Default: ["clean","has_hooks","unstable"]
+      required_mergeable_state: |-
+        ["clean","has_hooks","unstable"]
+
+      # The merge method to use after successful deployment.
+      # Can be one of:
+      #
+      # merge - retain all of the commits.
+      # squash - retain the changes but omit the individual commits.
+      # rebase - move the commits to the tip of the target branch.
+      # disable - turn off auto merge.
+      #
+      # Default: squash
+      merge_method: squash
+
+      # Prevent deleting the branch after merge.
+      #
+      # Default: false
+      keep_branch_after_merge: false
+
+      # The format to use for date and time in comments.
+      # Corresponds to the locales parameter of the Intl.DateTimeFormat()
+      # constructor. The default format, sv-SE, is yyyy-MM-dd HH:mm:ss.
+      #
+      # Default: sv-SE
+      date_time_language_format: sv-SE
+
+      # The time zone to use for time in comments. It is used to convert
+      # from UTC time. Official list of time zones:
+      # https://www.iana.org/time-zones.
+      #
+      # Default: Europe/Oslo
+      time_zone: Europe/Oslo
+
+      # The log verbosity. Can be one of:
+      #
+      # ERROR - dump github context etc. if workflow fail.
+      # WARN - dump github context etc. if workflow fail.
+      # INFO - always dump github context etc.
+      # DEBUG - always dump github context etc.
+      # TRACE - always dump github context etc.
+      #
+      # Default: ERROR
+      log_severity: INFO
+```
+
+<!-- end usage -->
+
+## License
+
+The code and documentation in this project are released under the [MIT License](LICENSE).
