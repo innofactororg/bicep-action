@@ -1,3 +1,4 @@
+---
 name: "🎉 Release"
 run-name: "Create release ${{ github.event.inputs.tag }}"
 

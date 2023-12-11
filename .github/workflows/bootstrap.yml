@@ -1,3 +1,4 @@
+---
 name: "🥾 Bootstrap"
 on:
   workflow_call:
