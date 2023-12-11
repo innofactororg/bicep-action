@@ -199,15 +199,13 @@ jobs:
         id: job_cancelled
         if: cancelled()
         shell: bash
-        run: |
-          echo 'JOB_STATUS=cancelled' >> $GITHUB_ENV
+        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
 
       - name: Job failed
         id: job_failed
         if: failure()
         shell: bash
-        run: |
-          echo 'JOB_STATUS=failed' >> $GITHUB_ENV
+        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
       - name: Add or update issue comment
         id: comment_for_info
@@ -474,7 +472,7 @@ jobs:
               echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
-            echo "result=${result}" >> $GITHUB_OUTPUT
+            echo "result=${result}" >> "$GITHUB_OUTPUT"
 
       - name: Install cost estimator
         id: install_estimator
@@ -537,7 +535,7 @@ jobs:
               echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
-            echo "result=${result}" >> $GITHUB_OUTPUT
+            echo "result=${result}" >> "$GITHUB_OUTPUT"
 
       - name: Add summary
         id: summary
@@ -545,35 +543,35 @@ jobs:
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
         run: |
-          echo "## Change Plan" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "<details><summary>Click to expand the change plan</summary>" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          echo "${WHAT_IF_RESULT}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Estimated Cost" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          echo "${COST_RESULT}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Change Plan"
+            echo ""
+            echo "<details><summary>Click to expand the change plan</summary>"
+            echo ""
+            echo '```json'
+            echo "${WHAT_IF_RESULT}"
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "## Estimated Cost"
+            echo ""
+            echo '```text'
+            echo "${COST_RESULT}"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Job cancelled
         id: job_cancelled
         if: cancelled()
         shell: bash
-        run: |
-          echo 'JOB_STATUS=cancelled' >> $GITHUB_ENV
+        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
 
       - name: Job failed
         id: job_failed
         if: failure()
         shell: bash
-        run: |
-          echo 'JOB_STATUS=failed' >> $GITHUB_ENV
+        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
       - name: Comment when done
         id: comment_when_done
@@ -899,21 +897,23 @@ jobs:
               echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
-            echo "result=${result}" >> $GITHUB_OUTPUT
+            echo "result=${result}" >> "$GITHUB_OUTPUT"
 
       - name: Add summary
         id: summary
         env:
           DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
         run: |
-          echo "## Deployment" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "<details><summary>Click to expand the deployment result</summary>" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          echo "${DEPLOY_RESULT}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Deployment"
+            echo ""
+            echo "<details><summary>Click to expand the deployment result</summary>"
+            echo ""
+            echo '```json'
+            echo "${DEPLOY_RESULT}"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Auto merge
         id: auto_merge
@@ -971,15 +971,13 @@ jobs:
         id: job_cancelled
         if: cancelled()
         shell: bash
-        run: |
-          echo 'JOB_STATUS=cancelled' >> $GITHUB_ENV
+        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
 
       - name: Job failed
         id: job_failed
         if: failure()
         shell: bash
-        run: |
-          echo 'JOB_STATUS=failed' >> $GITHUB_ENV
+        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
       - name: Comment when done
         id: comment_when_done
