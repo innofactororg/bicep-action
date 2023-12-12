@@ -38,7 +38,7 @@ Target each credential to the repository that use this workflow.
 
 Each time a pull request is created or updated, the workflow will produce a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report and attach it to the pull request for easy review.
 
-After a manual review and approval, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
+Each time a pull request review is submitted, the workflow will check if it is approved, and if so, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
 
 ![Bicep workflow](images/deployment-action-flow.png)
 
@@ -62,6 +62,9 @@ on:
       - "**.json"
       - "**.bicep"
       - "**.bicepparam"
+
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   deploy:
@@ -111,11 +114,6 @@ jobs:
       # Default: ''
       resource_group:
 
-      # Required for group scope. Complete or Incremental.
-      #
-      # Default: 'Incremental'
-      deployment_mode: Incremental
-
       # The template address.
       #
       # A path or URI to the template / Bicep file or a template spec resource id.
@@ -133,92 +131,6 @@ jobs:
       # Default: ''
       parameters: main.bicepparam
 
-      # Require a CODEOWNERS file before allowing deployment.
-      #
-      # The check will fail if the repository don't have a CODEOWNERS file in
-      # either the root, docs/, or .github/ directory.
-      # About code owners: https://t.ly/8KUb
-      #
-      # The CODEOWNERS file is retrieved from the base branch of a
-      # pull request (e.g. main), so it can be protected.
-      #
-      # Default: false
-      require_codeowners_file: false
-
-      # Check that actor is code owner before allowing deployment.
-      #
-      # Without a CODEOWNERS file, everyone is considered a code owner.
-      # The check will fail if the actor (the user that initiated this check)
-      # is not a code owner.
-      #
-      # Default: true
-      require_code_owner: true
-
-      # Check that a code owner has reviewed and approved the pull request.
-      # The code owner can't be the user who opened the pull request.
-      #
-      # Note: This action will ignore emails and teams specified in CODEOWNERS file.
-      #
-      # Default: true
-      require_code_owner_review: true
-
-      # Require a CODETEAMS file before allowing deployment.
-      #
-      # The check will fail if the repository don't have a CODETEAMS file in
-      # either the root, docs/, or .github/ directory.
-      #
-      # The CODETEAMS file is retrieved from the base branch of a
-      # pull request (e.g. main), so it can be protected.
-      #
-      # Default: false
-      require_codeteams_file: false
-
-      # Check that a code team member has reviewed and approved the pull request.
-      # The code team member can't be the user who opened the pull request.
-      #
-      # For the check to run, the repository must have a CODETEAMS file in
-      # either the root, docs/, or .github/ directory of the repository.
-      #
-      # Default: true
-      require_code_team_review: true
-
-      # Check that at least one approved review exist for the pull request.
-      # The reviewer can't be the user who opened the pull request.
-      #
-      # Default: true
-      require_approved_review: true
-
-      # Check that the pull request mergable state is in one of the specified states.
-      #
-      # The value is a JSON-stringified list of one or more states:
-      # clean
-      # has_hooks
-      # unstable
-      # behind
-      # blocked
-      # dirty
-      # draft
-      #
-      # Default: ["clean","has_hooks","unstable"]
-      required_mergeable_state: |-
-        ["clean","has_hooks","unstable"]
-
-      # The merge method to use after successful deployment.
-      # Can be one of:
-      #
-      # merge - retain all of the commits.
-      # squash - retain the changes but omit the individual commits.
-      # rebase - move the commits to the tip of the target branch.
-      # disable - turn off auto merge.
-      #
-      # Default: squash
-      merge_method: squash
-
-      # Prevent deleting the branch after merge.
-      #
-      # Default: false
-      keep_branch_after_merge: false
-
       # The format to use for date and time in comments.
       # Corresponds to the locales parameter of the Intl.DateTimeFormat()
       # constructor. The default format, sv-SE, is yyyy-MM-dd HH:mm:ss.
@@ -226,8 +138,8 @@ jobs:
       # Default: sv-SE
       date_time_language_format: sv-SE
 
-      # The time zone to use for time in comments. It is used to convert
-      # from UTC time. Official list of time zones:
+      # The time zone to use for time in comments.
+      # It is used to convert from UTC time. Official list of time zones:
       # https://www.iana.org/time-zones.
       #
       # Default: Europe/Oslo
@@ -235,11 +147,10 @@ jobs:
 
       # The log verbosity. Can be one of:
       #
-      # ERROR - dump github context etc. if workflow fail.
-      # WARN - dump github context etc. if workflow fail.
-      # INFO - always dump github context etc.
-      # DEBUG - always dump github context etc.
-      # TRACE - always dump github context etc.
+      # ERROR - Only show errors, suppressing warnings. Dump context at fail.
+      # INFO - Standard log level. Always dump context.
+      # VERBOSE - Increase logging verbosity. Always dump context.
+      # DEBUG - Show all debug logs. Always dump context.
       #
       # Default: ERROR
       log_severity: INFO

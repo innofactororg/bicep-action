@@ -40,11 +40,6 @@ on:
         required: false
         default: ""
         type: string
-      deployment_mode:
-        description: "Required for group scope. Complete or Incremental."
-        required: false
-        default: "Incremental"
-        type: string
       code_template:
         description: "The template address."
         required: false
@@ -55,58 +50,13 @@ on:
         required: false
         default: ""
         type: string
-      require_codeowners_file:
-        description: "Require a CODEOWNERS file before allowing deployment."
-        required: false
-        default: false
-        type: boolean
-      require_code_owner:
-        description: "Check that actor is code owner before allowing deployment."
-        required: false
-        default: true
-        type: boolean
-      require_code_owner_review:
-        description: "Check that a code owner has reviewed and approved the pull request."
-        required: false
-        default: true
-        type: boolean
-      require_codeteams_file:
-        description: "Require a CODETEAMS file before allowing deployment."
-        required: false
-        default: false
-        type: boolean
-      require_code_team_review:
-        description: "Check that a code team member has reviewed and approved the pull request."
-        required: false
-        default: true
-        type: boolean
-      require_approved_review:
-        description: "Check that at least one approved review exist for the pull request."
-        required: false
-        default: true
-        type: boolean
-      required_mergeable_state:
-        description: "Check that the pull request mergable state is in one of the specified states."
-        required: false
-        default: '["clean","has_hooks","unstable"]'
-        type: string
-      merge_method:
-        description: "The merge method to use after successful deployment. Can be one of: merge, squash, rebase or disable to turn off auto merge."
-        required: false
-        default: "squash"
-        type: string
-      keep_branch_after_merge:
-        description: "Prevent deleting the branch after merge."
-        required: false
-        default: false
-        type: boolean
       date_time_language_format:
-        description: "The format to use for date and time in comments. Corresponds to the locales parameter of the Intl.DateTimeFormat() constructor."
+        description: "The format to use for date and time in comments."
         required: false
         default: "sv-SE"
         type: string
       time_zone:
-        description: "The time zone to use when converting UTC time, to show time in comments. See https://www.iana.org/time-zones."
+        description: "The time zone to use for time in comments."
         required: false
         default: "Europe/Oslo"
         type: string
@@ -120,185 +70,66 @@ defaults:
   run:
     shell: bash
 
-concurrency: ${{ github.workflow }}
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
-  info:
-    name: "🎫 Info"
-    if: >
-      github.event_name == 'pull_request' ||
-      github.event_name == 'pull_request_target'
-    permissions:
-      actions: read # for actions to get workflow details
-      pull-requests: write # for getting pull request values and update issue comment
-    runs-on: ubuntu-latest
-    env:
-      COMMENT_BODY: ${{ github.event.comment.body }}
-      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-    outputs:
-      base_ref: ${{ steps.pull_request_values.outputs.base_ref }}
-      base_sha: ${{ steps.pull_request_values.outputs.base_sha }}
-      head_ref: ${{ steps.pull_request_values.outputs.head_ref }}
-      head_sha: ${{ steps.pull_request_values.outputs.head_sha }}
-      merged: ${{ steps.pull_request_values.outputs.merged }}
-      mergeable: ${{ steps.pull_request_values.outputs.mergeable }}
-      mergeable_state: ${{ steps.pull_request_values.outputs.mergeable_state }}
-      comment_id: ${{ steps.comment_for_info.outputs.id }}
-    steps:
-      - name: Get pull request
-        id: pull_request_values
-        uses: actions/github-script@v6
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            try {
-              const {PULL_REQUEST_NUMBER} = process.env;
-              const {BASE_REF} = process.env;
-              const {BASE_SHA} = process.env;
-              const {HEAD_REF} = process.env;
-              const {HEAD_SHA} = process.env;
-              if (context.eventName == 'issue_comment') {
-                const response_pull = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: PULL_REQUEST_NUMBER,
-                });
-                if (response_pull.status != 200 || !response_pull.data) {
-                  const message = `Failed to get pull request ${PULL_REQUEST_NUMBER}. Response: ${JSON.stringify(response_pull)}`;
-                  core.exportVariable('WF_STEP_ERROR_MESSAGE', message);
-                  core.setFailed(message);
-                } else {
-                  core.info(`Pull request ${PULL_REQUEST_NUMBER} retrieved. Title: ${response_pull.data.title}`);
-                  core.setOutput('base_ref', response_pull.data.base.ref);
-                  core.setOutput('base_sha', response_pull.data.base.sha);
-                  core.setOutput('head_ref', response_pull.data.head.ref);
-                  core.setOutput('head_sha', response_pull.data.head.sha);
-                  core.setOutput('merged', response_pull.data.merged);
-                  core.setOutput('mergeable', response_pull.data.mergeable);
-                  core.setOutput('mergeable_state', response_pull.data.mergeable_state);
-                }
-              } else {
-                core.info(`Pull request ${PULL_REQUEST_NUMBER} retrieved.`);
-                core.setOutput('base_ref', BASE_REF);
-                core.setOutput('base_sha', BASE_SHA);
-                core.setOutput('head_ref', HEAD_REF);
-                core.setOutput('head_sha', HEAD_SHA);
-              }
-            } catch (e) {
-              const message = `Failed to get pull request: ${e}`;
-              core.exportVariable('WF_STEP_ERROR_MESSAGE', message);
-              core.setFailed(message);
-            }
-
-      - name: Job cancelled
-        id: job_cancelled
-        if: cancelled()
-        shell: bash
-        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
-
-      - name: Job failed
-        id: job_failed
-        if: failure()
-        shell: bash
-        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
-
-      - name: Add or update issue comment
-        id: comment_for_info
-        if: failure() || cancelled()
-        uses: actions/github-script@v6
-        env:
-          REPOSITORY: ${{ github.repository }}
-          HEAD_SHA: ${{ steps.pull_request_values.outputs.head_sha }}
-          EVENT_COMMENT_ID: ${{ github.event.comment.id }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const {COMMENT_BODY} = process.env ?? '';
-            const {REPOSITORY} = process.env;
-            const {HEAD_SHA} = process.env;
-            const {EVENT_COMMENT_ID} = process.env ?? 0;
-            const STATUS = process.env.JOB_STATUS ?? 'success';
-            const STEP_ERROR = process.env.WF_STEP_ERROR_MESSAGE ?? '';
-            const run_url = `${context.serverUrl}/${REPOSITORY}/actions/runs/${context.runId}`;
-            const details = `| Job | Commit | Actor |
-            | --- | --- | --- | --- | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} |`;
-            let body = '';
-            if (STATUS == 'failed') {
-              body = `## Job failed ⛔\n\n${details}\n\n${STEP_ERROR}`;
-            } else if (STATUS == 'cancelled') {
-              body = `## Job cancelled 🗙\n\n${details}`;
-            } else {
-              body = `## Job started ⌛\n\n${details}\n\nRunning...`;
-            }
-            if (context.eventName == 'issue_comment') {
-              body = `${COMMENT_BODY}\n\n${body}`;
-            }
-            const repo = {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            };
-            let comment_id = isNaN('${EVENT_COMMENT_ID}') ? 0 : +'${EVENT_COMMENT_ID}';
-            try {
-              if (comment_id == 0) {
-                core.info(`Create a comment with the text:`);
-                core.info(body);
-                const response_cc = await github.rest.issues.createComment({
-                  ...repo,
-                  issue_number: context.issue.number,
-                  body: body,
-                });
-                if (response_cc.status > 201 || !response_cc.data) {
-                  const message = `Failed to create comment for issue ${context.issue.number}. Response: ${JSON.stringify(response_cc)}`;
-                  core.exportVariable('WF_STEP_ERROR_MESSAGE', message);
-                  core.setFailed(message);
-                  return;
-                } else {
-                  comment_id = response_cc.data.id;
-                }
-              } else {
-                core.info(`Update comment ${comment_id} with the comment text:`);
-                core.info(body);
-                const response = await github.rest.issues.updateComment({
-                  ...repo,
-                  comment_id: comment_id,
-                  body: body,
-                });
-                if (response.status != 200 || !response.data) {
-                  const message = `Failed to update comment ${EVENT_COMMENT_ID}. Response: ${JSON.stringify(response)}`;
-                  core.exportVariable('WF_STEP_ERROR_MESSAGE', message);
-                  core.setFailed(message);
-                  return;
-                }
-              }
-              core.setOutput('id', comment_id);
-            } catch (e) {
-              const message = `Failed to comment at start: ${e}`;
-              core.exportVariable('WF_STEP_ERROR_MESSAGE', message);
-              core.setFailed(message);
-            }
-
   plan:
     name: "🗓️ Plan"
     if: >
+      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request' ||
       github.event_name == 'pull_request_target'
-    needs: [info]
     permissions:
       id-token: write # for azure login with OpenID Connect (OIDC)
       actions: read # for actions to get workflow details (needs read) (upload artifacts needs write)
       contents: read # for checkout
       pull-requests: write # for update issue comment
     runs-on: ubuntu-latest
-    env:
-      COMMENT_BODY: ${{ github.event.comment.body }}
-      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
     steps:
+      - name: Add comment
+        id: comment
+        if: >
+          github.event_name == 'pull_request' ||
+          github.event_name == 'pull_request_target'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let body = '';
+            const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const HEAD_SHA = process.env.GITHUB_SHA;
+            const run_url = `${context.serverUrl}/${REPOSITORY}/actions/runs/${context.runId}`;
+            const details = `| Job | Commit | Actor |
+            | --- | --- | --- | --- | --- | --- | --- |
+            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} |`;
+            body = `## Job started to validate deployment... ⌛\n\n${details}`;
+            const repo = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            };
+            try {
+              core.info(`Create a comment with the text:`);
+              core.info(body);
+              const response_cc = await github.rest.issues.createComment({
+                ...repo,
+                issue_number: context.event.number,
+                body: body,
+              });
+              if (response_cc.status > 201 || !response_cc.data) {
+                const message = `Failed to create comment for issue ${context.event.number}. Response: ${JSON.stringify(response_cc)}`;
+                core.setFailed(message);
+                return;
+              } else {
+                comment_id = response_cc.data.id;
+              }
+              core.setOutput('id', comment_id);
+            } catch (e) {
+              const message = `Failed to comment at start: ${e}`;
+              core.setFailed(message);
+            }
+
       - name: Checkout head ref (src)
         id: checkout_src
         uses: actions/checkout@v4
@@ -311,6 +142,7 @@ jobs:
         uses: azure/CLI@v1
         env:
           CODE_TEMPLATE: ${{ inputs.code_template }}
+          SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
             file="${CODE_TEMPLATE}"
@@ -319,8 +151,16 @@ jobs:
             elif [[ $file == http* || $file == /subscriptions/* ]]; then
               echo "Skip! Not a local file: ${code_template}"
             else
+              log_param=''
+              if [ "${SEVERITY}" = 'ERROR' ]; then
+                log_param='--only-show-errors'
+              elif [ "${SEVERITY}" = 'VERBOSE' ]; then
+                log_param='--verbose'
+              elif [ "${SEVERITY}" = 'DEBUG' ]; then
+                log_param='--debug'
+              fi
               echo "Check that Bicep file(s) adhere to a canonical format"
-              az bicep lint --file "${file}" --only-show-errors
+              az bicep lint --file "${file}" ${log_param}
             fi
 
       - name: Log in to Azure
@@ -341,10 +181,8 @@ jobs:
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
-          DEPLOYMENT_MODE: ${{ inputs.deployment_mode }}
           LOCATION: ${{ inputs.location }}
-          RUN_ID: ${{ github.run_id }}
-          ACTION: ${{ github.action }}
+          SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
             echo "Validate template at ${SCOPE} scope"
@@ -359,39 +197,46 @@ jobs:
             if [ -n "${INPUT_PARAMETERS}" ]; then
               parameters="--parameters ${INPUT_PARAMETERS}"
             fi
-            az account set -s ${SUBSCRIPTION_ID}
+            log_param=''
+            if [ "${SEVERITY}" = 'ERROR' ]; then
+              log_param='--only-show-errors'
+            elif [ "${SEVERITY}" = 'VERBOSE' ]; then
+              log_param='--verbose'
+            elif [ "${SEVERITY}" = 'DEBUG' ]; then
+              log_param='--debug'
+            fi
+            az account set -s ${SUBSCRIPTION_ID} ${log_param}
             if [ "${SCOPE}" = 'tenant' ]; then
               az deployment tenant validate \
                 --location ${LOCATION} \
-                --name validate-${RUN_ID} \
+                --name validate-${GITHUB_RUN_ID} \
                 --no-prompt true \
                 --output table \
-                --${template_type} "${template}" ${parameters}
+                --${template_type} "${template}" ${parameters} ${log_param}
             elif [ "${SCOPE}" = 'mg' ]; then
               az deployment mg validate \
                 --management-group-id ${MANAGEMENT_GROUP} \
                 --location ${LOCATION} \
-                --name validate-${RUN_ID} \
+                --name validate-${GITHUB_RUN_ID} \
                 --no-prompt true \
                 --output table \
-                --${template_type} "${template}" ${parameters}
+                --${template_type} "${template}" ${parameters} ${log_param}
             elif [ "${SCOPE}" = 'sub' ]; then
               az deployment sub validate \
                 --location ${LOCATION} \
-                --name validate-${RUN_ID} \
+                --name validate-${GITHUB_RUN_ID} \
                 --no-prompt true \
                 --output table \
-                --${template_type} "${template}" ${parameters}
+                --${template_type} "${template}" ${parameters} ${log_param}
             elif [ "${SCOPE}" = 'group' ]; then
               az deployment group validate \
                 --resource-group ${RESOURCE_GROUP} \
-                --mode ${DEPLOYMENT_MODE} \
-                --name validate-${RUN_ID} \
+                --name validate-${GITHUB_RUN_ID} \
                 --no-prompt true \
                 --output table \
-                --${template_type} "${template}" ${parameters}
+                --${template_type} "${template}" ${parameters} ${log_param}
             else
-              echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
 
@@ -405,15 +250,13 @@ jobs:
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
-          DEPLOYMENT_MODE: ${{ inputs.deployment_mode }}
           LOCATION: ${{ inputs.location }}
-          RUN_ID: ${{ github.run_id }}
-          ACTION: ${{ github.action }}
+          SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
             echo "Create a plan for deployment at ${SCOPE} scope"
             template="${CODE_TEMPLATE}"
-            deploy_name="what-if-${RUN_ID}"
+            deploy_name="what-if-${GITHUB_RUN_ID}"
             parameters=''
             result=''
             template_type='template-file'
@@ -425,7 +268,15 @@ jobs:
             if [ -n "${INPUT_PARAMETERS}" ]; then
               parameters="--parameters ${INPUT_PARAMETERS}"
             fi
-            az account set -s ${SUBSCRIPTION_ID}
+            log_param=''
+            if [ "${SEVERITY}" = 'ERROR' ]; then
+              log_param='--only-show-errors'
+            elif [ "${SEVERITY}" = 'VERBOSE' ]; then
+              log_param='--verbose'
+            elif [ "${SEVERITY}" = 'DEBUG' ]; then
+              log_param='--debug'
+            fi
+            az account set -s ${SUBSCRIPTION_ID} ${log_param}
             if [ "${SCOPE}" = 'tenant' ]; then
               result=$(
                 az deployment tenant what-if \
@@ -434,7 +285,7 @@ jobs:
                   --no-pretty-print \
                   --no-prompt true \
                   --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             elif [ "${SCOPE}" = 'mg' ]; then
               result=$(
@@ -445,7 +296,7 @@ jobs:
                   --no-pretty-print \
                   --no-prompt true \
                   --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             elif [ "${SCOPE}" = 'sub' ]; then
               result=$(
@@ -455,21 +306,20 @@ jobs:
                   --no-pretty-print \
                   --no-prompt true \
                   --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             elif [ "${SCOPE}" = 'group' ]; then
               result=$(
                 az deployment group what-if \
                   --resource-group ${RESOURCE_GROUP} \
-                  --mode ${DEPLOYMENT_MODE} \
                   --name ${deploy_name} \
                   --no-pretty-print \
                   --no-prompt true \
                   --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             else
-              echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
             echo "result=${result}" >> "$GITHUB_OUTPUT"
@@ -492,7 +342,6 @@ jobs:
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
-          ACTION: ${{ github.action }}
         with:
           inlineScript: |
             echo "Estimate cost for deployment at ${SCOPE} scope"
@@ -532,7 +381,7 @@ jobs:
                   --disableDetailedMetrics ${parameters}
               )
             else
-              echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
             echo "result=${result}" >> "$GITHUB_OUTPUT"
@@ -575,160 +424,70 @@ jobs:
 
       - name: Comment when done
         id: comment_when_done
-        if: always()
-        uses: actions/github-script@v6
+        if: >
+          always() &&
+          (
+            github.event_name == 'pull_request' ||
+            github.event_name == 'pull_request_target'
+          )
+        uses: actions/github-script@v7
         env:
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
-          REPOSITORY: ${{ github.repository }}
-          HEAD_SHA: ${{ needs.info.outputs.head_sha }}
-          HEAD_REF: ${{ needs.info.outputs.head_ref }}
-          EVENT_COMMENT_ID: ${{ needs.info.outputs.comment_id }}
+          EVENT_COMMENT_ID: ${{ steps.comment.outputs.id }}
           LANG_FORMAT: ${{ inputs.date_time_language_format }}
           TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {COMMENT_BODY} = process.env ?? '';
-            const {REPOSITORY} = process.env;
-            const {HEAD_SHA} = process.env;
-            const {HEAD_REF} = process.env;
+            const {WHAT_IF_RESULT} = process.env ?? '';
+            const {COST_RESULT} = process.env ?? '';
             const {EVENT_COMMENT_ID} = process.env ?? 0;
             const {LANG_FORMAT} = process.env;
             const {TIME_ZONE} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
-            const STATUS = process.env.JOB_STATUS ?? 'success';
-            const WHAT_IF_RESULT = process.env ?? '';
-            const COST_RESULT = process.env ?? '';
             const {PULL_REQUEST_NUMBER} = process.env;
+            const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const HEAD_SHA = process.env.GITHUB_SHA;
+            const HEAD_REF = process.env.GITHUB_REF;
+            const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
-            const plan_comment_start = 'Deployment plan';
-            const plan_url_replace = '_See the plan in separate comment.'
             const current_time = new Date();
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let plan_status = 'unknown';
-            let body = '', body_plan = '', details = '';
-            let title = '';
-            let comment, comments = [], comment_id = 0;
-            let plan_comment_id = 0, plan_comment_url = '';
-            let run_date = current_time.toLocaleDateString("${LANG_FORMAT}", {timeZone: "${TIME_ZONE}"});
-            let run_time = current_time.toLocaleTimeString("${LANG_FORMAT}", {timeZone: "${TIME_ZONE}"});
-            if (STATUS == 'failed') {
-              title = '## Job failed ⛔';
-            } else if (STATUS == 'cancelled') {
-              title = '## Job cancelled 🗙';
-            } else {
-              title = '## Job completed ✅';
-            }
+            let body = '', details = '';
+            let comment_id = 0;
+            let run_date = current_time.toLocaleDateString(LANG_FORMAT, {timeZone: TIME_ZONE});
+            let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} | ${SUBSCRIPTION_ID} |`;
-            body = `${title}\n\n${details}`;
+            if (STATUS == 'failed') {
+              body = `## Job failed ⛔\n\n${details}`;
+            } else if (STATUS == 'cancelled') {
+              body = `## Job cancelled 🗙\n\n${details}`;
+            } else {
+              body = `## Deployment plan 🗓️\n\n${details}`;
+            }
             if (!WHAT_IF_RESULT) {
               body = `${body}\n\n### Plan output not found ⦸`;
             } else {
-              plan_status = 'success';
-              body = `${body}\n\n### Plan completed ✅${plan_url_replace} at ${run_time}`;
-              body_plan = `## ${plan_comment_start} 🗓️\n\n${details}\n\nThis plan was generated at ${run_date} ${run_time}.`;
-              body_plan = `${body_plan}\n\n<details><summary>Show plan</summary>\n\n\`\`\`json\n${WHAT_IF_RESULT}\n\`\`\`\n\n\`\`\`text\n${COST_RESULT}\n\`\`\`\n\n</details>`;
-              body_plan = `${body_plan}\n\n### Actions`;
-              body_plan = `${body_plan}\n\nReview the plan. Updates should be pushed to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
-              body_plan = `${body_plan}\n\The deployment will start when the pull request is approved.`;
-            }
-            if (plan_status == 'success') {
-              try {
-                comments = await github.paginate(
-                  github.rest.issues.listComments, {
-                    ...repo,
-                    issue_number: context.issue.number,
-                  },
-                    (response_lc) => response_lc.data.map((item) => {
-                      return ({id: item.id, body: item.body})
-                    })
-                );
-                if (comments.length !== 0) {
-                  const filtered_comments = comments.filter((item) => item.body.startsWith(`## ${plan_comment_start}`));
-                  if (filtered_comments.length !== 0) {
-                    comment = filtered_comments.at(-1);
-                    plan_comment_id = comment.id;
-                    core.info(`Found comment ${plan_comment_id} with title '${plan_comment_start}'`);
-                  }
-                }
-              } catch (e) {
-                const message = `Failed to find comment for Terraform plan: ${e}.`;
-                core.setFailed(message);
-                return;
-              }
-            }
-            if (plan_comment_id !== 0) {
-              core.info(`Update title of comment ${plan_comment_id} to '(Stale) ${plan_comment_start}'`);
-              const body_stale = comment.body.replace(plan_comment_start, `(Stale) ${plan_comment_start}`);
-              try {
-                const response_uc = await github.rest.issues.updateComment({
-                  ...repo,
-                  comment_id: plan_comment_id,
-                  body: body_stale
-                });
-                if (response_uc.status != 200 || !response_uc.data) {
-                  const message = `Failed to update comment ${plan_comment_id}. Response: ${JSON.stringify(response_uc)}`;
-                  core.setFailed(message);
-                  return;
-                }
-                plan_comment_id = 0;
-              } catch (e) {
-                core.info(body_stale);
-                const message = `Failed to update comment for Terraform plan: ${e}.`;
-                core.setFailed(message);
-                return;
-              }
-            }
-            if (body_plan != '') {
-              try {
-                if (plan_comment_id === 0) {
-                  core.info(`Create comment for issue ${context.issue.number} with title '${plan_comment_start}'`);
-                  const response_cc = await github.rest.issues.createComment({
-                    ...repo,
-                    issue_number: context.issue.number,
-                    body: body_plan,
-                  });
-                  if (response_cc.status > 201 || !response_cc.data) {
-                    const message = `Failed to create comment for issue ${context.issue.number}: ${JSON.stringify(response_cc)}`;
-                    core.setFailed(message);
-                    return;
-                  } else {
-                    plan_comment_id = response_cc.data.id;
-                  }
-                } else {
-                  core.info(`Update comment ${plan_comment_id} with title '${plan_comment_start}'`);
-                  const response_uc = await github.rest.issues.updateComment({
-                    ...repo,
-                    comment_id: plan_comment_id,
-                    body: body_plan,
-                  });
-                  if (response_uc.status != 200 || !response_uc.data) {
-                    const message = `Failed to update comment ${plan_comment_id}: ${JSON.stringify(response_uc)}`;
-                    core.setFailed(message);
-                    return;
-                  }
-                }
-                body = body.replace(plan_url_replace, `\n\nSee [plan](${repo_url}/pull/${PULL_REQUEST_NUMBER}#issuecomment-${plan_comment_id}).`);
-              } catch (e) {
-                const message = `Failed to add or update comment with title '${plan_comment_start}': ${e}`;
-                core.setFailed(message);
-                return;
-              }
-            } else {
-              body = body.replace(plan_url_replace, '');
+              body = `${body}\n\nThis plan was generated at ${run_date} ${run_time}.`;
+              body = `${body}\n\n<details><summary>Show plan</summary>\n\n\`\`\`json\n${WHAT_IF_RESULT}\n\`\`\`\n\n</details>`;
+              body = `${body}\n\n### Cost analysis\n\n\`\`\`text\n${COST_RESULT}\n\`\`\`\n\n`;
+              body = `${body}\n\n### Actions`;
+              body = `${body}\n\nReview the plan. Updates should be pushed to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
+              body = `${body}\n\The deployment will start when the pull request is approved.`;
             }
             comment_id = isNaN("${EVENT_COMMENT_ID}") ? 0 : +"${EVENT_COMMENT_ID}";
-            core.info(`Update comment ${comment_id} with the following text:`);
-            core.info(body);
             if (comment_id != 0) {
+              core.info(`Update comment ${comment_id} with the following text:`);
+              core.info(body);
               try {
                 const response = await github.rest.issues.updateComment({
                   ...repo,
@@ -743,6 +502,24 @@ jobs:
                 const message = `Failed to update comment ${comment_id}: ${e}`;
                 core.setFailed(message);
               }
+            } else {
+              core.info(`Create a comment with the text:`);
+              core.info(body);
+              try {
+                const response_cc = await github.rest.issues.createComment({
+                  ...repo,
+                  issue_number: context.event.number,
+                  body: body,
+                });
+                if (response_cc.status > 201 || !response_cc.data) {
+                  const message = `Failed to create comment for issue ${context.event.number}. Response: ${JSON.stringify(response_cc)}`;
+                  core.setFailed(message);
+                  return;
+                }
+              } catch (e) {
+                const message = `Failed to comment when done: ${e}`;
+                core.setFailed(message);
+              }
             }
 
       - name: Dump github context
@@ -750,9 +527,7 @@ jobs:
         if: >
           failure() || (
             success() &&
-            !contains(
-              fromJSON('["ERROR", "WARN"]'), inputs.log_severity
-            )
+            inputs.log_severity != 'ERROR'
           )
         env:
           GH_CONTEXT: ${{ toJson(github) }}
@@ -764,9 +539,7 @@ jobs:
         if: >
           failure() || (
             success() &&
-            !contains(
-              fromJSON('["ERROR", "WARN"]'), inputs.log_severity
-            )
+            inputs.log_severity != 'ERROR'
           )
         env:
           STEPS_CONTEXT: ${{ toJson(steps) }}
@@ -778,42 +551,26 @@ jobs:
         if: >
           failure() || (
             success() &&
-            !contains(
-              fromJSON('["ERROR", "WARN"]'), inputs.log_severity
-            )
+            inputs.log_severity != 'ERROR'
           )
         uses: hmarr/debug-action@v2
 
   deploy:
     name: "🏃 Deploy"
     if: >
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/deploy')
-    needs: [info]
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request_review' &&
+        github.event.review.state == 'APPROVED'
+      )
     environment: ${{ inputs.environment }}
     permissions:
       id-token: write # for azure login with OpenID Connect (OIDC)
       actions: read # for actions to get workflow details (needs read) (upload artifacts needs write)
-      contents: write # for checkout (needs read) and for auto merge (need write)
+      contents: read # for checkout (needs read) (auto merge need write)
       pull-requests: write # for update issue comment
     runs-on: ubuntu-latest
-    env:
-      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
     steps:
-      - name: Verify deploy permission
-        id: verify_permission
-        uses: innofactororg/check-pull-request@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          require_codeowners_file: ${{ inputs.require_codeowners_file }}
-          require_code_owner: ${{ inputs.require_code_owner }}
-          require_code_owner_review: ${{ inputs.require_code_owner_review }}
-          require_codeteams_file: ${{ inputs.require_codeteams_file }}
-          require_code_team_review: ${{ inputs.require_code_team_review }}
-          require_approved_review: ${{ inputs.require_approved_review }}
-          required_mergeable_state: ${{ inputs.required_mergeable_state }}
-
       - name: Checkout head ref (src)
         id: checkout_src
         uses: actions/checkout@v4
@@ -838,15 +595,13 @@ jobs:
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
-          DEPLOYMENT_MODE: ${{ inputs.deployment_mode }}
           LOCATION: ${{ inputs.location }}
-          RUN_ID: ${{ github.run_id }}
-          ACTION: ${{ github.action }}
+          SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
             echo "Deploy at ${SCOPE} scope"
             template="${CODE_TEMPLATE}"
-            deploy_name="deployment-${RUN_ID}"
+            deploy_name="deployment-${GITHUB_RUN_ID}"
             parameters=''
             result=''
             template_type='template-file'
@@ -858,14 +613,22 @@ jobs:
             if [ -n "${INPUT_PARAMETERS}" ]; then
               parameters="--parameters ${INPUT_PARAMETERS}"
             fi
-            az account set -s ${SUBSCRIPTION_ID}
+            log_param=''
+            if [ "${SEVERITY}" = 'ERROR' ]; then
+              log_param='--only-show-errors'
+            elif [ "${SEVERITY}" = 'VERBOSE' ]; then
+              log_param='--verbose'
+            elif [ "${SEVERITY}" = 'DEBUG' ]; then
+              log_param='--debug'
+            fi
+            az account set -s ${SUBSCRIPTION_ID} ${log_param}
             if [ "${SCOPE}" = 'tenant' ]; then
               result=$(
                 az deployment tenant create \
                   --location ${LOCATION} \
                   --name ${deploy_name} \
                   --no-prompt true \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             elif [ "${SCOPE}" = 'mg' ]; then
               result=$(
@@ -874,7 +637,7 @@ jobs:
                   --location ${LOCATION} \
                   --name ${deploy_name} \
                   --no-prompt true \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             elif [ "${SCOPE}" = 'sub' ]; then
               result=$(
@@ -882,19 +645,18 @@ jobs:
                   --location ${LOCATION} \
                   --name ${deploy_name} \
                   --no-prompt true \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             elif [ "${SCOPE}" = 'group' ]; then
               result=$(
                 az deployment group create \
                   --resource-group ${RESOURCE_GROUP} \
-                  --mode ${DEPLOYMENT_MODE} \
                   --name ${deploy_name} \
                   --no-prompt true \
-                  --${template_type} "${template}" ${parameters}
+                  --${template_type} "${template}" ${parameters} ${log_param}
               )
             else
-              echo "::error file=${ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
               exit 1
             fi
             echo "result=${result}" >> "$GITHUB_OUTPUT"
@@ -915,58 +677,6 @@ jobs:
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Auto merge
-        id: auto_merge
-        if: contains(fromJSON('["merge", "squash", "rebase"]'), inputs.merge_method)
-        uses: actions/github-script@v6
-        env:
-          MERGE_METHOD: ${{ inputs.merge_method }}
-          KEEP_BRANCH: ${{ inputs.keep_branch_after_merge }}
-          HEAD_REF: ${{ needs.info.outputs.head_ref }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const {PULL_REQUEST_NUMBER} = process.env;
-            const {MERGE_METHOD} = process.env;
-            const {KEEP_BRANCH} = process.env;
-            const {HEAD_REF} = process.env;
-            const repo = {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            };
-            let fail_message = '';
-            try {
-              const response = await github.rest.pulls.merge({
-                ...repo,
-                pull_number: PULL_REQUEST_NUMBER,
-                merge_method: "${MERGE_METHOD}",
-              });
-              if (response.status != 200 || !response.data) {
-                fail_message = `Failed to merge pull request ${PULL_REQUEST_NUMBER}. Response: ${JSON.stringify(response)}`;
-              } else {
-                const message = `${response.data.message} (PR${PULL_REQUEST_NUMBER}, merged: ${response.data.merged}).`;
-                core.setOutput('merged', response.data.merged);
-                if (KEEP_BRANCH == 'false') {
-                  const response_dr = await github.rest.git.deleteRef({
-                    ...repo,
-                    ref: "heads/${HEAD_REF}",
-                  });
-                  if (response_dr.status > 204) {
-                    fail_message = `${message} Failed to delete merged branch ${HEAD_REF}. Response: ${JSON.stringify(response_dr)}`;
-                  } else {
-                    core.info(`${message} The branch '${HEAD_REF}' was deleted.`);
-                  }
-                }
-              }
-            } catch (e) {
-              fail_message = `Failed to merge pull request ${PULL_REQUEST_NUMBER}: ${e}`;
-            }
-            if (fail_message != '') {
-              core.exportVariable('WF_AUTO_MERGE_MESSAGE', fail_message);
-              core.setOutput('merged', 'false');
-              core.setFailed(fail_message);
-            }
-
       - name: Job cancelled
         id: job_cancelled
         if: cancelled()
@@ -981,32 +691,27 @@ jobs:
 
       - name: Comment when done
         id: comment_when_done
-        if: always()
-        uses: actions/github-script@v6
+        if: >
+          always() &&
+          github.event_name == 'pull_request_review'
+        uses: actions/github-script@v7
         env:
-          VERIFY_PERMISSION_MESSAGE: ${{ steps.verify_permission.outputs.message }}
           DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
-          REPOSITORY: ${{ github.repository }}
-          HEAD_SHA: ${{ needs.info.outputs.head_sha }}
-          EVENT_COMMENT_ID: ${{ needs.info.outputs.comment_id }}
           LANG_FORMAT: ${{ inputs.date_time_language_format }}
           TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          MERGED: ${{ steps.auto_merge.outputs.merged }}
+          VERIFY_PERMISSION_MESSAGE: ${{ steps.verify_permission.outputs.message }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const STEP_ERROR = process.env.VERIFY_PERMISSION_MESSAGE ?? '';
-            const {REPOSITORY} = process.env;
-            const {HEAD_SHA} = process.env;
-            const {EVENT_COMMENT_ID} = process.env ?? 0;
+            const {DEPLOY_RESULT} = process.env ?? '';
             const {LANG_FORMAT} = process.env;
             const {TIME_ZONE} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
-            const {MERGED} = process.env;
+            const STEP_ERROR = process.env.VERIFY_PERMISSION_MESSAGE ?? '';
+            const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const HEAD_SHA = process.env.GITHUB_SHA;
             const STATUS = process.env.JOB_STATUS ?? 'success';
-            const DEPLOY_RESULT = process.env.DEPLOY_RESULT ?? '';
-            const AUTO_MERGE_MESSAGE = process.env.WF_AUTO_MERGE_MESSAGE ?? '';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const current_time = new Date();
@@ -1014,11 +719,9 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let deploy_status = 'unknown';
             let body = '', details = '';
-            let comment, comment_id = 0;
-            let run_date = current_time.toLocaleDateString("${LANG_FORMAT}", {timeZone: "${TIME_ZONE}"});
-            let run_time = current_time.toLocaleTimeString("${LANG_FORMAT}", {timeZone: "${TIME_ZONE}"});
+            let run_date = current_time.toLocaleDateString(LANG_FORMAT, {timeZone: TIME_ZONE});
+            let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} | ${SUBSCRIPTION_ID} |`;
@@ -1027,39 +730,30 @@ jobs:
             } else if (STATUS == 'cancelled') {
               body = `## Job cancelled 🗙\n\n${details}`;
             } else {
-              body = `## Job completed ✅\n\n${details}`;
-            }
-            if ("${MERGED}" == 'true' && AUTO_MERGE_MESSAGE != '') {
-              body = `${body}\n\n${AUTO_MERGE_MESSAGE} 🎉`;
-            } else if (AUTO_MERGE_MESSAGE != '') {
-              body = `${body}\n\n${AUTO_MERGE_MESSAGE} 🚫`;
+              body = `## Deployment completed ✅\n\n${details}`;
             }
             if (!DEPLOY_RESULT) {
               body = `${body}\n\n### Deployment result not found ⦸`;
             } else {
-              deploy_status = 'success';
-              body = `${body}\n\n### Deployment completed✅`;
-              body = `${body}\n\n${details}\n\nThis job finished at ${run_date} ${run_time}.`;
+              body = `${body}\n\nThis job finished at ${run_date} ${run_time}.`;
               body = `${body}\n\n<details><summary>Show deployment result</summary>\n\n\`\`\`json\n${DEPLOY_RESULT}\n\`\`\`\n\n</details>`;
             }
-            comment_id = isNaN("${EVENT_COMMENT_ID}") ? 0 : +"${EVENT_COMMENT_ID}";
-            core.info(`Update comment ${comment_id} with the following text:`);
+            core.info(`Create a comment with the text:`);
             core.info(body);
-            if (comment_id != 0) {
-              try {
-                const response = await github.rest.issues.updateComment({
-                  ...repo,
-                  comment_id: comment_id,
-                  body: body,
-                });
-                if (response.status != 200 || !response.data) {
-                  const message = `Failed to update comment ${comment_id}. Response: ${JSON.stringify(response)}`;
-                  core.setFailed(message);
-                }
-              } catch (e) {
-                const message = `Failed to update comment ${comment_id}: ${e}`;
+            try {
+              const response_cc = await github.rest.issues.createComment({
+                ...repo,
+                issue_number: context.event.number,
+                body: body,
+              });
+              if (response_cc.status > 201 || !response_cc.data) {
+                const message = `Failed to create comment for issue ${context.event.number}. Response: ${JSON.stringify(response_cc)}`;
                 core.setFailed(message);
+                return;
               }
+            } catch (e) {
+              const message = `Failed to comment when done: ${e}`;
+              core.setFailed(message);
             }
 
       - name: Dump github context
@@ -1067,9 +761,7 @@ jobs:
         if: >
           failure() || (
             success() &&
-            !contains(
-              fromJSON('["ERROR", "WARN"]'), inputs.log_severity
-            )
+            inputs.log_severity != 'ERROR'
           )
         env:
           GH_CONTEXT: ${{ toJson(github) }}
@@ -1081,9 +773,7 @@ jobs:
         if: >
           failure() || (
             success() &&
-            !contains(
-              fromJSON('["ERROR", "WARN"]'), inputs.log_severity
-            )
+            inputs.log_severity != 'ERROR'
           )
         env:
           STEPS_CONTEXT: ${{ toJson(steps) }}
@@ -1095,8 +785,6 @@ jobs:
         if: >
           failure() || (
             success() &&
-            !contains(
-              fromJSON('["ERROR", "WARN"]'), inputs.log_severity
-            )
+            inputs.log_severity != 'ERROR'
           )
         uses: hmarr/debug-action@v2
