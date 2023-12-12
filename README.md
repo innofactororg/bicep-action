@@ -12,9 +12,11 @@ To use the workflow, several prerequisite steps are required.
 
    The workflow utilizes GitHub Environments to enable an approval process for the deployment.
 
-   Create an environment by following these [instructions](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
+   [Create an environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment) in the repository that use this workflow.
 
-   Add a protection rule and required approvers that need to sign off on deployments. Limit the environment to the main branch. See [detailed instructions](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#environment-protection-rules).
+   Add **Required reviewers** that need to sign off on deployments. Save the protection rules.
+
+   Limit the environment to the **main** branch.
 
 1. **Setup Azure Identity**
 
@@ -22,23 +24,21 @@ To use the workflow, several prerequisite steps are required.
 
    Create a single application and give it the appropriate read/write permissions in Azure.
 
-   Setup the federated credentials to allow GitHub to use OpenID Connect.
+   [Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources**.
 
-   See the [Azure documentation](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for detailed instructions.
+   Add one credential for each of the following entity types:
 
-   Three federated credentials will need to be added:
+   - **Branch**, specify GitHub branch name, e.g. `main`.
+   - **Environment**, specify GitHub Environment name, e.g. `production`.
+   - **Pull Request**.
 
-   - Set Entity Type to **Environment** and specify the environment name, e.g. `production`.
-   - Set Entity Type to**`Pull Request**.
-   - Set Entity Type to **Branch** and use the `main` branch name.
+Target each credential to the repository that use this workflow.
 
 ## Workflow
 
-The workflow is designed to run on new and updated pull requests.
+Each time a pull request is created or updated, the workflow will produce a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report and attach it to the pull request for easy review.
 
-The workflow start by running [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if). This report is then attached to the PR for easy review.
-
-The workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure after a manual review has been approved.
+After a manual review and approval, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
 
 ![Bicep workflow](images/deployment-action-flow.png)
 
@@ -78,13 +78,13 @@ jobs:
       # Required
       azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
 
-      # The client ID of the service principal for login to Azure.
+      # The client ID of the service principal for Azure login.
       #
       # This service principal must have permission to deploy within the
       # Azure subscription.
       #
       # Required
-      azure_ad_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
+      azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
 
       # The subscription ID in which to deploy the resources.
       #
@@ -96,27 +96,29 @@ jobs:
       # Default: westeurope
       location: westeurope
 
-      # The deployment scope. Accepted values: tenant, mg, sub, group.
+      # The deployment scope. Accepted: tenant, mg, sub, group.
       #
       # Default: sub
       scope: sub
 
-      # The management group id to create deployment at. Only required when scope is mg.
+      # Management group to create deployment at for mg scope.
       #
       # Default: ''
       management_group:
 
-      # The resource group to create deployment at. Only required when scope is group.
+      # Resource group to create deployment at for group scope.
       #
       # Default: ''
       resource_group:
 
-      # Only required when scope is group. Accepted values: Complete, Incremental.
+      # Required for group scope. Complete or Incremental.
       #
       # Default: 'Incremental'
       deployment_mode: Incremental
 
-      # The path or URI to the template or Bicep file or a template spec resource id.
+      # The template address.
+      #
+      # A path or URI to the template / Bicep file or a template spec resource id.
       #
       # Default: main.bicep
       code_template: main.bicep

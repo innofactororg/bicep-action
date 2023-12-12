@@ -12,8 +12,8 @@ on:
         description: "The tenant ID in which the subscription exists."
         required: true
         type: string
-      azure_ad_client_id:
-        description: "The client ID of the service principal for login to Azure."
+      azure_client_id:
+        description: "The client ID of the service principal for Azure login."
         required: true
         type: string
       azure_subscription_id:
@@ -26,27 +26,27 @@ on:
         default: "westeurope"
         type: string
       scope:
-        description: "The deployment scope. Accepted values: tenant, mg, sub, group."
+        description: "The deployment scope. Accepted: tenant, mg, sub, group."
         required: false
         default: "sub"
         type: string
       management_group:
-        description: "The management group id to create deployment at. Only required when scope is mg."
+        description: "Management group to create deployment at for mg scope."
         required: false
         default: ""
         type: string
       resource_group:
-        description: "The resource group to create deployment at. Only required when scope is group."
+        description: "Resource group to create deployment at for group scope."
         required: false
         default: ""
         type: string
       deployment_mode:
-        description: "Only required when scope is group. Accepted values: Complete, Incremental."
+        description: "Required for group scope. Complete or Incremental."
         required: false
         default: "Incremental"
         type: string
       code_template:
-        description: "The path or URI to the template or Bicep file or a template spec resource id."
+        description: "The template address."
         required: false
         default: "main.bicep"
         type: string
@@ -327,7 +327,7 @@ jobs:
         id: login
         uses: azure/login@v1
         with:
-          client-id: ${{ inputs.azure_ad_client_id }}
+          client-id: ${{ inputs.azure_client_id }}
           tenant-id: ${{ inputs.azure_tenant_id }}
           subscription-id: ${{ inputs.azure_subscription_id }}
 
@@ -824,7 +824,7 @@ jobs:
       - name: Log in to Azure
         uses: azure/login@v1
         with:
-          client-id: ${{ inputs.azure_ad_client_id }}
+          client-id: ${{ inputs.azure_client_id }}
           tenant-id: ${{ inputs.azure_tenant_id }}
           subscription-id: ${{ inputs.azure_subscription_id }}
 
