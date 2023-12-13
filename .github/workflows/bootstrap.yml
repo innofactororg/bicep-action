@@ -277,6 +277,7 @@ jobs:
 
       - name: Estimate cost
         id: cost
+        if: github.event_name == 'disable for now'
         env:
           SCOPE: ${{ inputs.scope }}
           TEMPLATE: ${{ inputs.code_template }}
@@ -286,38 +287,42 @@ jobs:
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
         run: |
-          server='https://github.com'
-          org='TheCloudTheory'
-          repo='arm-estimator'
-          ver='1.3'
-          file='linux-x64.zip'
-          url="${server}/${org}/${repo}/releases/download/${ver}/${file}"
-          curl -o ${file} -sSL $url
-          unzip -q ${file}
-          chmod +x ./azure-cost-estimator
-          cmd="./azure-cost-estimator ${SCOPE} ${TEMPLATE}"
-          if [ "${SCOPE}" = 'mg' ]; then
-            cmd+=" ${MANAGEMENT_GROUP}"
-          fi
-          if [ "${SCOPE}" = 'sub' ]; then
-            cmd+=" ${SUBSCRIPTION_ID}"
-          fi
-          if [ "${SCOPE}" = 'group' ]; then
-            cmd="azure-cost-estimator ${TEMPLATE}"
-            cmd+=" ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}"
+          if test -f ${TEMPLATE}; then
+            server='https://github.com'
+            org='TheCloudTheory'
+            repo='arm-estimator'
+            ver='1.3'
+            file='linux-x64.zip'
+            url="${server}/${org}/${repo}/releases/download/${ver}/${file}"
+            curl -o ${file} -sSL $url
+            unzip -q ${file}
+            chmod +x ./azure-cost-estimator
+            cmd="./azure-cost-estimator ${SCOPE} ${TEMPLATE}"
+            if [ "${SCOPE}" = 'mg' ]; then
+              cmd+=" ${MANAGEMENT_GROUP}"
+            fi
+            if [ "${SCOPE}" = 'sub' ]; then
+              cmd+=" ${SUBSCRIPTION_ID}"
+            fi
+            if [ "${SCOPE}" = 'group' ]; then
+              cmd="azure-cost-estimator ${TEMPLATE}"
+              cmd+=" ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}"
+            else
+              cmd+=" ${LOCATION}"
+            fi
+            if test -n "${TEMPLATE_PARAMS}"; then
+              cmd+=" --parameters ${TEMPLATE_PARAMS}"
+            fi
+            cmd+=" --disableDetailedMetrics"
+            echo "Estimate cost using command:"
+            echo "${cmd}"
+            result=$(eval "${cmd}")
+            echo "result<<e3599a2c6b8bc912" >> $GITHUB_OUTPUT
+            echo "${result}" >> "$GITHUB_OUTPUT"
+            echo "e3599a2c6b8bc912" >> $GITHUB_OUTPUT
           else
-            cmd+=" ${LOCATION}"
+            echo "Unable to estimate cost for template ${TEMPLATE}. A local file is needed."
           fi
-          if test -n "${TEMPLATE_PARAMS}" && test -f ${TEMPLATE}; then
-            cmd+=" --parameters ${TEMPLATE_PARAMS}"
-          fi
-          cmd+=" --disableDetailedMetrics"
-          echo "Estimate cost using command:"
-          echo "${cmd}"
-          result=$(eval "${cmd}")
-          echo "result<<e3599a2c6b8bc912" >> $GITHUB_OUTPUT
-          echo "${result}" >> "$GITHUB_OUTPUT"
-          echo "e3599a2c6b8bc912" >> $GITHUB_OUTPUT
 
       - name: Add summary
         id: summary
@@ -332,13 +337,6 @@ jobs:
             echo ""
             echo '```json'
             echo "${WHAT_IF_RESULT}"
-            echo '```'
-            echo "</details>"
-            echo ""
-            echo "## Estimated Cost"
-            echo ""
-            echo '```text'
-            echo "${COST_RESULT}"
             echo '```'
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -414,7 +412,9 @@ jobs:
             } else {
               body = `${body}\n\nThis plan was generated at ${run_date} ${run_time}.`;
               body = `${body}\n\n<details><summary>Show plan</summary>\n\n\`\`\`json\n${WHAT_IF_RESULT}\n\`\`\`\n\n</details>`;
-              body = `${body}\n\n### Cost analysis\n\n\`\`\`text\n${COST_RESULT}\n\`\`\`\n\n`;
+              if (COST_RESULT) {
+                body = `${body}\n\n### Cost analysis\n\n\`\`\`text\n${COST_RESULT}\n\`\`\`\n\n`;
+              }
               body = `${body}\n\n### Actions`;
               body = `${body}\n\nReview the plan. Updates should be pushed to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
               body = `${body}\n\The deployment will start when the pull request is approved.`;
