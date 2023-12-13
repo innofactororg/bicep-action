@@ -275,8 +275,16 @@ jobs:
             echo "${result}" >> "$GITHUB_OUTPUT"
             echo "7d9efa072f5be230" >> $GITHUB_OUTPUT
 
-      - name: Install cost estimator
-        id: install_estimator
+      - name: Estimate cost
+        id: cost
+        env:
+          SCOPE: ${{ inputs.scope }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
+          MANAGEMENT_GROUP: ${{ inputs.management_group }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          RESOURCE_GROUP: ${{ inputs.resource_group }}
+          LOCATION: ${{ inputs.location }}
         run: |
           server='https://github.com'
           org='TheCloudTheory'
@@ -287,43 +295,29 @@ jobs:
           curl -o ${file} -sSL $url
           unzip -q ${file}
           chmod +x ./azure-cost-estimator
-
-      - name: Estimate cost
-        id: cost
-        uses: azure/CLI@v1
-        env:
-          SCOPE: ${{ inputs.scope }}
-          TEMPLATE: ${{ inputs.code_template }}
-          TEMPLATE_PARAMS: ${{ inputs.parameters }}
-          MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
-          LOCATION: ${{ inputs.location }}
-        with:
-          inlineScript: |
-            cmd="./azure-cost-estimator ${SCOPE} ${TEMPLATE}"
-            if [ "${SCOPE}" = 'mg' ]; then
-              cmd+=" ${MANAGEMENT_GROUP}"
-            fi
-            if [ "${SCOPE}" = 'sub' ]; then
-              cmd+=" ${SUBSCRIPTION_ID}"
-            fi
-            if [ "${SCOPE}" = 'group' ]; then
-              cmd="azure-cost-estimator ${TEMPLATE}"
-              cmd+=" ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}"
-            else
-              cmd+=" ${LOCATION}"
-            fi
-            if test -n "${TEMPLATE_PARAMS}" && test -f ${TEMPLATE}; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS}"
-            fi
-            cmd+=" --disableDetailedMetrics"
-            echo "Estimate cost using command:"
-            echo "${cmd}"
-            result=$(eval "${cmd}")
-            echo "result<<e3599a2c6b8bc912" >> $GITHUB_OUTPUT
-            echo "${result}" >> "$GITHUB_OUTPUT"
-            echo "e3599a2c6b8bc912" >> $GITHUB_OUTPUT
+          cmd="./azure-cost-estimator ${SCOPE} ${TEMPLATE}"
+          if [ "${SCOPE}" = 'mg' ]; then
+            cmd+=" ${MANAGEMENT_GROUP}"
+          fi
+          if [ "${SCOPE}" = 'sub' ]; then
+            cmd+=" ${SUBSCRIPTION_ID}"
+          fi
+          if [ "${SCOPE}" = 'group' ]; then
+            cmd="azure-cost-estimator ${TEMPLATE}"
+            cmd+=" ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}"
+          else
+            cmd+=" ${LOCATION}"
+          fi
+          if test -n "${TEMPLATE_PARAMS}" && test -f ${TEMPLATE}; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
+          fi
+          cmd+=" --disableDetailedMetrics"
+          echo "Estimate cost using command:"
+          echo "${cmd}"
+          result=$(eval "${cmd}")
+          echo "result<<e3599a2c6b8bc912" >> $GITHUB_OUTPUT
+          echo "${result}" >> "$GITHUB_OUTPUT"
+          echo "e3599a2c6b8bc912" >> $GITHUB_OUTPUT
 
       - name: Add summary
         id: summary
