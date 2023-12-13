@@ -107,7 +107,7 @@ jobs:
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
             const details = `| Job | Commit | Actor |
-            | --- | --- | --- | --- | --- | --- | --- |
+            | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
             body = `## Job started to validate deployment... ⌛\n\n${details}`;
             const repo = {
@@ -181,7 +181,7 @@ jobs:
         id: validate
         uses: azure/CLI@v1
         env:
-          CODE_TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
           INPUT_PARAMETERS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
@@ -191,67 +191,44 @@ jobs:
           SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
-            echo "Validate template at ${SCOPE} scope"
-            template="${CODE_TEMPLATE}"
-            parameters=''
-            template_type='template-file'
-            if [[ $template == http* ]]; then
-              template_type='template-uri'
-            elif [[ $template == /subscriptions/* ]]; then
-              template_type='template-spec'
+            cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
+            if [[ $TEMPLATE == http* ]]; then
+              cmd+=" --template-uri ${TEMPLATE}"
+            elif [[ $TEMPLATE == /subscriptions/* ]]; then
+              cmd+=" --template-spec ${TEMPLATE}"
+            else
+              cmd+=" --template-file ${TEMPLATE}"
             fi
             if [ -n "${INPUT_PARAMETERS}" ]; then
-              parameters="--parameters ${INPUT_PARAMETERS}"
+              cmd+=" --parameters ${INPUT_PARAMETERS}"
             fi
-            log_param=''
+            if ! [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --location ${LOCATION}"
+            fi
+            if [ "${SCOPE}" = 'mg' ]; then
+              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+            fi
+            if [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --resource-group ${RESOURCE_GROUP}"
+            fi
             if [ "${SEVERITY}" = 'ERROR' ]; then
-              log_param='--only-show-errors'
+              cmd+=' --only-show-errors'
             elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-              log_param='--verbose'
+              cmd+='--verbose'
             elif [ "${SEVERITY}" = 'DEBUG' ]; then
-              log_param='--debug'
+              cmd+='--debug'
             fi
-            az account set -s ${SUBSCRIPTION_ID} ${log_param}
-            if [ "${SCOPE}" = 'tenant' ]; then
-              az deployment tenant validate \
-                --location ${LOCATION} \
-                --name validate-${GITHUB_RUN_ID} \
-                --no-prompt true \
-                --output table \
-                --${template_type} "${template}" ${parameters} ${log_param}
-            elif [ "${SCOPE}" = 'mg' ]; then
-              az deployment mg validate \
-                --management-group-id ${MANAGEMENT_GROUP} \
-                --location ${LOCATION} \
-                --name validate-${GITHUB_RUN_ID} \
-                --no-prompt true \
-                --output table \
-                --${template_type} "${template}" ${parameters} ${log_param}
-            elif [ "${SCOPE}" = 'sub' ]; then
-              az deployment sub validate \
-                --location ${LOCATION} \
-                --name validate-${GITHUB_RUN_ID} \
-                --no-prompt true \
-                --output table \
-                --${template_type} "${template}" ${parameters} ${log_param}
-            elif [ "${SCOPE}" = 'group' ]; then
-              az deployment group validate \
-                --resource-group ${RESOURCE_GROUP} \
-                --name validate-${GITHUB_RUN_ID} \
-                --no-prompt true \
-                --output table \
-                --${template_type} "${template}" ${parameters} ${log_param}
-            else
-              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
-              echo "::error file=${GITHUB_ACTION}::${msg}"
-              exit 1
-            fi
+            cmd+=" --no-prompt true -o table"
+            echo "Validate template using command:"
+            echo "${cmd}"
+            az account set -s ${SUBSCRIPTION_ID}
+            eval "${cmd}"
 
       - name: Deployment what-if
         id: what_if
         uses: azure/CLI@v1
         env:
-          CODE_TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
           INPUT_PARAMETERS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
@@ -261,75 +238,39 @@ jobs:
           SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
-            echo "Create a plan for deployment at ${SCOPE} scope"
-            template="${CODE_TEMPLATE}"
-            deploy_name="what-if-${GITHUB_RUN_ID}"
-            parameters=''
-            result=''
-            template_type='template-file'
-            if [[ $template == http* ]]; then
-              template_type='template-uri'
-            elif [[ $template == /subscriptions/* ]]; then
-              template_type='template-spec'
+            cmd="az deployment ${SCOPE} what-if --name whatif-${GITHUB_RUN_ID}"
+            if [[ $TEMPLATE == http* ]]; then
+              cmd+=" --template-uri ${TEMPLATE}"
+            elif [[ $TEMPLATE == /subscriptions/* ]]; then
+              cmd+=" --template-spec ${TEMPLATE}"
+            else
+              cmd+=" --template-file ${TEMPLATE}"
             fi
             if [ -n "${INPUT_PARAMETERS}" ]; then
-              parameters="--parameters ${INPUT_PARAMETERS}"
+              cmd+=" --parameters ${INPUT_PARAMETERS}"
             fi
-            log_param=''
+            if ! [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --location ${LOCATION}"
+            fi
+            if [ "${SCOPE}" = 'mg' ]; then
+              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+            fi
+            if [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --resource-group ${RESOURCE_GROUP}"
+            fi
             if [ "${SEVERITY}" = 'ERROR' ]; then
-              log_param='--only-show-errors'
+              cmd+=' --only-show-errors'
             elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-              log_param='--verbose'
+              cmd+='--verbose'
             elif [ "${SEVERITY}" = 'DEBUG' ]; then
-              log_param='--debug'
+              cmd+='--debug'
             fi
-            az account set -s ${SUBSCRIPTION_ID} ${log_param}
-            if [ "${SCOPE}" = 'tenant' ]; then
-              result=$(
-                az deployment tenant what-if \
-                  --location ${LOCATION} \
-                  --name ${deploy_name} \
-                  --no-pretty-print \
-                  --no-prompt true \
-                  --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            elif [ "${SCOPE}" = 'mg' ]; then
-              result=$(
-                az deployment mg what-if \
-                  --management-group-id ${MANAGEMENT_GROUP} \
-                  --location ${LOCATION} \
-                  --name ${deploy_name} \
-                  --no-pretty-print \
-                  --no-prompt true \
-                  --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            elif [ "${SCOPE}" = 'sub' ]; then
-              result=$(
-                az deployment sub what-if \
-                  --location ${LOCATION} \
-                  --name ${deploy_name} \
-                  --no-pretty-print \
-                  --no-prompt true \
-                  --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            elif [ "${SCOPE}" = 'group' ]; then
-              result=$(
-                az deployment group what-if \
-                  --resource-group ${RESOURCE_GROUP} \
-                  --name ${deploy_name} \
-                  --no-pretty-print \
-                  --no-prompt true \
-                  --exclude-change-types Ignore NoChange \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            else
-              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
-              echo "::error file=${GITHUB_ACTION}::${msg}"
-              exit 1
-            fi
+            cmd+=" --exclude-change-types Ignore NoChange"
+            cmd+=" --no-prompt true --no-pretty-print"
+            echo "Create a deployment plan using command:"
+            echo "${cmd}"
+            az account set -s ${SUBSCRIPTION_ID}
+            result=$(eval "${cmd}")
             echo "result=${result}" >> "$GITHUB_OUTPUT"
 
       - name: Install cost estimator
@@ -349,7 +290,7 @@ jobs:
         id: cost
         uses: azure/CLI@v1
         env:
-          CODE_TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
           INPUT_PARAMETERS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
@@ -358,48 +299,27 @@ jobs:
           LOCATION: ${{ inputs.location }}
         with:
           inlineScript: |
-            echo "Estimate cost for deployment at ${SCOPE} scope"
-            template="${CODE_TEMPLATE}"
-            parameters=''
-            result=''
-            template_type='template-file'
-            if [[ $template == http* ]]; then
-              template_type='template-uri'
-            elif [[ $template == /subscriptions/* ]]; then
-              template_type='template-spec'
+            cmd="azure-cost-estimator ${SCOPE} ${TEMPLATE}"
+            if [ "${SCOPE}" = 'mg' ]; then
+              cmd+=" ${MANAGEMENT_GROUP}"
             fi
-            if [ -n "${INPUT_PARAMETERS}" ] && \
-               [ "${template_type}" = 'template-file' ]; then
-              parameters="--parameters ${INPUT_PARAMETERS}"'
+            if [ "${SCOPE}" = 'sub' ]; then
+              cmd+=" ${SUBSCRIPTION_ID}"
             fi
-            if [ "${SCOPE}" = 'tenant' ]; then
-              result=$(
-                azure-cost-estimator tenant "${template}" \
-                  ${LOCATION} --disableDetailedMetrics ${parameters}
-              )
-            elif [ "${SCOPE}" = 'mg' ]; then
-              result=$(
-                azure-cost-estimator mg "${template}" \
-                  ${MANAGEMENT_GROUP} \
-                  ${LOCATION} --disableDetailedMetrics ${parameters}
-              )
-            elif [ "${SCOPE}" = 'sub' ]; then
-              result=$(
-                azure-cost-estimator sub "${template}" \
-                  ${SUBSCRIPTION_ID} \
-                  ${LOCATION} --disableDetailedMetrics ${parameters}
-              )
-            elif [ "${SCOPE}" = 'group' ]; then
-              result=$(
-                azure-cost-estimator "${template}" \
-                  ${SUBSCRIPTION_ID} ${RESOURCE_GROUP} \
-                  --disableDetailedMetrics ${parameters}
-              )
+            if [ "${SCOPE}" = 'group' ]; then
+              cmd="azure-cost-estimator ${TEMPLATE}"
+              cmd+=" ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}"
             else
-              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
-              echo "::error file=${GITHUB_ACTION}::${msg}"
-              exit 1
+              cmd+=" ${LOCATION}"
             fi
+            if [ -n "${INPUT_PARAMETERS}" ] && [ -f ${TEMPLATE} ]; then
+              cmd+=" --parameters ${INPUT_PARAMETERS}"
+            fi
+            cmd+=" --disableDetailedMetrics"
+            echo "Estimate cost using command:"
+            echo "${cmd}"
+            az account set -s ${SUBSCRIPTION_ID}
+            result=$(eval "${cmd}")
             echo "result=${result}" >> "$GITHUB_OUTPUT"
 
       - name: Add summary
@@ -483,7 +403,7 @@ jobs:
             let run_date = current_time.toLocaleDateString(LANG_FORMAT, {timeZone: TIME_ZONE});
             let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
-            | --- | --- | --- | --- | --- | --- | --- |
+            | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
               body = `## Job failed ⛔\n\n${details}`;
@@ -620,67 +540,38 @@ jobs:
           SEVERITY: ${{ inputs.log_severity }}
         with:
           inlineScript: |
-            echo "Deploy at ${SCOPE} scope"
-            template="${CODE_TEMPLATE}"
-            deploy_name="deployment-${GITHUB_RUN_ID}"
-            parameters=''
-            result=''
-            template_type='template-file'
-            if [[ $template == http* ]]; then
-              template_type='template-uri'
-            elif [[ $template == /subscriptions/* ]]; then
-              template_type='template-spec'
+            cmd="az deployment ${SCOPE} create --name deploy-${GITHUB_RUN_ID}"
+            if [[ $TEMPLATE == http* ]]; then
+              cmd+=" --template-uri ${TEMPLATE}"
+            elif [[ $TEMPLATE == /subscriptions/* ]]; then
+              cmd+=" --template-spec ${TEMPLATE}"
+            else
+              cmd+=" --template-file ${TEMPLATE}"
             fi
             if [ -n "${INPUT_PARAMETERS}" ]; then
-              parameters="--parameters ${INPUT_PARAMETERS}"
+              cmd+=" --parameters ${INPUT_PARAMETERS}"
             fi
-            log_param=''
+            if ! [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --location ${LOCATION}"
+            fi
+            if [ "${SCOPE}" = 'mg' ]; then
+              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+            fi
+            if [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --resource-group ${RESOURCE_GROUP}"
+            fi
             if [ "${SEVERITY}" = 'ERROR' ]; then
-              log_param='--only-show-errors'
+              cmd+=' --only-show-errors'
             elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-              log_param='--verbose'
+              cmd+='--verbose'
             elif [ "${SEVERITY}" = 'DEBUG' ]; then
-              log_param='--debug'
+              cmd+='--debug'
             fi
-            az account set -s ${SUBSCRIPTION_ID} ${log_param}
-            if [ "${SCOPE}" = 'tenant' ]; then
-              result=$(
-                az deployment tenant create \
-                  --location ${LOCATION} \
-                  --name ${deploy_name} \
-                  --no-prompt true \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            elif [ "${SCOPE}" = 'mg' ]; then
-              result=$(
-                az deployment mg create \
-                  --management-group-id ${MANAGEMENT_GROUP} \
-                  --location ${LOCATION} \
-                  --name ${deploy_name} \
-                  --no-prompt true \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            elif [ "${SCOPE}" = 'sub' ]; then
-              result=$(
-                az deployment sub create \
-                  --location ${LOCATION} \
-                  --name ${deploy_name} \
-                  --no-prompt true \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            elif [ "${SCOPE}" = 'group' ]; then
-              result=$(
-                az deployment group create \
-                  --resource-group ${RESOURCE_GROUP} \
-                  --name ${deploy_name} \
-                  --no-prompt true \
-                  --${template_type} "${template}" ${parameters} ${log_param}
-              )
-            else
-              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
-              echo "::error file=${GITHUB_ACTION}::${msg}"
-              exit 1
-            fi
+            cmd+=" --no-prompt true"
+            echo "Deploy using command:"
+            echo "${cmd}"
+            az account set -s ${SUBSCRIPTION_ID}
+            result=$(eval "${cmd}")
             echo "result=${result}" >> "$GITHUB_OUTPUT"
 
       - name: Add summary
@@ -745,7 +636,7 @@ jobs:
             let run_date = current_time.toLocaleDateString(LANG_FORMAT, {timeZone: TIME_ZONE});
             let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
-            | --- | --- | --- | --- | --- | --- | --- |
+            | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
               body = `## Job failed ⛔\n\n${details}`;
