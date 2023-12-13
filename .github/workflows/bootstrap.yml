@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Add comment
-        id: comment
+        id: add_comment
         if: >
           github.event_name == 'pull_request' ||
           github.event_name == 'pull_request_target'
@@ -365,7 +365,7 @@ jobs:
         env:
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
-          EVENT_COMMENT_ID: ${{ steps.comment.outputs.id }}
+          EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.id }}
           LANG_FORMAT: ${{ inputs.date_time_language_format }}
           TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
@@ -419,7 +419,7 @@ jobs:
               body = `${body}\n\nReview the plan. Updates should be pushed to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
               body = `${body}\n\The deployment will start when the pull request is approved.`;
             }
-            comment_id = isNaN("${EVENT_COMMENT_ID}") ? 0 : +"${EVENT_COMMENT_ID}";
+            comment_id = isNaN(EVENT_COMMENT_ID) ? 0 : parseInt(EVENT_COMMENT_ID);
             if (comment_id != 0) {
               core.info(`Update comment ${comment_id} with the following text:`);
               core.info(body);
