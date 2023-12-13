@@ -83,7 +83,7 @@ jobs:
       github.event_name == 'pull_request_target'
     permissions:
       id-token: write # for azure login with OpenID Connect (OIDC)
-      actions: read # for actions to get workflow details (needs read) (upload artifacts needs write)
+      actions: read # for workflow details (upload artifacts needs write)
       contents: read # for checkout
       pull-requests: write # for update issue comment
     runs-on: ubuntu-latest
@@ -100,10 +100,13 @@ jobs:
             let body = '';
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
-            const run_url = `${context.serverUrl}/${REPOSITORY}/actions/runs/${context.runId}`;
+            const repo_url = `${context.serverUrl}/${REPOSITORY}`;
+            const run_url = `${repo_url}/actions/runs/${context.runId}`;
+            const event = context.event.number;
+            const actor = `@${context.actor}`;
             const details = `| Job | Commit | Actor |
             | --- | --- | --- | --- | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} |`;
+            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
             body = `## Job started to validate deployment... ⌛\n\n${details}`;
             const repo = {
               owner: context.repo.owner,
@@ -114,11 +117,12 @@ jobs:
               core.info(body);
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
-                issue_number: context.event.number,
+                issue_number: event,
                 body: body,
               });
               if (response_cc.status > 201 || !response_cc.data) {
-                const message = `Failed to create comment for issue ${context.event.number}. Response: ${JSON.stringify(response_cc)}`;
+                const reason = `${event}. ${JSON.stringify(response_cc)}`;
+                const message = `Failed to create comment for PR ${reason}`;
                 core.setFailed(message);
                 return;
               } else {
@@ -236,7 +240,8 @@ jobs:
                 --output table \
                 --${template_type} "${template}" ${parameters} ${log_param}
             else
-              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::${msg}"
               exit 1
             fi
 
@@ -319,7 +324,8 @@ jobs:
                   --${template_type} "${template}" ${parameters} ${log_param}
               )
             else
-              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::${msg}"
               exit 1
             fi
             echo "result=${result}" >> "$GITHUB_OUTPUT"
@@ -327,8 +333,14 @@ jobs:
       - name: Install cost estimator
         id: install_estimator
         run: |
-          curl -o linux-x64.zip -sSL https://github.com/TheCloudTheory/arm-estimator/releases/download/1.3/linux-x64.zip
-          unzip -q linux-x64.zip
+          server='https://github.com'
+          org='TheCloudTheory'
+          repo='arm-estimator'
+          ver='1.3'
+          file='linux-x64.zip'
+          url="${server}/${org}/${repo}/releases/download/${ver}/${file}"
+          curl -o ${file} -sSL $url
+          unzip -q ${file}
           chmod +x ./azure-cost-estimator
 
       - name: Estimate cost
@@ -354,7 +366,8 @@ jobs:
             elif [[ $template == /subscriptions/* ]]; then
               template_type='template-spec'
             fi
-            if [ -n "${INPUT_PARAMETERS}" ] && [ "${template_type}" = 'template-file' ]; then
+            if [ -n "${INPUT_PARAMETERS}" ] && \
+               [ "${template_type}" = 'template-file' ]; then
               parameters="--parameters ${INPUT_PARAMETERS}"'
             fi
             if [ "${SCOPE}" = 'tenant' ]; then
@@ -381,7 +394,8 @@ jobs:
                   --disableDetailedMetrics ${parameters}
               )
             else
-              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::${msg}"
               exit 1
             fi
             echo "result=${result}" >> "$GITHUB_OUTPUT"
@@ -438,7 +452,7 @@ jobs:
           LANG_FORMAT: ${{ inputs.date_time_language_format }}
           TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -455,6 +469,8 @@ jobs:
             const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
+            const event = context.event.number;
+            const actor = `@${context.actor}`;
             const current_time = new Date();
             const repo = {
               owner: context.repo.owner,
@@ -466,7 +482,7 @@ jobs:
             let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} | ${SUBSCRIPTION_ID} |`;
+            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
               body = `## Job failed ⛔\n\n${details}`;
             } else if (STATUS == 'cancelled') {
@@ -495,8 +511,10 @@ jobs:
                   body: body,
                 });
                 if (response.status != 200 || !response.data) {
-                  const message = `Failed to update comment ${comment_id}. Response: ${JSON.stringify(response)}`;
+                  const reason = `${comment_id}. ${JSON.stringify(response)}`;
+                  const message = `Failed to update comment ${reason}`;
                   core.setFailed(message);
+                  return;
                 }
               } catch (e) {
                 const message = `Failed to update comment ${comment_id}: ${e}`;
@@ -508,11 +526,12 @@ jobs:
               try {
                 const response_cc = await github.rest.issues.createComment({
                   ...repo,
-                  issue_number: context.event.number,
+                  issue_number: event,
                   body: body,
                 });
                 if (response_cc.status > 201 || !response_cc.data) {
-                  const message = `Failed to create comment for issue ${context.event.number}. Response: ${JSON.stringify(response_cc)}`;
+                  const reason = `${event}. ${JSON.stringify(response_cc)}`;
+                  const message = `Failed to create comment for PR ${reason}`;
                   core.setFailed(message);
                   return;
                 }
@@ -566,7 +585,7 @@ jobs:
     environment: ${{ inputs.environment }}
     permissions:
       id-token: write # for azure login with OpenID Connect (OIDC)
-      actions: read # for actions to get workflow details (needs read) (upload artifacts needs write)
+      actions: read # for workflow details (upload artifacts needs write)
       contents: read # for checkout (needs read) (auto merge need write)
       pull-requests: write # for update issue comment
     runs-on: ubuntu-latest
@@ -656,7 +675,8 @@ jobs:
                   --${template_type} "${template}" ${parameters} ${log_param}
               )
             else
-              echo "::error file=${GITHUB_ACTION}::Invalid scope: ${SCOPE}. Accepted values: tenant, mg, sub, group."
+              msg="Invalid scope: ${SCOPE}. Accepted: tenant, mg, sub, group."
+              echo "::error file=${GITHUB_ACTION}::${msg}"
               exit 1
             fi
             echo "result=${result}" >> "$GITHUB_OUTPUT"
@@ -669,7 +689,7 @@ jobs:
           {
             echo "## Deployment"
             echo ""
-            echo "<details><summary>Click to expand the deployment result</summary>"
+            echo "<details><summary>Click to expand the result</summary>"
             echo ""
             echo '```json'
             echo "${DEPLOY_RESULT}"
@@ -700,7 +720,6 @@ jobs:
           LANG_FORMAT: ${{ inputs.date_time_language_format }}
           TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          VERIFY_PERMISSION_MESSAGE: ${{ steps.verify_permission.outputs.message }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -708,12 +727,13 @@ jobs:
             const {LANG_FORMAT} = process.env;
             const {TIME_ZONE} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
-            const STEP_ERROR = process.env.VERIFY_PERMISSION_MESSAGE ?? '';
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
+            const event = context.event.number;
+            const actor = `@${context.actor}`;
             const current_time = new Date();
             const repo = {
               owner: context.repo.owner,
@@ -724,9 +744,9 @@ jobs:
             let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | @${context.actor} | ${SUBSCRIPTION_ID} |`;
+            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
-              body = `## Job failed ⛔\n\n${details}\n\n${STEP_ERROR}`;
+              body = `## Job failed ⛔\n\n${details}`;
             } else if (STATUS == 'cancelled') {
               body = `## Job cancelled 🗙\n\n${details}`;
             } else {
@@ -743,11 +763,12 @@ jobs:
             try {
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
-                issue_number: context.event.number,
+                issue_number: event,
                 body: body,
               });
               if (response_cc.status > 201 || !response_cc.data) {
-                const message = `Failed to create comment for issue ${context.event.number}. Response: ${JSON.stringify(response_cc)}`;
+                const reason = `${event}. ${JSON.stringify(response_cc)}`;
+                const message = `Failed to create comment for PR ${reason}`;
                 core.setFailed(message);
                 return;
               }
