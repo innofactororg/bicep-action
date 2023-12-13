@@ -9,7 +9,6 @@ on:
         description: "The release tag"
         required: true
         type: string
-        default: "v1.0.0"
 
 permissions: read-all
 

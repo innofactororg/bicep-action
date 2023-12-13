@@ -50,6 +50,6 @@ body:
     attributes:
       label: Relevant log output
       description: If applicable, provide relevant log output.
-      render: shell
+      render: Shell
     validations:
       required: false

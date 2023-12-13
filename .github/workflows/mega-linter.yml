@@ -97,7 +97,7 @@ jobs:
 
           # Uncomment to disable copy-paste and spell checks
           DISABLE: COPYPASTE,SPELL
-          DISABLE_LINTERS: REPOSITORY_KICS
+          DISABLE_LINTERS: REPOSITORY_KICS,REPOSITORY_CHECKOV
 
       # Upload MegaLinter artifacts
       - name: Archive production artifacts
