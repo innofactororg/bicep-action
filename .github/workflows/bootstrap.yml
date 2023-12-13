@@ -271,7 +271,10 @@ jobs:
             echo "${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
             result=$(eval "${cmd}")
-            echo "result=${result}" >> "$GITHUB_OUTPUT"
+            delimiter="$(openssl rand -hex 8)"
+            echo "result<<${delimiter}" >> $GITHUB_OUTPUT
+            echo "${result}" >> "$GITHUB_OUTPUT"
+            echo "${delimiter}" >> $GITHUB_OUTPUT
 
       - name: Install cost estimator
         id: install_estimator
@@ -320,7 +323,10 @@ jobs:
             echo "${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
             result=$(eval "${cmd}")
-            echo "result=${result}" >> "$GITHUB_OUTPUT"
+            delimiter="$(openssl rand -hex 8)"
+            echo "result<<${delimiter}" >> $GITHUB_OUTPUT
+            echo "${result}" >> "$GITHUB_OUTPUT"
+            echo "${delimiter}" >> $GITHUB_OUTPUT
 
       - name: Add summary
         id: summary
@@ -572,7 +578,10 @@ jobs:
             echo "${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
             result=$(eval "${cmd}")
-            echo "result=${result}" >> "$GITHUB_OUTPUT"
+            delimiter="$(openssl rand -hex 8)"
+            echo "result<<${delimiter}" >> $GITHUB_OUTPUT
+            echo "${result}" >> "$GITHUB_OUTPUT"
+            echo "${delimiter}" >> $GITHUB_OUTPUT
 
       - name: Add summary
         id: summary
