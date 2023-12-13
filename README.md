@@ -1,6 +1,6 @@
 # Bicep workflow
 
-[![GitHub Super-Linter](https://github.com/innofactororg/bicep-action/actions/workflows/linter.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
+[![Mega-Linter](https://github.com/innofactororg/bicep-action/workflows/mega-linter/badge.svg?branch=main)](https://github.com/innofactororg/bicep-action/actions?query=workflow%3Amega-linter+branch%3Amain)
 
 A reusable workflow to to manage Azure infrastructure with Bicep.
 

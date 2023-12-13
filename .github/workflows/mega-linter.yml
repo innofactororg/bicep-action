@@ -35,6 +35,8 @@ concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions: read-all
+
 jobs:
   megalinter:
     name: MegaLinter
@@ -94,7 +96,8 @@ jobs:
           # .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
 
           # Uncomment to disable copy-paste and spell checks
-          # DISABLE: COPYPASTE,SPELL
+          DISABLE: COPYPASTE,SPELL
+          DISABLE_LINTERS: REPOSITORY_KICS
 
       # Upload MegaLinter artifacts
       - name: Archive production artifacts

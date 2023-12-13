@@ -74,6 +74,8 @@ concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
 
+permissions: read-all
+
 jobs:
   plan:
     name: "🗓️ Plan"
