@@ -275,6 +275,19 @@ jobs:
             echo "${result}" >> "$GITHUB_OUTPUT"
             echo "7d9efa072f5be230" >> $GITHUB_OUTPUT
 
+      - name: Install cost estimator
+        id: install_estimator
+        run: |
+          server='https://github.com'
+          org='TheCloudTheory'
+          repo='arm-estimator'
+          ver='1.3'
+          file='linux-x64.zip'
+          url="${server}/${org}/${repo}/releases/download/${ver}/${file}"
+          curl -o ${file} -sSL $url
+          unzip -q ${file}
+          chmod +x ./azure-cost-estimator
+
       - name: Estimate cost
         id: cost
         uses: azure/CLI@v1
@@ -288,15 +301,6 @@ jobs:
           LOCATION: ${{ inputs.location }}
         with:
           inlineScript: |
-            server='https://github.com'
-            org='TheCloudTheory'
-            repo='arm-estimator'
-            ver='1.3'
-            file='linux-x64.zip'
-            url="${server}/${org}/${repo}/releases/download/${ver}/${file}"
-            curl -o ${file} -sSL $url
-            unzip -q ${file}
-            chmod +x ./azure-cost-estimator
             cmd="./azure-cost-estimator ${SCOPE} ${TEMPLATE}"
             if [ "${SCOPE}" = 'mg' ]; then
               cmd+=" ${MANAGEMENT_GROUP}"
@@ -316,7 +320,6 @@ jobs:
             cmd+=" --disableDetailedMetrics"
             echo "Estimate cost using command:"
             echo "${cmd}"
-            az account set -s ${SUBSCRIPTION_ID}
             result=$(eval "${cmd}")
             echo "result<<e3599a2c6b8bc912" >> $GITHUB_OUTPUT
             echo "${result}" >> "$GITHUB_OUTPUT"
