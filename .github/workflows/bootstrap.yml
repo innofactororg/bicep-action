@@ -181,9 +181,9 @@ jobs:
         id: validate
         uses: azure/CLI@v1
         env:
-          TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
-          INPUT_PARAMETERS: ${{ inputs.parameters }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
@@ -199,8 +199,8 @@ jobs:
             else
               cmd+=" --template-file ${TEMPLATE}"
             fi
-            if [ -n "${INPUT_PARAMETERS}" ]; then
-              cmd+=" --parameters ${INPUT_PARAMETERS}"
+            if test -n "${TEMPLATE_PARAMS}"; then
+              cmd+=" --parameters ${TEMPLATE_PARAMS}"
             fi
             if ! [ "${SCOPE}" = 'group' ]; then
               cmd+=" --location ${LOCATION}"
@@ -228,9 +228,9 @@ jobs:
         id: what_if
         uses: azure/CLI@v1
         env:
-          TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
-          INPUT_PARAMETERS: ${{ inputs.parameters }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
@@ -246,8 +246,8 @@ jobs:
             else
               cmd+=" --template-file ${TEMPLATE}"
             fi
-            if [ -n "${INPUT_PARAMETERS}" ]; then
-              cmd+=" --parameters ${INPUT_PARAMETERS}"
+            if test -n "${TEMPLATE_PARAMS}"; then
+              cmd+=" --parameters ${TEMPLATE_PARAMS}"
             fi
             if ! [ "${SCOPE}" = 'group' ]; then
               cmd+=" --location ${LOCATION}"
@@ -290,9 +290,9 @@ jobs:
         id: cost
         uses: azure/CLI@v1
         env:
-          TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
-          INPUT_PARAMETERS: ${{ inputs.parameters }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
@@ -312,8 +312,8 @@ jobs:
             else
               cmd+=" ${LOCATION}"
             fi
-            if [ -n "${INPUT_PARAMETERS}" ] && [ -f ${TEMPLATE} ]; then
-              cmd+=" --parameters ${INPUT_PARAMETERS}"
+            if test -n "${TEMPLATE_PARAMS}" && test -f ${TEMPLATE}; then
+              cmd+=" --parameters ${TEMPLATE_PARAMS}"
             fi
             cmd+=" --disableDetailedMetrics"
             echo "Estimate cost using command:"
@@ -530,9 +530,9 @@ jobs:
         id: deploy
         uses: azure/CLI@v1
         env:
-          CODE_TEMPLATE: ${{ inputs.code_template }}
           SCOPE: ${{ inputs.scope }}
-          INPUT_PARAMETERS: ${{ inputs.parameters }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
@@ -548,8 +548,8 @@ jobs:
             else
               cmd+=" --template-file ${TEMPLATE}"
             fi
-            if [ -n "${INPUT_PARAMETERS}" ]; then
-              cmd+=" --parameters ${INPUT_PARAMETERS}"
+            if test -n "${TEMPLATE_PARAMS}"; then
+              cmd+=" --parameters ${TEMPLATE_PARAMS}"
             fi
             if ! [ "${SCOPE}" = 'group' ]; then
               cmd+=" --location ${LOCATION}"
