@@ -80,7 +80,6 @@ jobs:
   plan:
     name: "🗓️ Plan"
     if: >
-      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request' ||
       github.event_name == 'pull_request_target'
     permissions:
@@ -143,8 +142,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Bicep build
-        id: bicep_build
+      - name: Bicep lint
+        id: bicep_lint
         uses: azure/CLI@v1
         env:
           CODE_TEMPLATE: ${{ inputs.code_template }}

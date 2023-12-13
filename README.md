@@ -14,23 +14,17 @@ To use the workflow, several prerequisite steps are required.
 
    Add **Required reviewers** that need to sign off on deployments. Save the protection rules.
 
-   Limit the environment to the **main** branch.
-
 1. **Setup Azure Identity**
 
    A Microsoft Entra ID application is required by this workload. It must have permission to deploy the code.
 
    Create a single application and give it the appropriate read/write permissions in Azure.
 
-   [Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources**.
+   [Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources** and for each repository that use this workflow.
 
-   Add one credential for each of the following entity types:
+   To allow a pull request to validate and test deployments, add a credential where entity type is **Pull request**.
 
-   - **Branch**, specify GitHub branch name, e.g. `main`.
-   - **Environment**, specify GitHub Environment name, e.g. `production`.
-   - **Pull Request**.
-
-Target each credential to the repository that use this workflow.
+   To allow deployments, add a credential where entity type is **Environment**. Specify the **GitHub Environment name** that is passed to the workflow, e.g. `production`.
 
 ## Workflow
 
@@ -53,6 +47,7 @@ Each time a pull request review is submitted, the workflow will check if it is a
 ```yaml
 name: Azure Deploy
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
