@@ -104,7 +104,7 @@ jobs:
             const HEAD_SHA = process.env.GITHUB_SHA;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
-            const event = context.event.number;
+            const prNo = context.issue.number;
             const actor = `@${context.actor}`;
             const details = `| Job | Commit | Actor |
             | --- | --- | --- | --- | --- | --- | --- |
@@ -119,11 +119,11 @@ jobs:
               core.info(body);
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
-                issue_number: event,
+                issue_number: prNo,
                 body: body,
               });
               if (response_cc.status > 201 || !response_cc.data) {
-                const reason = `${event}. ${JSON.stringify(response_cc)}`;
+                const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
                 const message = `Failed to create comment for PR ${reason}`;
                 core.setFailed(message);
                 return;
@@ -471,7 +471,7 @@ jobs:
             const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
-            const event = context.event.number;
+            const prNo = context.issue.number;
             const actor = `@${context.actor}`;
             const current_time = new Date();
             const repo = {
@@ -528,11 +528,11 @@ jobs:
               try {
                 const response_cc = await github.rest.issues.createComment({
                   ...repo,
-                  issue_number: event,
+                  issue_number: prNo,
                   body: body,
                 });
                 if (response_cc.status > 201 || !response_cc.data) {
-                  const reason = `${event}. ${JSON.stringify(response_cc)}`;
+                  const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
                   const message = `Failed to create comment for PR ${reason}`;
                   core.setFailed(message);
                   return;
@@ -734,7 +734,7 @@ jobs:
             const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
-            const event = context.event.number;
+            const prNo = context.issue.number;
             const actor = `@${context.actor}`;
             const current_time = new Date();
             const repo = {
@@ -765,11 +765,11 @@ jobs:
             try {
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
-                issue_number: event,
+                issue_number: prNo,
                 body: body,
               });
               if (response_cc.status > 201 || !response_cc.data) {
-                const reason = `${event}. ${JSON.stringify(response_cc)}`;
+                const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
                 const message = `Failed to create comment for PR ${reason}`;
                 core.setFailed(message);
                 return;
