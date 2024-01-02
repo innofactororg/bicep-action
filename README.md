@@ -20,11 +20,17 @@ To use the workflow, several prerequisite steps are required.
 
    Create a single application and give it the appropriate read/write permissions in Azure.
 
+   Option 1 (recommended):
+
    [Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources** and for each repository that use this workflow.
 
    To allow a pull request to validate and test deployments, add a credential where entity type is **Pull request**.
 
    To allow deployments, add a credential where entity type is **Environment**. Specify the **GitHub Environment name** that is passed to the workflow, e.g. `production`.
+
+   Option 2:
+
+   To use a **Client secret** instead of federated credentials, specify **AZURE_AD_CLIENT_SECRET** as a secret for the workflow, as shown in usage below.
 
 ## Workflow
 
@@ -63,6 +69,15 @@ jobs:
   deploy:
     name: 🔧 Bootstrap
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
+    secrets:
+      # The service principal secret used for Azure login.
+      #
+      # This secret is optional and only needed as an alternative to
+      # federated credentials.
+      #
+      # Note: Don't add this secret if you want to use federated credentials.
+      #
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_APP1_CLIENT_SECRET }}
     with:
       # The GitHub environment name for the Azure deploy job.
       #
@@ -124,19 +139,31 @@ jobs:
       # Default: ''
       parameters: main.bicepparam
 
-      # The format to use for date and time in comments.
-      # Corresponds to the locales parameter of the Intl.DateTimeFormat()
-      # constructor. The default format, sv-SE, is yyyy-MM-dd HH:mm:ss.
+      # Required Azure resource providers.
       #
-      # Default: sv-SE
-      date_time_language_format: sv-SE
+      # The workflow will try to register the specified providers in addition
+      # to the providers that is detected in code by deployment validate.
+      #
+      # Default: ''
+      azure_providers: "Microsoft.Advisor microsoft.support"
 
-      # The time zone to use for time in comments.
-      # It is used to convert from UTC time. Official list of time zones:
-      # https://www.iana.org/time-zones.
+      # Seconds to wait between each provider status check.
       #
-      # Default: Europe/Oslo
-      time_zone: Europe/Oslo
+      # Default: '10'
+      azure_provider_wait_seconds: 10
+
+      # Times to check provider status before giving up.
+      #
+      # Default: '30'
+      azure_provider_wait_count: 30
+
+      # Azure Cost Estimator version.
+      #
+      # The version to use for cost estimation. See versions at
+      # https://github.com/TheCloudTheory/arm-estimator/releases
+      #
+      # Default: '1.3'
+      ace_version: 1.3
 
       # The log verbosity. Can be one of:
       #

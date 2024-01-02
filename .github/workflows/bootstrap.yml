@@ -50,21 +50,35 @@ on:
         required: false
         default: ""
         type: string
-      date_time_language_format:
-        description: "The format to use for date and time in comments."
+      azure_providers:
+        description: "Required Azure resource providers."
         required: false
-        default: "sv-SE"
+        default: ""
         type: string
-      time_zone:
-        description: "The time zone to use for time in comments."
+      azure_provider_wait_seconds:
+        description: "Seconds to wait between each provider status check."
         required: false
-        default: "Europe/Oslo"
+        default: "10"
+        type: string
+      azure_provider_wait_count:
+        description: "Times to check provider status before giving up."
+        required: false
+        default: "30"
+        type: string
+      ace_version:
+        description: "Azure Cost Estimator version."
+        required: false
+        default: "1.3"
         type: string
       log_severity:
         description: "The log verbosity."
         required: false
         default: "ERROR"
         type: string
+    secrets:
+      AZURE_CLIENT_SECRET:
+        description: "The service principal secret used for Azure login."
+        required: false
 
 defaults:
   run:
@@ -105,10 +119,11 @@ jobs:
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
-            const details = `| Job | Commit | Actor |
+            const body = `## Job started to validate deployment... ⌛
+
+            | Job | Commit | Actor |
             | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
-            body = `## Job started to validate deployment... ⌛\n\n${details}`;
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -144,6 +159,10 @@ jobs:
 
       - name: Bicep lint
         id: bicep_lint
+        if: >
+          endsWith(inputs.code_template, '.bicep') &&
+          !startsWith(inputs.code_template, 'http') &&
+          !startsWith(inputs.code_template, '/subscriptions/')
         uses: azure/CLI@v1
         env:
           CODE_TEMPLATE: ${{ inputs.code_template }}
@@ -151,77 +170,101 @@ jobs:
         with:
           inlineScript: |
             file="${CODE_TEMPLATE}"
-            if [[ $file != *.bicep ]]; then
-              echo "Skip! Not a Bicep code file: ${code_template}"
-            elif [[ $file == http* || $file == /subscriptions/* ]]; then
-              echo "Skip! Not a local file: ${code_template}"
-            else
-              log_param=''
-              if [ "${SEVERITY}" = 'ERROR' ]; then
-                log_param='--only-show-errors'
-              elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-                log_param='--verbose'
-              elif [ "${SEVERITY}" = 'DEBUG' ]; then
-                log_param='--debug'
-              fi
-              echo "Check that Bicep file(s) adhere to a canonical format"
-              az bicep lint --file "${file}" ${log_param}
+            cmd="az bicep lint --file ${file}"
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            echo "Check that Bicep code adhere to a canonical format"
+            echo "Command: ${cmd}"
+            eval "${cmd}" >lint_result.txt 2>&1
+            if test -f lint_result.txt; then
+              result=$(cat lint_result.txt)
+              echo "result<<0047393e7aacb9de" >> "$GITHUB_OUTPUT"
+              echo "${result}" >> "$GITHUB_OUTPUT"
+              echo "0047393e7aacb9de" >> "$GITHUB_OUTPUT"
             fi
 
-      - name: Log in to Azure
-        id: login
+      - name: Bicep lint report
+        id: bicep_lint_report
+        if: always() && steps.bicep_lint.outputs.result != ''
+        uses: actions/github-script@v7
+        env:
+          LINT_RESULT: ${{ steps.bicep_lint.outputs.result }}
+        with:
+          script: |
+            const {BICEP_LINT_RESULT} = process.env ?? '';
+            const lines = LINT_RESULT.split(/\r?\n/).filter(line => line);
+            const report = lines.map(line => {
+              const [full, level, path, lines, type, title, msg] = line.match(
+                /(WARNING|ERROR|INFO): (.*\.bicep)\(([\d,]+)\) : (Warning|Error|Information) ([\w-]+): (.*)$/
+              );
+              const [start_line, end_line] = lines.split(',').map(num => parseInt(num));
+              return {
+                path,
+                start_line: start_line || 0,
+                end_line: end_line || start_line || 0,
+                level,
+                msg,
+                title
+              };
+            });
+            console.log(report);
+            return JSON.stringify(report);
+          result-encoding: string
+
+      - name: PSRule analysis
+        id: ps_rule
+        uses: microsoft/ps-rule@latest
+        with:
+          inputType: repository
+          modules: PSRule.Rules.Azure, PSRule.Rules.CAF
+          baseline: Azure.Default
+          outputFormat: Markdown
+          outputPath: ps_rule_results.md
+
+      - name: PSRule analysis report
+        id: ps_rule_report
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            if test -f ps_rule_results.md; then
+              result=$(cat ps_rule_results.md)
+              echo "result<<eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
+              echo "${result}" >> "$GITHUB_OUTPUT"
+              echo "eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
+            fi
+
+      - name: Check Client secret
+        id: client_secret
+        run: |
+          if [ '${{ secrets.AZURE_CLIENT_SECRET }}' = '' ]; then
+            echo "exist=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "exist=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to Azure (Federated)
+        id: login_open_id
+        if: steps.client_secret.outputs.exist != 'true'
         uses: azure/login@v1
         with:
           client-id: ${{ inputs.azure_client_id }}
           tenant-id: ${{ inputs.azure_tenant_id }}
           subscription-id: ${{ inputs.azure_subscription_id }}
 
-      - name: Deployment validate
-        id: validate
-        uses: azure/CLI@v1
+      - name: Log in to Azure (Secret)
+        id: login_secret
+        if: steps.client_secret.outputs.exist == 'true'
         env:
-          SCOPE: ${{ inputs.scope }}
-          TEMPLATE: ${{ inputs.code_template }}
-          TEMPLATE_PARAMS: ${{ inputs.parameters }}
-          MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
-          LOCATION: ${{ inputs.location }}
-          SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
-            if [[ $TEMPLATE == http* ]]; then
-              cmd+=" --template-uri ${TEMPLATE}"
-            elif [[ $TEMPLATE == /subscriptions/* ]]; then
-              cmd+=" --template-spec ${TEMPLATE}"
-            else
-              cmd+=" --template-file ${TEMPLATE}"
-            fi
-            if test -n "${TEMPLATE_PARAMS}"; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS}"
-            fi
-            if ! [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --location ${LOCATION}"
-            fi
-            if [ "${SCOPE}" = 'mg' ]; then
-              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
-            fi
-            if [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --resource-group ${RESOURCE_GROUP}"
-            fi
-            if [ "${SEVERITY}" = 'ERROR' ]; then
-              cmd+=' --only-show-errors'
-            elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-              cmd+='--verbose'
-            elif [ "${SEVERITY}" = 'DEBUG' ]; then
-              cmd+='--debug'
-            fi
-            cmd+=" --no-prompt true -o table"
-            echo "Validate template using command:"
-            echo "${cmd}"
-            az account set -s ${SUBSCRIPTION_ID}
-            eval "${cmd}"
+          CLIENT_ID: ${{ inputs.azure_client_id }}
+          TENANT_ID: ${{ inputs.azure_tenant_id }}
+        run: |
+          set -Eeu
+          az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
+            -p '${{ secrets.AZURE_AD_CLIENT_SECRET }}' \
+            --only-show-errors
 
       - name: Deployment what-if
         id: what_if
@@ -257,22 +300,22 @@ jobs:
             if [ "${SCOPE}" = 'group' ]; then
               cmd+=" --resource-group ${RESOURCE_GROUP}"
             fi
-            if [ "${SEVERITY}" = 'ERROR' ]; then
-              cmd+=' --only-show-errors'
-            elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-              cmd+='--verbose'
-            elif [ "${SEVERITY}" = 'DEBUG' ]; then
-              cmd+='--debug'
-            fi
-            cmd+=" --exclude-change-types Ignore NoChange"
-            cmd+=" --no-prompt true --no-pretty-print"
-            echo "Create a deployment plan using command:"
-            echo "${cmd}"
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            cmd+=" --exclude-change-types Ignore NoChange --no-prompt true"
+            echo "Create a deployment plan"
+            echo "Command: ${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
-            result=$(eval "${cmd}")
-            echo "result<<7d9efa072f5be230" >> $GITHUB_OUTPUT
-            echo "${result}" >> "$GITHUB_OUTPUT"
-            echo "7d9efa072f5be230" >> $GITHUB_OUTPUT
+            eval "${cmd}" >whatif_result.txt 2>&1
+            if test -f whatif_result.txt; then
+              result=$(cat whatif_result.txt)
+              echo "result<<7d9efa072f5be230" >> "$GITHUB_OUTPUT"
+              echo "${result}" >> "$GITHUB_OUTPUT"
+              echo "7d9efa072f5be230" >> "$GITHUB_OUTPUT"
+            fi
 
       - name: Estimate cost
         id: cost
@@ -285,40 +328,41 @@ jobs:
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
+          ACE_VERSION: ${{ inputs.ace_version }}
         run: |
           if test -f ${TEMPLATE}; then
             server='https://github.com'
             org='TheCloudTheory'
             repo='arm-estimator'
-            ver='1.3'
             file='linux-x64.zip'
-            url="${server}/${org}/${repo}/releases/download/${ver}/${file}"
+            url="${server}/${org}/${repo}/releases/download/${ACE_VERSION}/${file}"
             curl -o ${file} -sSL $url
             unzip -q ${file}
             chmod +x ./azure-cost-estimator
-            cmd="./azure-cost-estimator ${SCOPE} ${TEMPLATE}"
-            if [ "${SCOPE}" = 'mg' ]; then
-              cmd+=" ${MANAGEMENT_GROUP}"
-            fi
-            if [ "${SCOPE}" = 'sub' ]; then
-              cmd+=" ${SUBSCRIPTION_ID}"
-            fi
-            if [ "${SCOPE}" = 'group' ]; then
-              cmd="azure-cost-estimator ${TEMPLATE}"
-              cmd+=" ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}"
-            else
-              cmd+=" ${LOCATION}"
-            fi
+            cmd="./azure-cost-estimator"
+            case "${SCOPE}" in
+              tenant) cmd+=" ${SCOPE} ${TEMPLATE} ${LOCATION}";;
+              mg)     cmd+=" ${SCOPE} ${TEMPLATE} ${MANAGEMENT_GROUP} ${LOCATION}";;
+              sub)    cmd+=" ${SCOPE} ${TEMPLATE} ${SUBSCRIPTION_ID} ${LOCATION}";;
+              group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
+            esac
             if test -n "${TEMPLATE_PARAMS}"; then
               cmd+=" --parameters ${TEMPLATE_PARAMS}"
             fi
-            cmd+=" --disableDetailedMetrics"
-            echo "Estimate cost using command:"
-            echo "${cmd}"
-            result=$(eval "${cmd}")
-            echo "result<<e3599a2c6b8bc912" >> $GITHUB_OUTPUT
-            echo "${result}" >> "$GITHUB_OUTPUT"
-            echo "e3599a2c6b8bc912" >> $GITHUB_OUTPUT
+            cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
+            echo "Estimate cost"
+            echo "Command: ${cmd}"
+            eval "${cmd}" >cost_result.txt 2>&1
+            if test -f cost_output.json; then
+              echo "total_cost=$(cat cost_output.json | jq -r '.TotalCost')" >> "$GITHUB_OUTPUT"
+              echo "currency=$(cat cost_output.json | jq -r '.Currency')" >> "$GITHUB_OUTPUT"
+            fi
+            if test -f cost_result.txt; then
+              result=$(cat cost_result.txt)
+              echo "result<<e3599a2c6b8bc912" >> "$GITHUB_OUTPUT"
+              echo "${result}" >> "$GITHUB_OUTPUT"
+              echo "e3599a2c6b8bc912" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "Unable to estimate cost for template ${TEMPLATE}. A local file is needed."
           fi
@@ -326,31 +370,43 @@ jobs:
       - name: Add summary
         id: summary
         env:
+          BICEP_LINT_RESULT: ${{ steps.bicep_lint_report.outputs.result }}
+          PS_RULE_RESULT: ${{ steps.ps_rule_report.outputs.result }}
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
         run: |
           {
-            echo "## Change Plan"
-            echo ""
-            echo "<details><summary>Click to expand the change plan</summary>"
-            echo ""
-            echo '```json'
-            echo "${WHAT_IF_RESULT}"
-            echo '```'
-            echo "</details>"
+            if test -n "${BICEP_LINT_RESULT}"; then
+              echo "## Bicep lint result"
+              echo ""
+              echo "<details><summary>Click to expand</summary>"
+              echo ""
+              echo '```json'
+              echo "${BICEP_LINT_RESULT}"
+              echo '```'
+              echo "</details>"
+              echo ""
+            fi
+            if test -n "${PS_RULE_RESULT}"; then
+              echo "## PSRule analysis"
+              echo ""
+              echo "<details><summary>Click to expand</summary>"
+              echo "${PS_RULE_RESULT}"
+              echo "</details>"
+              echo ""
+            fi
+            if test -n "${WHAT_IF_RESULT}"; then
+              echo "## What-If result"
+              echo ""
+              echo "<details><summary>Click to expand</summary>"
+              echo ""
+              echo '```diff'
+              echo "${WHAT_IF_RESULT}"
+              echo '```'
+              echo "</details>"
+              echo ""
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Job cancelled
-        id: job_cancelled
-        if: cancelled()
-        shell: bash
-        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
-
-      - name: Job failed
-        id: job_failed
-        if: failure()
-        shell: bash
-        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
       - name: Comment when done
         id: comment_when_done
@@ -362,27 +418,28 @@ jobs:
           )
         uses: actions/github-script@v7
         env:
+          BICEP_LINT_RESULT: ${{ steps.bicep_lint_report.outputs.result }}
+          PS_RULE_RESULT: ${{ steps.ps_rule_report.outputs.result }}
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
           EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.id }}
-          LANG_FORMAT: ${{ inputs.date_time_language_format }}
-          TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          STATUS: ${{ cancelled() && 'cancelled' || failure() && 'failed' || 'success' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const {BICEP_LINT_RESULT} = process.env ?? '';
+            const {PS_RULE_RESULT} = process.env ?? '';
             const {WHAT_IF_RESULT} = process.env ?? '';
             const {COST_RESULT} = process.env ?? '';
             const {EVENT_COMMENT_ID} = process.env ?? 0;
-            const {LANG_FORMAT} = process.env;
-            const {TIME_ZONE} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
             const {PULL_REQUEST_NUMBER} = process.env;
+            const {STATUS} = process.env ?? 'success';
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const HEAD_REF = process.env.GITHUB_REF;
-            const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
@@ -394,30 +451,32 @@ jobs:
             };
             let body = '', details = '';
             let comment_id = 0;
-            let run_date = current_time.toLocaleDateString(LANG_FORMAT, {timeZone: TIME_ZONE});
-            let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
-              body = `## Job failed ⛔\n\n${details}`;
+              body = `### Job failed ⛔`;
             } else if (STATUS == 'cancelled') {
-              body = `## Job cancelled 🗙\n\n${details}`;
+              body = `### Job cancelled 🗙`;
+            } else if (!WHAT_IF_RESULT) {
+              body = `### What-If analysis\n\nUnable to find any output from the What-If analysis.`;
             } else {
-              body = `## Deployment plan 🗓️\n\n${details}`;
-            }
-            if (!WHAT_IF_RESULT) {
-              body = `${body}\n\n### Plan output not found ⦸`;
-            } else {
-              body = `${body}\n\nThis plan was generated at ${run_date} ${run_time}.`;
-              body = `${body}\n\n<details><summary>Show plan</summary>\n\n\`\`\`json\n${WHAT_IF_RESULT}\n\`\`\`\n\n</details>`;
+              body = `${WHAT_IF_RESULT}`;
+              if (BICEP_LINT_RESULT) {
+                body = `${body}\n\n### Bicep lint result\n\n\`\`\`text\n${BICEP_LINT_RESULT}\n\`\`\`\n\n`;
+              }
+              if (PS_RULE_RESULT) {
+                body = `${body}\n\n### PSRule analysis\n\n\`\`\`text\n${PS_RULE_RESULT}\n\`\`\`\n\n`;
+              }
               if (COST_RESULT) {
                 body = `${body}\n\n### Cost analysis\n\n\`\`\`text\n${COST_RESULT}\n\`\`\`\n\n`;
               }
               body = `${body}\n\n### Actions`;
-              body = `${body}\n\nReview the plan. Updates should be pushed to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
-              body = `${body}\n\The deployment will start when the pull request is approved.`;
+              body = `${body}\n- Review and approve the plan.`;
+              body = `${body}\n- Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
+              body = `${body}\n\nThe deployment will start when the pull request is approved.`;
             }
+            body = `${body}\n\n${details}\n`;
             comment_id = isNaN(EVENT_COMMENT_ID) ? 0 : parseInt(EVENT_COMMENT_ID);
             if (comment_id != 0) {
               core.info(`Update comment ${comment_id} with the following text:`);
@@ -515,12 +574,149 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Log in to Azure
+      - name: Check Client secret
+        id: client_secret
+        run: |
+          if [ '${{ secrets.AZURE_CLIENT_SECRET }}' = '' ]; then
+            echo "exist=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "exist=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to Azure (Federated)
+        id: login_open_id
+        if: steps.client_secret.outputs.exist != 'true'
         uses: azure/login@v1
         with:
           client-id: ${{ inputs.azure_client_id }}
           tenant-id: ${{ inputs.azure_tenant_id }}
           subscription-id: ${{ inputs.azure_subscription_id }}
+
+      - name: Log in to Azure (Secret)
+        id: login_secret
+        if: steps.client_secret.outputs.exist == 'true'
+        env:
+          CLIENT_ID: ${{ inputs.azure_client_id }}
+          TENANT_ID: ${{ inputs.azure_tenant_id }}
+          SEVERITY: ${{ inputs.log_severity }}
+        run: |
+          set -Eeu
+          case "${SEVERITY}" in
+            ERROR)   log_severity=' --only-show-errors';;
+            VERBOSE) log_severity=' --verbose';;
+            DEBUG)   log_severity=' --debug';;
+            *)       log_severity='';;
+          esac
+          az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
+            -p '${{ secrets.AZURE_AD_CLIENT_SECRET }}' $log_severity
+
+      - name: Deployment validate
+        id: validate
+        uses: azure/CLI@v1
+        env:
+          SCOPE: ${{ inputs.scope }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
+          MANAGEMENT_GROUP: ${{ inputs.management_group }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          RESOURCE_GROUP: ${{ inputs.resource_group }}
+          LOCATION: ${{ inputs.location }}
+          SEVERITY: ${{ inputs.log_severity }}
+        with:
+          inlineScript: |
+            cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
+            if [[ $TEMPLATE == http* ]]; then
+              cmd+=" --template-uri ${TEMPLATE}"
+            elif [[ $TEMPLATE == /subscriptions/* ]]; then
+              cmd+=" --template-spec ${TEMPLATE}"
+            else
+              cmd+=" --template-file ${TEMPLATE}"
+            fi
+            if test -n "${TEMPLATE_PARAMS}"; then
+              cmd+=" --parameters ${TEMPLATE_PARAMS}"
+            fi
+            if ! [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --location ${LOCATION}"
+            fi
+            if [ "${SCOPE}" = 'mg' ]; then
+              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+            fi
+            if [ "${SCOPE}" = 'group' ]; then
+              cmd+=" --resource-group ${RESOURCE_GROUP}"
+            fi
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            cmd+=" --no-prompt true -o json"
+            echo "Validate template"
+            echo "Command: ${cmd}"
+            az account set -s ${SUBSCRIPTION_ID}
+            eval "${cmd}" >validate_result.txt 2>&1
+            if test -f validate_result.txt; then
+              result=$(cat validate_result.txt)
+              echo "result<<91ded7e8204bca18" >> "$GITHUB_OUTPUT"
+              echo "${result}" >> "$GITHUB_OUTPUT"
+              echo "91ded7e8204bca18" >> "$GITHUB_OUTPUT"
+              if [[ "${result}" == {* ]]; then
+                providers=$(
+                  echo "${result}" | \
+                    jq '.properties.providers | map(.namespace) | join(" ")'
+                )
+                echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+
+      - name: Check Azure providers
+        id: azure_providers
+        env:
+          LST1: ${{ inputs.azure_providers }}
+          LST2: ${{ steps.validate.outputs.providers }}
+          WAIT_SECONDS: ${{ inputs.azure_provider_wait_seconds }}
+          WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SEVERITY: ${{ inputs.log_severity }}
+        run: |
+          providers=($(echo "${LST1} ${LST2}" | xargs | tr ' ' '\n' | sort -u))
+          declare -a registeringProviders=()
+          case "${SEVERITY}" in
+            ERROR)   log_severity=' --only-show-errors';;
+            VERBOSE) log_severity=' --verbose';;
+            DEBUG)   log_severity=' --debug';;
+            *)       log_severity='';;
+          esac
+          az account set -s ${SUBSCRIPTION_ID}
+          registered=($(
+            az provider list \
+              --query "[?registrationState=='Registered'].namespace" \
+              -o tsv $log_severity
+          ))
+          registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
+          for provider in "${providers[@]}"; do
+            value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
+            if [[ ! " ${registered[*]} " =~ ${value} ]]; then
+              echo "Register ${provider}"
+              az provider register --consent-to-permissions \
+                --namespace $provider ${log_severity}
+              registeringProviders+=($provider)
+            fi
+          done
+          for provider in "${registeringProviders[@]}"; do
+            registrationState='Registering'
+            timesTried=0
+            while [ "${registrationState}" != 'Registered' ] || \
+                  [ $timesTried -gt $WAIT_COUNT ]
+            do
+              echo "Waiting for ${provider} to register..."
+              registrationState=$(
+                az provider show --namespace $provider \
+                  --query "registrationState" -o tsv $log_severity
+              )
+              ((timesTried++))
+              sleep $WAIT_SECONDS
+            done
+          done
 
       - name: Deployment
         id: deploy
@@ -556,21 +752,19 @@ jobs:
             if [ "${SCOPE}" = 'group' ]; then
               cmd+=" --resource-group ${RESOURCE_GROUP}"
             fi
-            if [ "${SEVERITY}" = 'ERROR' ]; then
-              cmd+=' --only-show-errors'
-            elif [ "${SEVERITY}" = 'VERBOSE' ]; then
-              cmd+='--verbose'
-            elif [ "${SEVERITY}" = 'DEBUG' ]; then
-              cmd+='--debug'
-            fi
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
             cmd+=" --no-prompt true"
-            echo "Deploy using command:"
-            echo "${cmd}"
+            echo "Deploy template"
+            echo "Command: ${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
             result=$(eval "${cmd}")
-            echo "result<<f4b6bcbb24d55a01" >> $GITHUB_OUTPUT
+            echo "result<<f4b6bcbb24d55a01" >> "$GITHUB_OUTPUT"
             echo "${result}" >> "$GITHUB_OUTPUT"
-            echo "f4b6bcbb24d55a01" >> $GITHUB_OUTPUT
+            echo "f4b6bcbb24d55a01" >> "$GITHUB_OUTPUT"
 
       - name: Add summary
         id: summary
@@ -588,18 +782,6 @@ jobs:
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Job cancelled
-        id: job_cancelled
-        if: cancelled()
-        shell: bash
-        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
-
-      - name: Job failed
-        id: job_failed
-        if: failure()
-        shell: bash
-        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
-
       - name: Comment when done
         id: comment_when_done
         if: >
@@ -608,19 +790,16 @@ jobs:
         uses: actions/github-script@v7
         env:
           DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
-          LANG_FORMAT: ${{ inputs.date_time_language_format }}
-          TIME_ZONE: ${{ inputs.time_zone }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          STATUS: ${{ cancelled() && 'cancelled' || failure() && 'failed' || 'success' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const {DEPLOY_RESULT} = process.env ?? '';
-            const {LANG_FORMAT} = process.env;
-            const {TIME_ZONE} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
+            const {STATUS} = process.env ?? 'success';
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
-            const STATUS = process.env.JOB_STATUS ?? 'success';
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
@@ -631,24 +810,20 @@ jobs:
               repo: context.repo.repo,
             };
             let body = '', details = '';
-            let run_date = current_time.toLocaleDateString(LANG_FORMAT, {timeZone: TIME_ZONE});
-            let run_time = current_time.toLocaleTimeString(LANG_FORMAT, {timeZone: TIME_ZONE});
             details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
-              body = `## Job failed ⛔\n\n${details}`;
+              body = `### Job failed ⛔`;
             } else if (STATUS == 'cancelled') {
-              body = `## Job cancelled 🗙\n\n${details}`;
+              body = `### Job cancelled 🗙`;
+            } else if (!DEPLOY_RESULT) {
+              body = `### Deployment result not found ⦸`;
             } else {
-              body = `## Deployment completed ✅\n\n${details}`;
+              body = `## Deployment completed ✅`;
+              body = `${body}\n\n<details><summary>Click for details</summary>\n\n\`\`\`json\n${DEPLOY_RESULT}\n\`\`\`\n\n</details>`;
             }
-            if (!DEPLOY_RESULT) {
-              body = `${body}\n\n### Deployment result not found ⦸`;
-            } else {
-              body = `${body}\n\nThis job finished at ${run_date} ${run_time}.`;
-              body = `${body}\n\n<details><summary>Show deployment result</summary>\n\n\`\`\`json\n${DEPLOY_RESULT}\n\`\`\`\n\n</details>`;
-            }
+            body = `${body}\n\n${details}\n`;
             core.info(`Create a comment with the text:`);
             core.info(body);
             try {
