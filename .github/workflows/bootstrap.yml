@@ -193,7 +193,7 @@ jobs:
           LINT_RESULT: ${{ steps.bicep_lint.outputs.result }}
         with:
           script: |
-            const {BICEP_LINT_RESULT} = process.env ?? '';
+            const {LINT_RESULT} = process.env ?? '';
             const lines = LINT_RESULT.split(/\r?\n/).filter(line => line);
             const report = lines.map(line => {
               const [full, level, path, lines, type, title, msg] = line.match(
