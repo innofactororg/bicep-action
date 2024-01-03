@@ -177,6 +177,8 @@ jobs:
             esac
             echo "Check that Bicep code adhere to a canonical format"
             echo "Command: ${cmd}"
+            az bicep install --only-show-errors >/dev/null 2>&1
+            az config set bicep.use_binary_from_path=False --only-show-errors >/dev/null 2>&1
             eval "${cmd}" >lint_result.txt 2>&1
             if test -f lint_result.txt; then
               result=$(cat lint_result.txt)
@@ -184,34 +186,6 @@ jobs:
               echo "${result}" >> "$GITHUB_OUTPUT"
               echo "0047393e7aacb9de" >> "$GITHUB_OUTPUT"
             fi
-
-      - name: Bicep lint report
-        id: bicep_lint_report
-        if: always() && steps.bicep_lint.outputs.result != ''
-        uses: actions/github-script@v7
-        env:
-          LINT_RESULT: ${{ steps.bicep_lint.outputs.result }}
-        with:
-          script: |
-            const {LINT_RESULT} = process.env ?? '';
-            const lines = LINT_RESULT.split(/\r?\n/).filter(line => line);
-            const report = lines.map(line => {
-              const [full, level, path, lines, type, title, msg] = line.match(
-                /(WARNING|ERROR|INFO): (.*\.bicep)\(([\d,]+)\) : (Warning|Error|Information) ([\w-]+): (.*)$/
-              );
-              const [start_line, end_line] = lines.split(',').map(num => parseInt(num));
-              return {
-                path,
-                start_line: start_line || 0,
-                end_line: end_line || start_line || 0,
-                level,
-                msg,
-                title
-              };
-            });
-            console.log(report);
-            return JSON.stringify(report);
-          result-encoding: string
 
       - name: PSRule analysis
         id: ps_rule
@@ -369,7 +343,7 @@ jobs:
       - name: Add summary
         id: summary
         env:
-          BICEP_LINT_RESULT: ${{ steps.bicep_lint_report.outputs.result }}
+          BICEP_LINT_RESULT: ${{ steps.bicep_lint.outputs.result }}
           PS_RULE_RESULT: ${{ steps.ps_rule_report.outputs.result }}
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
@@ -429,7 +403,7 @@ jobs:
           )
         uses: actions/github-script@v7
         env:
-          BICEP_LINT_RESULT: ${{ steps.bicep_lint_report.outputs.result }}
+          BICEP_LINT_RESULT: ${{ steps.bicep_lint.outputs.result }}
           PS_RULE_RESULT: ${{ steps.ps_rule_report.outputs.result }}
           WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
           COST_RESULT: ${{ steps.cost.outputs.result }}
