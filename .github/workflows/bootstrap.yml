@@ -408,6 +408,18 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Job cancelled
+        id: job_cancelled
+        if: cancelled()
+        shell: bash
+        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
+
+      - name: Job failed
+        id: job_failed
+        if: failure()
+        shell: bash
+        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
+
       - name: Comment when done
         id: comment_when_done
         if: >
@@ -425,7 +437,6 @@ jobs:
           EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.id }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-          STATUS: ${{ cancelled() && 'cancelled' || failure() && 'failed' || 'success' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -436,7 +447,7 @@ jobs:
             const {EVENT_COMMENT_ID} = process.env ?? 0;
             const {SUBSCRIPTION_ID} = process.env;
             const {PULL_REQUEST_NUMBER} = process.env;
-            const {STATUS} = process.env ?? 'success';
+            const STATUS = process.env.JOB_STATUS ?? 'success';
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const HEAD_REF = process.env.GITHUB_REF;
@@ -782,6 +793,18 @@ jobs:
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Job cancelled
+        id: job_cancelled
+        if: cancelled()
+        shell: bash
+        run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
+
+      - name: Job failed
+        id: job_failed
+        if: failure()
+        shell: bash
+        run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
+
       - name: Comment when done
         id: comment_when_done
         if: >
@@ -791,13 +814,12 @@ jobs:
         env:
           DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          STATUS: ${{ cancelled() && 'cancelled' || failure() && 'failed' || 'success' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const {DEPLOY_RESULT} = process.env ?? '';
             const {SUBSCRIPTION_ID} = process.env;
-            const {STATUS} = process.env ?? 'success';
+            const STATUS = process.env.JOB_STATUS ?? 'success';
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;

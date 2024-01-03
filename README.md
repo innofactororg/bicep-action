@@ -178,6 +178,44 @@ jobs:
 
 <!-- end usage -->
 
+## Passing secret as input
+
+If the input value is stored as a secret, it can still be passed using the env syntax.
+
+In the following example a secret called **AZURE_APP1_TENANT_ID** is passed to the input **azure_tenant_id** using environment variable **TENANT_ID**:
+
+```yaml
+name: Azure Deploy
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - "**.bicep"
+      - "**.bicepparam"
+
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  deploy:
+    name: 🔧 Bootstrap
+    uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
+    env:
+      TENANT_ID: ${{ secrets.AZURE_APP1_TENANT_ID }}
+    with:
+      environment: sandbox1
+      azure_tenant_id: ${{ env.TENANT_ID }}
+      azure_client_id: 6a31b6a2-4558-43bb-896a-008e763058bd
+      azure_subscription_id: aeac59a3-67af-474b-ac4a-67ee18414df1
+      location: westeurope
+      scope: sub
+      code_template: main.bicep
+      parameters: main.bicepparam
+      log_severity: INFO
+```
+
 ## License
 
 The code and documentation in this project are released under the [MIT License](LICENSE).
