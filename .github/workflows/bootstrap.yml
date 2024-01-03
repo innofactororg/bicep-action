@@ -179,9 +179,9 @@ jobs:
             echo "Command: ${cmd}"
             az bicep install --only-show-errors >/dev/null 2>&1
             az config set bicep.use_binary_from_path=False --only-show-errors >/dev/null 2>&1
-            eval "${cmd}" >lint_result.txt 2>&1
-            if test -f lint_result.txt; then
-              result=$(cat lint_result.txt)
+            eval "${cmd}" 1> >(tee -a lint.txt) 2> >(tee -a lint.txt >&2)
+            if test -f lint.txt; then
+              result=$(cat lint.txt)
               echo "result<<0047393e7aacb9de" >> "$GITHUB_OUTPUT"
               echo "${result}" >> "$GITHUB_OUTPUT"
               echo "0047393e7aacb9de" >> "$GITHUB_OUTPUT"
@@ -199,15 +199,13 @@ jobs:
 
       - name: PSRule analysis report
         id: ps_rule_report
-        uses: azure/CLI@v1
-        with:
-          inlineScript: |
-            if test -f ps_rule_results.md; then
-              result=$(cat ps_rule_results.md)
-              echo "result<<eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
-            fi
+        run: |
+          if test -f ps_rule_results.md; then
+            result=$(cat ps_rule_results.md)
+            echo "result<<eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
+            echo "${result}" >> "$GITHUB_OUTPUT"
+            echo "eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check Client secret
         id: client_secret
@@ -282,9 +280,9 @@ jobs:
             echo "Create a deployment plan"
             echo "Command: ${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
-            eval "${cmd}" >whatif_result.txt 2>&1
-            if test -f whatif_result.txt; then
-              result=$(cat whatif_result.txt)
+            eval "${cmd}" 1> >(tee -a whatif.txt) 2> >(tee -a whatif.txt >&2)
+            if test -f whatif.txt; then
+              result=$(cat whatif.txt)
               echo "result<<7d9efa072f5be230" >> "$GITHUB_OUTPUT"
               echo "${result}" >> "$GITHUB_OUTPUT"
               echo "7d9efa072f5be230" >> "$GITHUB_OUTPUT"
@@ -325,13 +323,13 @@ jobs:
             cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
             echo "Estimate cost"
             echo "Command: ${cmd}"
-            eval "${cmd}" >cost_result.txt 2>&1
+            eval "${cmd}" 1> >(tee -a cost.txt) 2> >(tee -a cost.txt >&2)
             if test -f cost_output.json; then
               echo "total_cost=$(cat cost_output.json | jq -r '.TotalCost')" >> "$GITHUB_OUTPUT"
               echo "currency=$(cat cost_output.json | jq -r '.Currency')" >> "$GITHUB_OUTPUT"
             fi
-            if test -f cost_result.txt; then
-              result=$(cat cost_result.txt)
+            if test -f cost.txt; then
+              result=$(cat cost.txt)
               echo "result<<e3599a2c6b8bc912" >> "$GITHUB_OUTPUT"
               echo "${result}" >> "$GITHUB_OUTPUT"
               echo "e3599a2c6b8bc912" >> "$GITHUB_OUTPUT"
@@ -442,22 +440,62 @@ jobs:
             } else if (STATUS == 'cancelled') {
               body = `### Job cancelled 🗙`;
             } else if (!WHAT_IF_RESULT) {
-              body = `### What-If analysis\n\nUnable to find any output from the What-If analysis.`;
+              body = `### What-If analysis
+
+              Unable to find any output from the What-If analysis.`;
             } else {
-              body = `${WHAT_IF_RESULT}`;
+              body = `## What-If analysis
+
+              <details><summary>Click to expand</summary>
+              \`\`\`diff
+              ${WHAT_IF_RESULT}
+              \`\`\`
+              </details>
+              `;
               if (BICEP_LINT_RESULT) {
-                body = `${body}\n\n### Bicep lint result\n\n\`\`\`text\n${BICEP_LINT_RESULT}\n\`\`\`\n\n`;
+                body = `${body}
+
+                ### Bicep lint result
+
+                <details><summary>Click to expand</summary>
+                \`\`\`text
+                ${BICEP_LINT_RESULT}
+                \`\`\`
+                </details>
+                `;
               }
               if (PS_RULE_RESULT) {
-                body = `${body}\n\n### PSRule analysis\n\n\`\`\`text\n${PS_RULE_RESULT}\n\`\`\`\n\n`;
+                body = `${body}
+
+                ### PSRule analysis
+
+                <details><summary>Click to expand</summary>
+                \`\`\`text
+                ${PS_RULE_RESULT}
+                \`\`\`
+                </details>
+                `;
               }
               if (COST_RESULT) {
-                body = `${body}\n\n### Cost analysis\n\n\`\`\`text\n${COST_RESULT}\n\`\`\`\n\n`;
+                body = `${body}
+
+                ### Cost analysis
+
+                <details><summary>Click to expand</summary>
+                \`\`\`text
+                ${COST_RESULT}
+                \`\`\`
+                </details>
+                `;
               }
-              body = `${body}\n\n### Actions`;
-              body = `${body}\n- Review and approve the plan.`;
-              body = `${body}\n- Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.`;
-              body = `${body}\n\nThe deployment will start when the pull request is approved.`;
+              body = `${body}
+
+              ### Actions
+
+              - Review and approve the plan.
+              - Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.
+
+              The deployment will start when the pull request is approved.`;
             }
             body = `${body}\n\n${details}\n`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
@@ -636,9 +674,9 @@ jobs:
             echo "Validate template"
             echo "Command: ${cmd}"
             az account set -s ${SUBSCRIPTION_ID}
-            eval "${cmd}" >validate_result.txt 2>&1
-            if test -f validate_result.txt; then
-              result=$(cat validate_result.txt)
+            eval "${cmd}" 1> >(tee -a validate.txt) 2> >(tee -a validate.txt >&2)
+            if test -f validate.txt; then
+              result=$(cat validate.txt)
               echo "result<<91ded7e8204bca18" >> "$GITHUB_OUTPUT"
               echo "${result}" >> "$GITHUB_OUTPUT"
               echo "91ded7e8204bca18" >> "$GITHUB_OUTPUT"
