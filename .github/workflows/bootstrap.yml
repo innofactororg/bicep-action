@@ -436,68 +436,45 @@ jobs:
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
-              body = `### Job failed ⛔`;
+              body = `### Job failed ⛔\n\n`;
             } else if (STATUS == 'cancelled') {
-              body = `### Job cancelled 🗙`;
+              body = `### Job cancelled 🗙\n\n`;
             } else if (!WHAT_IF_RESULT) {
-              body = `### What-If analysis
-
-              Unable to find any output from the What-If analysis.`;
+              body = `### What-If analysis\n\n`;
+              body += `Unable to find any output from the What-If analysis.\n\n`;
             } else {
-              body = `## What-If analysis
-
-              <details><summary>Click to expand</summary>
-              \`\`\`diff
-              ${WHAT_IF_RESULT}
-              \`\`\`
-              </details>
-              `;
+              body = `## What-If analysis\n\n`;
+              body += `<details><summary>Click to expand</summary>\n\n`;
+              body += `\`\`\`diff\n`;
+              body += `${WHAT_IF_RESULT}\n`;
+              body += `\`\`\`\n\n</details>\n\n`;
               if (BICEP_LINT_RESULT) {
-                body = `${body}
-
-                ### Bicep lint result
-
-                <details><summary>Click to expand</summary>
-                \`\`\`text
-                ${BICEP_LINT_RESULT}
-                \`\`\`
-                </details>
-                `;
+                body += `### Bicep lint result\n\n`;
+                body += `<details><summary>Click to expand</summary>\n\n`;
+                body += `\`\`\`text\n`;
+                body += `${BICEP_LINT_RESULT}\n`;
+                body += `\`\`\`\n\n</details>\n\n`;
               }
               if (PS_RULE_RESULT) {
-                body = `${body}
-
-                ### PSRule analysis
-
-                <details><summary>Click to expand</summary>
-                \`\`\`text
-                ${PS_RULE_RESULT}
-                \`\`\`
-                </details>
-                `;
+                body += `### PSRule analysis\n\n`;
+                body += `<details><summary>Click to expand</summary>\n\n`;
+                body += `\`\`\`text\n`;
+                body += `${PS_RULE_RESULT}\n`;
+                body += `\`\`\`\n\n</details>\n\n`;
               }
               if (COST_RESULT) {
-                body = `${body}
-
-                ### Cost analysis
-
-                <details><summary>Click to expand</summary>
-                \`\`\`text
-                ${COST_RESULT}
-                \`\`\`
-                </details>
-                `;
+                body += `### Cost analysis\n\n`;
+                body += `<details><summary>Click to expand</summary>\n\n`;
+                body += `\`\`\`text\n`;
+                body += `${COST_RESULT}\n`;
+                body += `\`\`\`\n\n</details>\n\n`;
               }
-              body = `${body}
-
-              ### Actions
-
-              - Review and approve the plan.
-              - Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.
-
-              The deployment will start when the pull request is approved.`;
+              body += `### Actions\n\n`;
+              body += `- Review and approve the plan.\n`;
+              body += `- Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.\n\n`;
+              body += `The deployment will start when the pull request is approved.\n\n`;
             }
-            body = `${body}\n\n${details}\n`;
+            body += `${details}\n`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
             if (isNaN(comment_id) || comment_id == 0) {
               core.info(`Create a comment with the text:`);
