@@ -397,6 +397,7 @@ jobs:
           LOCATION: ${{ inputs.location }}
           ACE_VERSION: ${{ inputs.ace_version }}
         run: |
+          TEMPLATE="${TEMPLATE/.bicep/.json}"
           if test -f ${TEMPLATE}; then
             server='https://github.com'
             org='TheCloudTheory'
@@ -414,7 +415,7 @@ jobs:
               group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
             esac
             if test -n "${TEMPLATE_PARAMS}"; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS}"
+              cmd+=" --parameters ${TEMPLATE_PARAMS/.bicepparam/.parameters.json}"
             fi
             cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
             echo "Run: ${cmd}"
