@@ -160,18 +160,10 @@ jobs:
       # Ignore rules for PSRule analysis.
       #
       # A list of names of specific rules to exclude from being evaluated.
-      # The list must be semicolon separated.
+      # The list must be comma separated and each rule must be quoted.
       #
       # Default: ''
-      psrule_exclude: "Azure.Resource.UseTags;Azure.ACR.MinSku"
-
-      # Ignores input files for PSRule analysis.
-      #
-      # If specified, files that match the path spec will not be processed.
-      # By default, only bicep files are processed.
-      #
-      # Default: '*;!**/*.bicep;!**/*.bicepparam'
-      psrule_path_ignore: ""
+      psrule_exclude: "'Azure.Resource.UseTags', 'Azure.ACR.MinSku'"
 
       # Azure Cost Estimator version.
       #

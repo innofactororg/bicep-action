@@ -70,11 +70,6 @@ on:
         required: false
         default: ""
         type: string
-      psrule_path_ignore:
-        description: "Ignores input files for PSRule analysis."
-        required: false
-        default: "*;!**/*.bicep;!**/*.bicepparam"
-        type: string
       ace_version:
         description: "Azure Cost Estimator version."
         required: false
@@ -262,19 +257,36 @@ jobs:
               echo "0047393e7aacb9de" >> "$GITHUB_OUTPUT"
             fi
 
+      - name: PSRule configuration
+        id: ps_rule_config
+        env:
+          PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
+        run: |
+          cat > ps-rule.yaml << 81d174f4ee42ba3f
+          binding:
+            preferTargetInfo: true
+            targetType:
+              - type
+              - resourceType
+          configuration:
+            AZURE_PARAMETER_FILE_EXPANSION: true
+            AZURE_BICEP_FILE_EXPANSION: true
+            AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 10
+          execution:
+            unprocessedObject: Ignore
+          input:
+            ignoreUnchangedPath: true
+            pathIgnore:
+              - *
+              - !**/*.bicep
+              - !**/*.bicepparam
+          rule:
+            exclude: [${PSRULE_RULE_EXCLUDE}]
+          81d174f4ee42ba3f
+
       - name: PSRule analysis
         id: ps_rule
         uses: microsoft/ps-rule@latest
-        env:
-          PSRULE_BINDING_PREFERTARGETINFO: true
-          PSRULE_BINDING_TARGETTYPE: "ResourceType;Type;Kind"
-          PSRULE_CONFIGURATION_AZURE_BICEP_FILE_EXPANSION: true
-          PSRULE_CONFIGURATION_AZURE_PARAMETER_FILE_EXPANSION: true
-          PSRULE_CONFIGURATION_AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 15
-          PSRULE_EXECUTION_UNPROCESSEDOBJECT: Ignore
-          PSRULE_INPUT_IGNOREUNCHANGEDPATH: true
-          PSRULE_INPUT_PATHIGNORE: ${{ inputs.psrule_path_ignore }}
-          PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
         with:
           inputType: inputPath
           modules: PSRule.Rules.Azure, PSRule.Rules.CAF
@@ -686,11 +698,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: artifact
+          name: plan_logs
           path: |
             bicep_build.txt
             bicep_param_build.txt
             ps_rule.md
+            ps-rule.yaml
             what_if.txt
             cost_output.json
             cost.txt
@@ -1130,7 +1143,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: artifact
+          name: deploy_logs
           path: |
             validate.txt
             deploy.txt
