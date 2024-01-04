@@ -296,13 +296,19 @@ jobs:
 
       - name: PSRule analysis report
         id: ps_rule_report
+        if: failure() || success()
         run: |
           if test -f ps_rule.md; then
             result=$(cat ps_rule.md)
             if [ "${result}" = "# PSRule" ]; then
               echo "PSRule analysis report is empty"
             else
-              result="${result/# PSRule/}"
+              current_pwd="$(pwd)/"
+              result=$(
+                echo "${result}" | sed -e 's|# PSRule\n\n||' \
+                  -e 's|## |#### |g' \
+                  -e "s|${current_pwd}||g"
+              )
               echo "result<<eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
               echo "${result}" >> "$GITHUB_OUTPUT"
               echo "eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
@@ -448,6 +454,7 @@ jobs:
 
       - name: Add summary
         id: summary
+        if: failure() || success()
         env:
           BICEP_RESULT: ${{ steps.bicep_build.outputs.result }}
           BICEP_PARAM_RESULT: ${{ steps.bicep_param_build.outputs.result }}
@@ -1006,6 +1013,7 @@ jobs:
 
       - name: Add summary
         id: summary
+        if: failure() || success()
         env:
           DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
         run: |
