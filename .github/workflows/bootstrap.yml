@@ -262,6 +262,10 @@ jobs:
         env:
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
         run: |
+          if test -f ps-rule.yaml; then
+            echo 'Use existing ps-rule.yaml'
+            exit
+          fi
           cat > ps-rule.yaml << 81d174f4ee42ba3f
           binding:
             preferTargetInfo: true
