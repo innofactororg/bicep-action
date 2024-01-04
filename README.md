@@ -157,6 +157,22 @@ jobs:
       # Default: '30'
       azure_provider_wait_count: 30
 
+      # Ignore rules for PSRule analysis.
+      #
+      # A list of names of specific rules to exclude from being evaluated.
+      # The list must be semicolon separated.
+      #
+      # Default: ''
+      psrule_exclude: "Azure.Resource.UseTags;Azure.ACR.MinSku"
+
+      # Ignores input files for PSRule analysis.
+      #
+      # If specified, files that match the path spec will not be processed.
+      # By default, only bicep files are processed.
+      #
+      # Default: '*;!**/*.bicep;!**/*.bicepparam'
+      psrule_path_ignore: ""
+
       # Azure Cost Estimator version.
       #
       # The version to use for cost estimation. See versions at
@@ -164,6 +180,22 @@ jobs:
       #
       # Default: '1.3'
       ace_version: 1.3
+
+      # The merge method to use after a successful deployment.
+      # Can be one of:
+      #
+      # merge - retain all of the commits.
+      # squash - retain the changes but omit the individual commits.
+      # rebase - move the commits to the tip of the target branch.
+      # disable - turn off auto merge.
+      #
+      # Default: squash
+      merge_method: disable
+
+      # Prevent deleting the branch after merge.
+      #
+      # Default: false
+      keep_branch_after_merge: true
 
       # The log verbosity. Can be one of:
       #
