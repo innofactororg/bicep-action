@@ -278,6 +278,10 @@ jobs:
             AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 10
           execution:
             unprocessedObject: Ignore
+          input:
+            ignoreUnchangedPath: true
+          rule:
+            exclude: [${PSRULE_RULE_EXCLUDE}]
           81d174f4ee42ba3f
 
       - name: PSRule analysis
