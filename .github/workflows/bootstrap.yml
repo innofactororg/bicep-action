@@ -284,8 +284,6 @@ jobs:
               - *
               - !**/*.bicep
               - !**/*.bicepparam
-          rule:
-            exclude: [${PSRULE_RULE_EXCLUDE}]
           81d174f4ee42ba3f
 
       - name: PSRule analysis
