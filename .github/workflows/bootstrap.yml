@@ -574,8 +574,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let body = '', details = '';
-            details = `| Job | Commit | Actor | Subscription |
+            let body = '', report = '';
+            const details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
@@ -587,45 +587,46 @@ jobs:
               body += `Unable to find any output from the What-If analysis.\n\n`;
             } else {
               body = `## Plan\n\n`;
-              body += `<details><summary>Click to expand</summary>\n\n`;
-              body += `\`\`\`diff\n`;
-              body += `${WHAT_IF_RESULT}\n`;
-              body += `\`\`\`\n\n</details>\n\n`;
+              report = `<details><summary>Click to expand</summary>\n\n`;
+              report += `\`\`\`diff\n`;
+              report += `${WHAT_IF_RESULT}\n`;
+              report += `\`\`\`\n\n</details>\n\n`;
               if (BICEP_RESULT) {
-                body += `### Bicep lint result\n\n`;
-                body += `<details><summary>Click to expand</summary>\n\n`;
-                body += `\`\`\`text\n`;
-                body += `${BICEP_RESULT}\n`;
-                body += `\`\`\`\n\n</details>\n\n`;
+                report += `### Bicep lint result\n\n`;
+                report += `<details><summary>Click to expand</summary>\n\n`;
+                report += `\`\`\`text\n`;
+                report += `${BICEP_RESULT}\n`;
+                report += `\`\`\`\n\n</details>\n\n`;
               }
               if (BICEP_PARAM_RESULT) {
-                body += `### Bicep param lint result\n\n`;
-                body += `<details><summary>Click to expand</summary>\n\n`;
-                body += `\`\`\`text\n`;
-                body += `${BICEP_PARAM_RESULT}\n`;
-                body += `\`\`\`\n\n</details>\n\n`;
+                report += `### Bicep param lint result\n\n`;
+                report += `<details><summary>Click to expand</summary>\n\n`;
+                report += `\`\`\`text\n`;
+                report += `${BICEP_PARAM_RESULT}\n`;
+                report += `\`\`\`\n\n</details>\n\n`;
               }
               if (PS_RULE_RESULT) {
-                body += `### PSRule analysis\n\n`;
-                body += `<details><summary>Click to expand</summary>\n\n`;
-                body += `${PS_RULE_RESULT}\n\n`;
+                report += `### PSRule analysis\n\n`;
+                report += `<details><summary>Click to expand</summary>\n\n`;
+                report += `${PS_RULE_RESULT}\n</details>\n\n`;
               }
               if (COST_RESULT) {
-                body += `### Cost analysis\n\n`;
-                body += `<details><summary>Click to expand</summary>\n\n`;
-                body += `\`\`\`text\n`;
-                body += `${COST_RESULT}\n`;
-                body += `\`\`\`\n\n</details>\n\n`;
+                report += `### Cost analysis\n\n`;
+                report += `<details><summary>Click to expand</summary>\n\n`;
+                report += `\`\`\`text\n`;
+                report += `${COST_RESULT}\n`;
+                report += `\`\`\`\n\n</details>\n\n`;
               }
+              if (report.length > 64000) {
+                report = `Output is too large, please see job [#${context.runNumber}](${run_url}) for details!\n\n`;
+              }
+              body += report;
               body += `### Actions\n\n`;
               body += `- Review and approve the plan.\n`;
               body += `- Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.\n\n`;
-              body += `The deployment will start when the pull request is approved.\n\n`;
-              if (body.length > 65000) {
-                body = `## Plan\n\nOutput is too large, please see job [#${context.runNumber}](${run_url}) for details!`;
-              }
+              body += `The deployment will start when the pull request is reviewed and approved.\n\n`;
             }
-            body += `${details}\n`;
+            body += `${details}`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
             if (isNaN(comment_id) || comment_id == 0) {
               core.info(`Create a comment with the text:`);
@@ -1073,8 +1074,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let body = '', details = '';
-            details = `| Job | Commit | Actor | Subscription |
+            let body = '';
+            const details = `| Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             if (STATUS == 'failed') {
@@ -1084,16 +1085,18 @@ jobs:
             } else if (!DEPLOY_RESULT) {
               body = `## Deployment\n\nDeployment result not found ⦸\n\n`;
             } else {
-              if (DEPLOY_RESULT.length > 65000) {
-                DEPLOY_RESULT = `Output is too large, please see job [#${context.runNumber}](${run_url}) for details!`;
-              }
               body = `## Deployment\n\nDeployment completed ✅\n\n`;
               if (AUTO_MERGE_FAIL != '') {
                 body += `${AUTO_MERGE_MESSAGE} 🚫\n\n`;
               }
-              body += `<details><summary>Click for details</summary>\n\n\`\`\`json\n${DEPLOY_RESULT}\n\`\`\`\n\n</details>\n\n`;
+              if (DEPLOY_RESULT.length > 64000) {
+                body += `Output is too large, please see job [#${context.runNumber}](${run_url}) for details!\n\n`;
+              } else {
+                body += `<details><summary>Click for details</summary>\n\n`;
+                body += `\`\`\`json\n${DEPLOY_RESULT}\n\`\`\`\n\n</details>\n\n`;
+              }
             }
-            body += `${details}\n`;
+            body += `${details}`;
             core.info(`Create a comment with the text:`);
             core.info(body);
             try {

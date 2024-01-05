@@ -6,37 +6,47 @@ A reusable workflow to to manage Azure infrastructure with Bicep.
 
 To use the workflow, several prerequisite steps are required.
 
-1. **Create GitHub Environment**
+### Create GitHub Environment
 
-   The workflow utilizes GitHub Environments to enable an approval process for the deployment.
+The workflow utilizes GitHub Environments to enable an approval process for the deployment.
 
-   [Create an environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment) in the repository that use this workflow.
+[Create an environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment) in the repository that use this workflow.
 
-   Add **Required reviewers** that need to sign off on deployments. Save the protection rules.
+Add **Required reviewers** that need to sign off on deployments. Save the protection rules.
 
-1. **Setup Azure Identity**
+### Setup Azure Identity
 
-   A Microsoft Entra ID application is required by this workload. It must have permission to deploy the code.
+A Microsoft Entra ID application is required by this workload. It must have permission to deploy the code.
 
-   Create a single application and give it the appropriate read/write permissions in Azure.
+Create a single application and give it the appropriate read/write permissions in Azure.
 
-   Option 1 (recommended):
+#### Use federated credentials (recommended)
 
-   [Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources** and for each repository that use this workflow.
+[Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources** and for each repository that use this workflow.
 
-   To allow a pull request to validate and test deployments, add a credential where entity type is **Pull request**.
+To allow a pull request to validate and test deployments, add a credential where entity type is **Pull request**.
 
-   To allow deployments, add a credential where entity type is **Environment**. Specify the **GitHub Environment name** that is passed to the workflow, e.g. `production`.
+To allow deployments, add a credential where entity type is **Environment**. Specify the **GitHub Environment name** that is passed to the workflow, e.g. `production`.
 
-   Option 2:
+Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
 
-   To use a **Client secret** instead of federated credentials, specify **AZURE_AD_CLIENT_SECRET** as a secret for the workflow, as shown in usage below.
+#### Use client secret
+
+To use a **Client secret** instead of federated credentials, specify **AZURE_AD_CLIENT_SECRET** as a secret for the workflow, as shown in usage below.
 
 ## Workflow
 
-Each time a pull request is created or updated, the workflow will produce a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report and attach it to the pull request for easy review.
+### Plan
 
-Each time a pull request review is submitted, the workflow will check if it is approved, and if so, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
+Each time a **pull request** is created or updated, the workflow will start and validate the code. If no issues are found in the code, a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report is generated for easy review.
+
+### Deploy
+
+The workflow can be started manually (**workflow dispatch**) or automatically when a **pull request review** is submitted with an **approved** state.
+
+This stage is set to a specific [environment](#create-github-environment). If **required reviewers** have been added, the deployment job will only run after manual approval from one of the specified approvers.
+
+When started, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
 
 ![Bicep workflow](images/deployment-action-flow.png)
 
