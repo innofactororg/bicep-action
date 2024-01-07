@@ -65,6 +65,16 @@ on:
         required: false
         default: "30"
         type: string
+      psrule_modules:
+        description: "A comma separated list of modules to use for analysis."
+        required: false
+        default: "PSRule.Rules.Azure"
+        type: string
+      psrule_baseline:
+        description: "The name of a PSRule baseline to use."
+        required: false
+        default: "Azure.Default"
+        type: string
       psrule_exclude:
         description: "Ignore rules for PSRule analysis."
         required: false
@@ -143,25 +153,20 @@ jobs:
               repo: context.repo.repo,
             };
             try {
-              core.info(`Create a comment with the text:`);
-              core.info(body);
+              core.info(`Create comment:\n${body}`);
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
                 issue_number: prNo,
                 body: body,
               });
-              if (response_cc.status > 201 || !response_cc.data) {
-                const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
-                const message = `Failed to create comment for PR ${reason}`;
-                core.setFailed(message);
-                return;
+              if (response_cc.status == 201 && response_cc.data) {
+                core.setOutput('id', response_cc.data.id);
               } else {
-                comment_id = response_cc.data.id;
+                const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
+                core.setFailed(`Failed to create comment for PR ${reason}`);
               }
-              core.setOutput('id', comment_id);
             } catch (e) {
-              const message = `Failed to comment at start: ${e}`;
-              core.setFailed(message);
+              core.setFailed(`Failed to comment at start. ${e}`);
             }
 
       - name: Checkout head ref (src)
@@ -170,150 +175,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
-
-      - name: Bicep install
-        id: bicep_install
-        if: endsWith(inputs.code_template, '.bicep')
-        uses: azure/CLI@v1
-        env:
-          SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            cmd="az bicep install"
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            az config set bicep.use_binary_from_path=False
-            echo "Run: ${cmd}"
-            eval "${cmd}"
-            az bicep version
-
-      - name: Bicep build
-        id: bicep_build
-        if: >
-          endsWith(inputs.code_template, '.bicep') &&
-          !startsWith(inputs.code_template, 'http') &&
-          !startsWith(inputs.code_template, '/subscriptions/')
-        uses: azure/CLI@v1
-        env:
-          IN_FILE: ${{ inputs.code_template }}
-          SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            out_file="${IN_FILE/.bicep/.json}"
-            cmd="az bicep build --file ${IN_FILE} --outfile ${out_file}"
-            log='bicep_build.txt'
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            echo "Run: ${cmd}"
-            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-            exit_code=$?
-            if test -f $out_file && [ $exit_code = 0 ]; then
-              echo -e "Successfully built ${out_file}" | tee -a $log
-            else
-              echo -e "\nExit code: ${exit_code}" | tee -a $log
-            fi
-            if test -f $log; then
-              result=$(cat $log)
-              echo "result<<0047393e7aacb9de" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "0047393e7aacb9de" >> "$GITHUB_OUTPUT"
-            fi
-
-      - name: Bicep param build
-        id: bicep_param_build
-        if: endsWith(inputs.parameters, '.bicepparam')
-        uses: azure/CLI@v1
-        env:
-          IN_FILE: ${{ inputs.parameters }}
-          SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            out_file="${IN_FILE/.bicepparam/.parameters.json}"
-            cmd="az bicep build-params --file ${IN_FILE} --outfile ${out_file}"
-            log='bicep_param_build.txt'
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            echo "Run: ${cmd}"
-            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-            exit_code=$?
-            if test -f $out_file && [ $exit_code = 0 ]; then
-              echo -e "Successfully built ${out_file}" | tee -a $log
-            else
-              echo -e "\nExit code: ${exit_code}" | tee -a $log
-            fi
-            if test -f $log; then
-              result=$(cat $log)
-              echo "result<<0047393e7aacb9de" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "0047393e7aacb9de" >> "$GITHUB_OUTPUT"
-            fi
-
-      - name: PSRule configuration
-        id: ps_rule_config
-        env:
-          PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
-        run: |
-          if test -f ps-rule.yaml; then
-            echo 'Use existing ps-rule.yaml'
-            exit
-          fi
-          cat > ps-rule.yaml << 81d174f4ee42ba3f
-          binding:
-            preferTargetInfo: true
-            targetType:
-              - type
-              - resourceType
-          configuration:
-            AZURE_PARAMETER_FILE_EXPANSION: true
-            AZURE_BICEP_FILE_EXPANSION: true
-            AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 10
-          execution:
-            unprocessedObject: Ignore
-          input:
-            ignoreUnchangedPath: true
-          rule:
-            exclude: [${PSRULE_RULE_EXCLUDE}]
-          81d174f4ee42ba3f
-
-      - name: PSRule analysis
-        id: ps_rule
-        uses: microsoft/ps-rule@latest
-        with:
-          inputType: inputPath
-          modules: PSRule.Rules.Azure, PSRule.Rules.CAF
-          baseline: Azure.Default
-          outputFormat: Markdown
-          outputPath: ps_rule.md
-
-      - name: PSRule analysis report
-        id: ps_rule_report
-        if: failure() || success()
-        run: |
-          if test -f ps_rule.md; then
-            result=$(cat ps_rule.md)
-            if [ "${result}" = "# PSRule" ]; then
-              echo "PSRule analysis report is empty"
-            else
-              current_pwd="$(pwd)/"
-              result=$(
-                echo "${result}" | sed -e 's|# PSRule\n\n||' \
-                  -e 's|## |#### |g' \
-                  -e "s|${current_pwd}||g"
-              )
-              echo "result<<eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "eddc1726f9bb37b6" >> "$GITHUB_OUTPUT"
-            fi
-          fi
 
       - name: Check Client secret
         id: client_secret
@@ -352,9 +213,211 @@ jobs:
           az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
             -p '${{ secrets.AZURE_AD_CLIENT_SECRET }}' $log_severity
 
+      - name: Bicep install
+        id: bicep_install
+        if: endsWith(inputs.code_template, '.bicep')
+        env:
+          SEVERITY: ${{ inputs.log_severity }}
+        run: |
+          cmd="az bicep install"
+          log='bicep_install.txt'
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          az config set bicep.use_binary_from_path=False >/dev/null 2>&1
+          echo "Run: ${cmd}" | tee -a $log
+          echo "Azure CLI $(az version | jq -r '."azure-cli"')" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          echo 'Installed extensions:' | tee -a $log
+          az version --query extensions -o yaml | tee -a $log
+          if [ $exit_code -ne 0 ]; then
+            echo -e "\nExit code: ${exit_code}"
+            if test -f $log; then
+              result=$(cat $log)
+              if test -n $result; then
+                {
+                  echo 'result<<e9febe842f46ddcd'
+                  echo -e '## Bicep install\n'
+                  echo -e "Failed with exit code ${exit_code}!\n"
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n'
+                  echo 'e9febe842f46ddcd'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
+
+      - name: Bicep build
+        id: bicep_build
+        if: >
+          endsWith(inputs.code_template, '.bicep') &&
+          !startsWith(inputs.code_template, '/subscriptions/')
+        env:
+          TEMPLATE: ${{ inputs.code_template }}
+          SEVERITY: ${{ inputs.log_severity }}
+        run: |
+          if [[ $TEMPLATE == http* ]]; then
+            curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            TEMPLATE="${TEMPLATE##*/}"
+          fi
+          out_file="${TEMPLATE/.bicep/.json}"
+          cmd="az bicep build --file ${TEMPLATE} --outfile ${out_file}"
+          log='bicep_build.txt'
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          if test -f $log; then
+            result=$(cat $log)
+            {
+              echo 'result<<0047393e7aacb9de'
+              echo -e '## Bicep build\n'
+              if [ $exit_code -ne 0 ]; then
+                echo -e "Failed with exit code ${exit_code}!\n"
+              else
+                echo -e "Successfully built ${out_file}\n"
+              fi
+              if test -n "${result}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```text'
+                echo "${result}"
+                echo -e '```\n'
+                echo -e '</details>\n'
+              fi
+              echo "0047393e7aacb9de"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bicep param build
+        id: bicep_build_params
+        if: endsWith(inputs.parameters, '.bicepparam')
+        env:
+          TEMPLATE: ${{ inputs.parameters }}
+          SEVERITY: ${{ inputs.log_severity }}
+        run: |
+          if [[ $TEMPLATE == http* ]]; then
+            curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            TEMPLATE="${TEMPLATE##*/}"
+          fi
+          out_file="${TEMPLATE/.bicepparam/.parameters.json}"
+          cmd="az bicep build-params --file ${TEMPLATE} --outfile ${out_file}"
+          log='bicep_build_params.txt'
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          if test -f $log; then
+            result=$(cat $log)
+            {
+              echo 'result<<5a82231c8acf1cbd'
+              echo -e '## Bicep build-params\n'
+              if [ $exit_code -ne 0 ]; then
+                echo -e "Failed with exit code ${exit_code}!\n"
+              else
+                echo -e "Successfully built ${out_file}\n"
+              fi
+              if test -n "${result}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```text'
+                echo "${result}"
+                echo -e '```\n'
+                echo -e '</details>\n'
+              fi
+              echo "5a82231c8acf1cbd"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: PSRule configuration
+        id: ps_rule_config
+        env:
+          PSRULE_MODULES: ${{ inputs.psrule_modules }}
+          PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
+        run: |
+          if test -f ps-rule.yaml; then
+            echo 'Use existing ps-rule.yaml'
+            exit
+          fi
+          cat > ps-rule.yaml << 81d174f4ee42ba3f
+          binding:
+            preferTargetInfo: true
+            targetType:
+              - type
+              - resourceType
+          configuration:
+            AZURE_PARAMETER_FILE_EXPANSION: true
+            AZURE_BICEP_FILE_EXPANSION: true
+            AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 10
+          execution:
+            unprocessedObject: Ignore
+          include:
+            module: [${PSRULE_MODULES}]
+          input:
+            ignoreUnchangedPath: true
+          output:
+            culture:
+              - en-US
+            footer: RuleCount
+            format: Markdown
+            jobSummaryPath: ps_rule_summary.md
+            outcome: Processed
+            style: GitHubActions
+          rule:
+            exclude: [${PSRULE_RULE_EXCLUDE}]
+          81d174f4ee42ba3f
+
+      - name: PSRule analysis
+        id: ps_rule
+        uses: microsoft/ps-rule@v2
+        with:
+          inputType: inputPath
+          modules: ${{ inputs.psrule_modules }}
+          baseline: ${{ psrule_baseline }}
+          outputFormat: Markdown
+          outputPath: ps_rule.md
+          summary: false
+
+      - name: PSRule report
+        id: ps_rule_report
+        if: failure() || success()
+        run: |
+          if test -f ps_rule.md; then
+            result=$(cat ps_rule.md)
+            if [ "${result}" = "# PSRule" ]; then
+              echo 'PSRule report is empty'
+            else
+              current_pwd="$(pwd)/"
+              {
+                echo "result<<eddc1726f9bb37b6"
+                echo -e '## PSRule\n'
+                if test -f ps_rule_summary.md; then
+                  result2=$(cat ps_rule_summary.md)
+                  echo -e "${result2}\n"
+                fi
+                echo '<details><summary>Click to expand details</summary>'
+                echo "${result}" | sed -e ':a' -e 'N' -e '$!ba' \
+                  -e 's|# PSRule\n\n||g' \
+                  -e 's|## |#### |g' \
+                  -e "s|${current_pwd}||g"
+                echo -e '</details>\n'
+                echo "eddc1726f9bb37b6"
+              } >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
       - name: Deployment what-if
         id: what_if
-        uses: azure/CLI@v1
         env:
           SCOPE: ${{ inputs.scope }}
           TEMPLATE: ${{ inputs.code_template }}
@@ -364,47 +427,67 @@ jobs:
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            cmd="az deployment ${SCOPE} what-if --name whatif-${GITHUB_RUN_ID}"
-            log='what_if.txt'
-            if [[ $TEMPLATE == http* ]]; then
-              cmd+=" --template-uri ${TEMPLATE}"
-            elif [[ $TEMPLATE == /subscriptions/* ]]; then
-              cmd+=" --template-spec ${TEMPLATE}"
-            else
-              cmd+=" --template-file ${TEMPLATE}"
-            fi
-            if test -n "${TEMPLATE_PARAMS}"; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS}"
-            fi
-            if ! [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --location ${LOCATION}"
-            fi
-            if [ "${SCOPE}" = 'mg' ]; then
-              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
-            fi
-            if [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --resource-group ${RESOURCE_GROUP}"
-            fi
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            cmd+=" --exclude-change-types Ignore NoChange --no-prompt true"
-            az account set -s ${SUBSCRIPTION_ID}
-            echo "Run: ${cmd}"
-            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-            if test -f $log; then
-              result=$(cat $log | sed -E 's/^([[:space:]]+)([-+])/\2\1/g')
-              echo "result<<7d9efa072f5be230" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "7d9efa072f5be230" >> "$GITHUB_OUTPUT"
-            fi
+        run: |
+          if [[ $TEMPLATE == http* ]]; then
+            TEMPLATE="${TEMPLATE##*/}"
+          fi
+          if [[ $TEMPLATE_PARAMS == http* ]]; then
+            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
+          fi
+          cmd="az deployment ${SCOPE} what-if --name whatif-${GITHUB_RUN_ID}"
+          log='what_if.txt'
+          if [[ $TEMPLATE == http* ]]; then
+            cmd+=" --template-uri ${TEMPLATE}"
+          elif [[ $TEMPLATE == /subscriptions/* ]]; then
+            cmd+=" --template-spec ${TEMPLATE}"
+          else
+            cmd+=" --template-file ${TEMPLATE}"
+          fi
+          if test -n "${TEMPLATE_PARAMS}"; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
+          fi
+          if ! [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --location ${LOCATION}"
+          fi
+          if [ "${SCOPE}" = 'mg' ]; then
+            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+          fi
+          if [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --resource-group ${RESOURCE_GROUP}"
+          fi
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          cmd+=' --exclude-change-types Ignore NoChange --no-prompt true'
+          az account set -s ${SUBSCRIPTION_ID}
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          if test -f $log; then
+            result=$(cat $log | sed -E 's/^([[:space:]]+)([-+])/\2\1/g')
+            {
+              echo 'result<<7d9efa072f5be230'
+              echo -e '## What-if\n'
+              if [ $exit_code -ne 0 ]; then
+                echo -e "Failed with exit code ${exit_code}!\n"
+              fi
+              if test -n "${result}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```diff'
+                echo "${result}"
+                echo -e '```\n'
+                echo -e '</details>\n'
+              fi
+              echo "7d9efa072f5be230"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Estimate cost
         id: cost
+        if: >
+          !startsWith(inputs.code_template, '/subscriptions/')
         env:
           SCOPE: ${{ inputs.scope }}
           TEMPLATE: ${{ inputs.code_template }}
@@ -415,110 +498,66 @@ jobs:
           LOCATION: ${{ inputs.location }}
           ACE_VERSION: ${{ inputs.ace_version }}
         run: |
-          TEMPLATE="${TEMPLATE/.bicep/.json}"
-          if test -f ${TEMPLATE}; then
-            server='https://github.com'
-            org='TheCloudTheory'
-            repo='arm-estimator'
-            file='linux-x64.zip'
-            url="${server}/${org}/${repo}/releases/download/${ACE_VERSION}/${file}"
-            curl -o ${file} -sSL $url
-            unzip -q ${file}
-            chmod +x ./azure-cost-estimator
-            cmd="./azure-cost-estimator"
-            case "${SCOPE}" in
-              tenant) cmd+=" ${SCOPE} ${TEMPLATE} ${LOCATION}";;
-              mg)     cmd+=" ${SCOPE} ${TEMPLATE} ${MANAGEMENT_GROUP} ${LOCATION}";;
-              sub)    cmd+=" ${SCOPE} ${TEMPLATE} ${SUBSCRIPTION_ID} ${LOCATION}";;
-              group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
-            esac
-            if test -n "${TEMPLATE_PARAMS}"; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS/.bicepparam/.parameters.json}"
-            fi
-            cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
-            echo "Run: ${cmd}"
-            eval "${cmd}" 1> >(tee -a cost.txt) 2>&1 || true
-            if test -f cost_output.json; then
-              echo "total_cost=$(cat cost_output.json | jq -r '.TotalCost')" >> "$GITHUB_OUTPUT"
-              echo "currency=$(cat cost_output.json | jq -r '.Currency')" >> "$GITHUB_OUTPUT"
-            fi
-            if test -f cost.txt; then
-              result=$(cat cost.txt)
-              echo "result<<e3599a2c6b8bc912" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "e3599a2c6b8bc912" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "Unable to estimate cost for template ${TEMPLATE}. A local file is needed."
+          CODE_TEMPLATE="${TEMPLATE##*/}"
+          if [[ $TEMPLATE == http* ]]; then
+            TEMPLATE="${TEMPLATE##*/}"
           fi
-
-      - name: Add summary
-        id: summary
-        if: failure() || success()
-        env:
-          BICEP_RESULT: ${{ steps.bicep_build.outputs.result }}
-          BICEP_PARAM_RESULT: ${{ steps.bicep_param_build.outputs.result }}
-          PS_RULE_RESULT: ${{ steps.ps_rule_report.outputs.result }}
-          WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
-          COST_RESULT: ${{ steps.cost.outputs.result }}
-        run: |
-          all_results="${WHAT_IF_RESULT}"
-          all_results+="${BICEP_RESULT}"
-          all_results+="${BICEP_PARAM_RESULT}"
-          all_results+="${PS_RULE_RESULT}"
-          all_results+="${COST_RESULT}"
-          {
-            echo '## Plan'
-            echo ''
-            if [ ${#all_results} -ge 64000 ]; then
-              echo 'Output is too large, see job log or artifacts for details!'
-            else
-              if test -n "${WHAT_IF_RESULT}"; then
-                echo "<details><summary>Click to expand</summary>"
-                echo ''
-                echo '```diff'
-                echo "${WHAT_IF_RESULT}"
-                echo ''
-                echo '```'
-                echo '</details>'
-                echo ''
+          if [[ $TEMPLATE_PARAMS == http* ]]; then
+            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
+          fi
+          TEMPLATE="${TEMPLATE/.bicep/.json}"
+          if ! test -f ${TEMPLATE}; then
+            echo "Skip: Unable to get ${CODE_TEMPLATE}."
+            exit
+          fi
+          cmd="./azure-cost-estimator"
+          log='cost.txt'
+          server='https://github.com'
+          org='TheCloudTheory'
+          repo='arm-estimator'
+          file='linux-x64.zip'
+          url="${server}/${org}/${repo}/releases/download/${ACE_VERSION}/${file}"
+          echo "Run: curl -o ${file} -sSL ${url}" | tee -a $log
+          curl -o ${file} -sSL ${url}
+          unzip -q ${file}
+          chmod +x ./azure-cost-estimator
+          case "${SCOPE}" in
+            tenant) cmd+=" ${SCOPE} ${TEMPLATE} ${LOCATION}";;
+            mg)     cmd+=" ${SCOPE} ${TEMPLATE} ${MANAGEMENT_GROUP} ${LOCATION}";;
+            sub)    cmd+=" ${SCOPE} ${TEMPLATE} ${SUBSCRIPTION_ID} ${LOCATION}";;
+            group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
+          esac
+          if test -n "${TEMPLATE_PARAMS}"; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS/.bicepparam/.parameters.json}"
+          fi
+          cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2) || true
+          exit_code=$?
+          if test -f cost_output.json; then
+            {
+              echo "total_cost=$(cat cost_output.json | jq -r '.TotalCost')"
+              echo "currency=$(cat cost_output.json | jq -r '.Currency')"
+            } >> "$GITHUB_OUTPUT"
+          fi
+          if test -f $log; then
+            result=$(cat $log)
+            {
+              echo 'result<<e3599a2c6b8bc912'
+              echo -e '## Cost\n'
+              if [ $exit_code -ne 0 ]; then
+                echo -e "Failed with exit code ${exit_code}!\n"
               fi
-              if test -n "${BICEP_RESULT}"; then
-                echo "## Bicep lint result"
-                echo ''
-                echo '<details><summary>Click to expand</summary>'
-                echo ''
+              if test -n "${result}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```text'
-                echo "${BICEP_RESULT}"
-                echo '```'
-                echo ''
-                echo '</details>'
-                echo ''
+                echo "${result}"
+                echo -e '```\n'
+                echo -e '</details>\n'
               fi
-              if test -n "${BICEP_PARAM_RESULT}"; then
-                echo '## Bicep param lint result'
-                echo ''
-                echo '<details><summary>Click to expand</summary>'
-                echo ''
-                echo '```text'
-                echo "${BICEP_PARAM_RESULT}"
-                echo '```'
-                echo ''
-                echo '</details>'
-                echo ''
-              fi
-              if test -n "${PS_RULE_RESULT}"; then
-                echo '## PSRule analysis'
-                echo ''
-                echo '<details><summary>Click to expand</summary>'
-                echo ''
-                echo "${PS_RULE_RESULT}"
-                echo ''
-                echo '</details>'
-                echo ''
-              fi
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+              echo "e3599a2c6b8bc912"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Job cancelled
         id: job_cancelled
@@ -532,6 +571,42 @@ jobs:
         shell: bash
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
+      - name: Merge results
+        id: merge_results
+        if: always()
+        env:
+          BICEP_INSTALL: ${{ steps.bicep_build.outputs.result }}
+          BICEP_BUILD: ${{ steps.bicep_build.outputs.result }}
+          BICEP_BUILD_PARAM: ${{ steps.bicep_build_params.outputs.result }}
+          PS_RULE_REPORT: ${{ steps.ps_rule_report.outputs.result }}
+          WHAT_IF: ${{ steps.what_if.outputs.result }}
+          COST: ${{ steps.cost.outputs.result }}
+          JOB_STATUS: ${{ env.JOB_STATUS }}
+        run: |
+          case "${JOB_STATUS}" in
+            cancelled) JOB_STATUS=$(echo -e "# Plan\n\nJob cancelled ❌\n\n");;
+            failed)    JOB_STATUS=$(echo -e "# Plan\n\nJob failed ⛔\n\n");;
+            *)         JOB_STATUS=$(echo -e "# Plan\n\n");;
+          esac
+          all_results="${BICEP_INSTALL}"
+          all_results+="${BICEP_BUILD}"
+          all_results+="${BICEP_BUILD_PARAM}"
+          all_results+="${PS_RULE_REPORT}"
+          all_results+="${WHAT_IF}"
+          all_results+="${COST}"
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
+          job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
+          if [ ${#all_results} -gt 64000 ]; then
+            result=$(echo -e "${JOB_STATUS}Job output is large ❗\n\n${job}")
+          elif test -z "${all_results}"; then
+            result=$(echo -e "${JOB_STATUS}Job output is missing ❓\n\n${job}")
+          else
+            result=$(echo -e "${JOB_STATUS}Job completed ✅\n\n${all_results}")
+          fi
+          echo "${result}" >> "$GITHUB_STEP_SUMMARY"
+          echo "result=${result}" >> "$GITHUB_OUTPUT"
+
       - name: Comment when done
         id: comment_when_done
         if: >
@@ -542,95 +617,41 @@ jobs:
           )
         uses: actions/github-script@v7
         env:
-          BICEP_RESULT: ${{ steps.bicep_build.outputs.result }}
-          BICEP_PARAM_RESULT: ${{ steps.bicep_param_build.outputs.result }}
-          PS_RULE_RESULT: ${{ steps.ps_rule_report.outputs.result }}
-          WHAT_IF_RESULT: ${{ steps.what_if.outputs.result }}
-          COST_RESULT: ${{ steps.cost.outputs.result }}
+          MERGE_RESULTS: ${{ steps.merge_results.outputs.result }}
           EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.id }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {BICEP_RESULT} = process.env ?? '';
-            const {BICEP_PARAM_RESULT} = process.env ?? '';
-            const {PS_RULE_RESULT} = process.env ?? '';
-            const {WHAT_IF_RESULT} = process.env ?? '';
-            const {COST_RESULT} = process.env ?? '';
+            const {MERGE_RESULTS} = process.env ?? '';
             const {EVENT_COMMENT_ID} = process.env ?? 0;
             const {SUBSCRIPTION_ID} = process.env;
-            const {PULL_REQUEST_NUMBER} = process.env;
-            const STATUS = process.env.JOB_STATUS ?? 'success';
-            const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const HEAD_REF = process.env.GITHUB_REF;
+            const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
-            const current_time = new Date();
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let body = '', report = '';
-            const details = `| Job | Commit | Actor | Subscription |
+            const body = `${MERGE_RESULTS}
+
+            ### Actions
+
+            - Review and approve the plan.
+            - Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.
+
+            The deployment will start when the pull request is reviewed and approved.
+
+            | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
-            if (STATUS == 'failed') {
-              body = `## Plan\n\nJob failed ⛔\n\n`;
-            } else if (STATUS == 'cancelled') {
-              body = `## Plan\n\nJob cancelled 🗙\n\n`;
-            } else if (!WHAT_IF_RESULT) {
-              body = `## Plan\n\n`;
-              body += `Unable to find any output from the What-If analysis.\n\n`;
-            } else {
-              body = `## Plan\n\n`;
-              report = `<details><summary>Click to expand</summary>\n\n`;
-              report += `\`\`\`diff\n`;
-              report += `${WHAT_IF_RESULT}\n`;
-              report += `\`\`\`\n\n</details>\n\n`;
-              if (BICEP_RESULT) {
-                report += `### Bicep lint result\n\n`;
-                report += `<details><summary>Click to expand</summary>\n\n`;
-                report += `\`\`\`text\n`;
-                report += `${BICEP_RESULT}\n`;
-                report += `\`\`\`\n\n</details>\n\n`;
-              }
-              if (BICEP_PARAM_RESULT) {
-                report += `### Bicep param lint result\n\n`;
-                report += `<details><summary>Click to expand</summary>\n\n`;
-                report += `\`\`\`text\n`;
-                report += `${BICEP_PARAM_RESULT}\n`;
-                report += `\`\`\`\n\n</details>\n\n`;
-              }
-              if (PS_RULE_RESULT) {
-                report += `### PSRule analysis\n\n`;
-                report += `<details><summary>Click to expand</summary>\n\n`;
-                report += `${PS_RULE_RESULT}\n</details>\n\n`;
-              }
-              if (COST_RESULT) {
-                report += `### Cost analysis\n\n`;
-                report += `<details><summary>Click to expand</summary>\n\n`;
-                report += `\`\`\`text\n`;
-                report += `${COST_RESULT}\n`;
-                report += `\`\`\`\n\n</details>\n\n`;
-              }
-              if (report.length > 64000) {
-                report = `Output is too large, please see job [#${context.runNumber}](${run_url}) for details!\n\n`;
-              }
-              body += report;
-              body += `### Actions\n\n`;
-              body += `- Review and approve the plan.\n`;
-              body += `- Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.\n\n`;
-              body += `The deployment will start when the pull request is reviewed and approved.\n\n`;
-            }
-            body += `${details}`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
             if (isNaN(comment_id) || comment_id == 0) {
-              core.info(`Create a comment with the text:`);
-              core.info(body);
+              core.info(`Create comment:\n${body}`);
               try {
                 const response_cc = await github.rest.issues.createComment({
                   ...repo,
@@ -639,17 +660,13 @@ jobs:
                 });
                 if (response_cc.status > 201 || !response_cc.data) {
                   const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
-                  const message = `Failed to create comment for PR ${reason}`;
-                  core.setFailed(message);
-                  return;
+                  core.setFailed(`Failed to create comment for PR ${reason}`);
                 }
               } catch (e) {
-                const message = `Failed to comment when done: ${e}`;
-                core.setFailed(message);
+                core.setFailed(`Failed to comment when done: ${e}`);
               }
             } else {
-              core.info(`Update comment ${comment_id} with the following text:`);
-              core.info(body);
+              core.info(`Update comment ${comment_id}:\n${body}`);
               try {
                 const response = await github.rest.issues.updateComment({
                   ...repo,
@@ -658,13 +675,10 @@ jobs:
                 });
                 if (response.status != 200 || !response.data) {
                   const reason = `${comment_id}. ${JSON.stringify(response)}`;
-                  const message = `Failed to update comment ${reason}`;
-                  core.setFailed(message);
-                  return;
+                  core.setFailed(`Failed to update comment ${reason}`);
                 }
               } catch (e) {
-                const message = `Failed to update comment ${comment_id}: ${e}`;
-                core.setFailed(message);
+                core.setFailed(`Failed to update comment ${comment_id}: ${e}`);
               }
             }
 
@@ -708,9 +722,11 @@ jobs:
         with:
           name: plan_logs
           path: |
+            bicep_install.txt
             bicep_build.txt
-            bicep_param_build.txt
+            bicep_build_params.txt
             ps_rule.md
+            ps_rule_summary.md
             ps-rule.yaml
             what_if.txt
             cost_output.json
@@ -780,25 +796,43 @@ jobs:
       - name: Bicep install
         id: bicep_install
         if: endsWith(inputs.code_template, '.bicep')
-        uses: azure/CLI@v1
         env:
           SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            cmd="az bicep install"
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            az config set bicep.use_binary_from_path=False
-            echo "Run: ${cmd}"
-            eval "${cmd}"
-            az bicep version
+        run: |
+          cmd="az bicep install"
+          log='bicep_install.txt'
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          az config set bicep.use_binary_from_path=False >/dev/null 2>&1
+          echo "Run: ${cmd}" | tee -a $log
+          echo "Azure CLI $(az version | jq -r '."azure-cli"')" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          echo 'Installed extensions:' | tee -a $log
+          az version --query extensions -o yaml | tee -a $log
+          if [ $exit_code -ne 0 ]; then
+            echo -e "\nExit code: ${exit_code}"
+            if test -f $log; then
+              result=$(cat $log)
+              if test -n $result; then
+                {
+                  echo 'result<<8cfeacefe1900f1b'
+                  echo -e '## Bicep install\n'
+                  echo -e "Failed with exit code ${exit_code}!\n"
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n'
+                  echo '8cfeacefe1900f1b'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
 
       - name: Deployment validate
         id: validate
-        uses: azure/CLI@v1
         env:
           SCOPE: ${{ inputs.scope }}
           TEMPLATE: ${{ inputs.code_template }}
@@ -809,50 +843,80 @@ jobs:
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
           PROVIDERS: ${{ inputs.azure_providers }}
-        with:
-          inlineScript: |
-            cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
-            log='validate.txt'
-            if [[ $TEMPLATE == http* ]]; then
-              cmd+=" --template-uri ${TEMPLATE}"
-            elif [[ $TEMPLATE == /subscriptions/* ]]; then
-              cmd+=" --template-spec ${TEMPLATE}"
-            else
-              cmd+=" --template-file ${TEMPLATE}"
+        run: |
+          if [[ $TEMPLATE_PARAMS == http* ]]; then
+            curl -o ${TEMPLATE_PARAMS##*/} -sSL $TEMPLATE_PARAMS 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
+          fi
+          cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
+          log='validate.txt'
+          if [[ $TEMPLATE == http* ]]; then
+            cmd+=" --template-uri ${TEMPLATE}"
+          elif [[ $TEMPLATE == /subscriptions/* ]]; then
+            cmd+=" --template-spec ${TEMPLATE}"
+          else
+            cmd+=" --template-file ${TEMPLATE}"
+          fi
+          if test -n "${TEMPLATE_PARAMS}"; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
+          fi
+          if ! [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --location ${LOCATION}"
+          fi
+          if [ "${SCOPE}" = 'mg' ]; then
+            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+          fi
+          if [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --resource-group ${RESOURCE_GROUP}"
+          fi
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          cmd+=' --no-prompt true -o json'
+          az account set -s ${SUBSCRIPTION_ID}
+          echo "Run: ${cmd}"
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          providers_in_code=''
+          if test -f $log; then
+            json_object=$(
+              cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                -e '/^[[:space:]]*$/d'
+            )
+            if [[ "${json_object}" == {* ]]; then
+              providers_in_code=$(
+                echo "${json_object}" | \
+                  jq '.properties.providers | map(.namespace) | join(" ")'
+              )
             fi
-            if test -n "${TEMPLATE_PARAMS}"; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS}"
-            fi
-            if ! [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --location ${LOCATION}"
-            fi
-            if [ "${SCOPE}" = 'mg' ]; then
-              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
-            fi
-            if [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --resource-group ${RESOURCE_GROUP}"
-            fi
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            cmd+=" --no-prompt true -o json"
-            az account set -s ${SUBSCRIPTION_ID}
-            echo "Run: ${cmd}"
-            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-            result=''
-            if test -f $log; then
-              result=$(cat $log)
-              if [[ "${result}" == {* ]]; then
-                result=$(
-                  echo "${result}" | \
-                    jq '.properties.providers | map(.namespace) | join(" ")'
-                )
+            result=$(
+              cat $log | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+            )
+            {
+              echo 'result<<7444dac159e4ee0f'
+              echo -e '## Validate\n'
+              if [ $exit_code -ne 0 ]; then
+                echo -e "Failed with exit code ${exit_code}!\n"
               fi
-            fi
-            providers=$(echo "${PROVIDERS} ${result}" | xargs)
-            echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+              if test -n "${result}"; then
+                echo '```text'
+                echo "${result}"
+                echo -e '```\n'
+              fi
+              if test -n "${json_object}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```json'
+                echo "${json_object}"
+                echo -e '```\n'
+                echo -e '</details>\n'
+              fi
+              echo "7444dac159e4ee0f"
+            } >> "$GITHUB_OUTPUT"
+          fi
+          providers=$(echo "${PROVIDERS} ${providers_in_code}" | xargs)
+          echo "providers=${providers}" >> "$GITHUB_OUTPUT"
 
       - name: Check Azure providers
         id: azure_providers
@@ -865,6 +929,7 @@ jobs:
           SEVERITY: ${{ inputs.log_severity }}
         run: |
           providers=($(echo "${PROVIDERS}" | tr ' ' '\n' | sort -u))
+          log='azure_providers.txt'
           declare -a registeringProviders=()
           case "${SEVERITY}" in
             ERROR)   log_severity=' --only-show-errors';;
@@ -878,38 +943,49 @@ jobs:
               --query "[?registrationState=='Registered'].namespace" \
               -o tsv $log_severity
           ))
+          echo -e "Registered providers:\n${registered}\n" | tee -a $log
           registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
-          echo "Registered providers: ${registered}"
           for provider in "${providers[@]}"; do
             value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
             if [[ ! " ${registered[*]} " =~ ${value} ]]; then
-              echo "Register ${provider}"
+              echo "Register ${provider}" | tee -a $log
               az provider register --consent-to-permissions \
                 --namespace $provider ${log_severity}
               registeringProviders+=($provider)
-            else
-              echo "Already registered ${provider}"
             fi
           done
           for provider in "${registeringProviders[@]}"; do
-            registrationState='Registering'
+            state='Registering'
             timesTried=0
-            while [ "${registrationState}" != 'Registered' ] || \
+            while [ "${state}" != 'Registered' ] || \
                   [ $timesTried -gt $WAIT_COUNT ]
             do
               echo "Waiting for ${provider} to register..."
-              registrationState=$(
+              state=$(
                 az provider show --namespace $provider \
                   --query "registrationState" -o tsv $log_severity
               )
               ((timesTried++))
               sleep $WAIT_SECONDS
             done
+            if ! [ "${state}" = 'Registered' ]; then
+              echo -e "Timeout: ${provider} in ${state} state..." | tee -a $log
+            fi
           done
+          if test -f $log; then
+            result=$(cat $log)
+            {
+              echo 'result<<c6502444035f7f53'
+              echo -e '## Azure resource providers\n'
+              if test -n "${result}"; then
+                echo -e "${result}\n"
+              fi
+              echo "c6502444035f7f53"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Deployment
+      - name: Deploy
         id: deploy
-        uses: azure/CLI@v1
         env:
           SCOPE: ${{ inputs.scope }}
           TEMPLATE: ${{ inputs.code_template }}
@@ -919,44 +995,60 @@ jobs:
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
-        with:
-          inlineScript: |
-            cmd="az deployment ${SCOPE} create --name deploy-${GITHUB_RUN_ID}"
-            log='deploy.txt'
-            if [[ $TEMPLATE == http* ]]; then
-              cmd+=" --template-uri ${TEMPLATE}"
-            elif [[ $TEMPLATE == /subscriptions/* ]]; then
-              cmd+=" --template-spec ${TEMPLATE}"
-            else
-              cmd+=" --template-file ${TEMPLATE}"
-            fi
-            if test -n "${TEMPLATE_PARAMS}"; then
-              cmd+=" --parameters ${TEMPLATE_PARAMS}"
-            fi
-            if ! [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --location ${LOCATION}"
-            fi
-            if [ "${SCOPE}" = 'mg' ]; then
-              cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
-            fi
-            if [ "${SCOPE}" = 'group' ]; then
-              cmd+=" --resource-group ${RESOURCE_GROUP}"
-            fi
-            case "${SEVERITY}" in
-              ERROR)   cmd+=' --only-show-errors';;
-              VERBOSE) cmd+=' --verbose';;
-              DEBUG)   cmd+=' --debug';;
-            esac
-            cmd+=" --no-prompt true"
-            az account set -s ${SUBSCRIPTION_ID}
-            echo "Run: ${cmd}"
-            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-            if test -f $log; then
-              result=$(cat $log)
-              echo "result<<f4b6bcbb24d55a01" >> "$GITHUB_OUTPUT"
-              echo "${result}" >> "$GITHUB_OUTPUT"
-              echo "f4b6bcbb24d55a01" >> "$GITHUB_OUTPUT"
-            fi
+        run: |
+          if [[ $TEMPLATE_PARAMS == http* ]]; then
+            curl -o ${TEMPLATE_PARAMS##*/} -sSL $TEMPLATE_PARAMS 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
+          fi
+          cmd="az deployment ${SCOPE} create --name deploy-${GITHUB_RUN_ID}"
+          log='deploy.txt'
+          if [[ $TEMPLATE == http* ]]; then
+            cmd+=" --template-uri ${TEMPLATE}"
+          elif [[ $TEMPLATE == /subscriptions/* ]]; then
+            cmd+=" --template-spec ${TEMPLATE}"
+          else
+            cmd+=" --template-file ${TEMPLATE}"
+          fi
+          if test -n "${TEMPLATE_PARAMS}"; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
+          fi
+          if ! [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --location ${LOCATION}"
+          fi
+          if [ "${SCOPE}" = 'mg' ]; then
+            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+          fi
+          if [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --resource-group ${RESOURCE_GROUP}"
+          fi
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          cmd+=' --no-prompt true'
+          az account set -s ${SUBSCRIPTION_ID}
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          exit_code=$?
+          if test -f $log; then
+            result=$(cat $log)
+            {
+              echo 'result<<f4b6bcbb24d55a01'
+              echo -e '## Deploy\n'
+              if [ $exit_code -ne 0 ]; then
+                echo -e "Failed with exit code ${exit_code}!\n"
+              fi
+              if test -n "${result}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```json'
+                echo "${result}"
+                echo -e '```\n'
+                echo -e '</details>\n'
+              fi
+              echo "f4b6bcbb24d55a01"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Auto merge
         id: auto_merge
@@ -966,73 +1058,52 @@ jobs:
           contains(fromJSON('["merge", "squash", "rebase"]'), inputs.merge_method)
         uses: actions/github-script@v7
         env:
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-          PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
           MERGE_METHOD: ${{ inputs.merge_method }}
           KEEP_BRANCH: ${{ inputs.keep_branch_after_merge }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {PULL_REQUEST_NUMBER} = process.env;
-            const {PULL_REQUEST_HEAD_REF} = process.env;
+            const {PR_NUMBER} = process.env;
+            const {HEAD_REF} = process.env;
             const {MERGE_METHOD} = process.env;
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let fail_message = '';
+            let message = '';
             try {
               const response = await github.rest.pulls.merge({
                 ...repo,
-                pull_number: PULL_REQUEST_NUMBER,
+                pull_number: PR_NUMBER,
                 merge_method: MERGE_METHOD,
               });
-              if (response.status != 200 || !response.data) {
-                fail_message = `Failed to merge pull request ${PULL_REQUEST_NUMBER}. Response: ${JSON.stringify(response)}`;
-              } else {
-                const message = `${response.data.message} (PR${PULL_REQUEST_NUMBER}, merged: ${response.data.merged}).`;
-                core.setOutput('merged', response.data.merged);
+              if (response.status == 200 && response.data) {
+                message = `${response.data.message}.`;
                 if (KEEP_BRANCH == 'false') {
                   const response_dr = await github.rest.git.deleteRef({
                     ...repo,
-                    ref: `heads/${PULL_REQUEST_HEAD_REF}`,
+                    ref: `heads/${HEAD_REF}`,
                   });
-                  if (response_dr.status > 204) {
-                    fail_message = `${message} Failed to delete merged branch ${PULL_REQUEST_HEAD_REF}. Response: ${JSON.stringify(response_dr)}`;
+                  if (response_dr.status == 204) {
+                    message += `\nThe ${HEAD_REF} branch was deleted.`);
                   } else {
-                    core.info(`${message} The branch '${PULL_REQUEST_HEAD_REF}' was deleted.`);
+                    message += `Failed to delete the ${HEAD_REF} branch 🚫. ${JSON.stringify(response_dr)}`;
                   }
                 }
+              } else {
+                message = `Failed to merge pull request ${PR_NUMBER} into the ${HEAD_REF} branch 🚫. ${JSON.stringify(response)}`;
               }
             } catch (e) {
-              fail_message = `Failed to merge pull request ${PULL_REQUEST_NUMBER}: ${e}`;
+              message = `Auto merge failed 🚫. ${e}`;
             }
-            if (fail_message != '') {
-              core.setOutput('fail', fail_message);
-              core.setFailed(fail_message);
+            if (message.includes('Failed')) {
+              core.setFailed(message);
+            } else {
+              core.info(message);
             }
-
-      - name: Add summary
-        id: summary
-        if: failure() || success()
-        env:
-          DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
-        run: |
-          {
-            echo '## Deployment'
-            echo ''
-            if [ ${#DEPLOY_RESULT} -ge 64500 ]; then
-              echo 'Output is too large, see job log or artifacts for details!'
-            else
-              echo '<details><summary>Click to expand</summary>''
-              echo ''
-              echo '```json'
-              echo "${DEPLOY_RESULT}"
-              echo '```'
-              echo ''
-              echo '</details>'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+            return `## Auto merge\n\n${message}\n\n`;
 
       - name: Job cancelled
         id: job_cancelled
@@ -1046,6 +1117,40 @@ jobs:
         shell: bash
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
+      - name: Merge results
+        id: merge_results
+        if: always()
+        env:
+          BICEP_INSTALL: ${{ steps.bicep_build.outputs.result }}
+          VALIDATE: ${{ steps.validate.outputs.result }}
+          AZURE_PROVIDERS: ${{ steps.azure_providers.outputs.result }}
+          DEPLOY: ${{ steps.deploy.outputs.result }}
+          AUTO_MERGE: ${{ steps.auto_merge.outputs.result }}
+          JOB_STATUS: ${{ env.JOB_STATUS }}
+        run: |
+          case "${JOB_STATUS}" in
+            cancelled) JOB_STATUS=$(echo -e "# Deploy\n\nJob cancelled ❌\n\n");;
+            failed)    JOB_STATUS=$(echo -e "# Deploy\n\nJob failed ⛔\n\n");;
+            *)         JOB_STATUS=$(echo -e "# Deploy\n\n");;
+          esac
+          all_results="${BICEP_INSTALL}"
+          all_results+="${VALIDATE}"
+          all_results+="${AZURE_PROVIDERS}"
+          all_results+="${DEPLOY}"
+          all_results+="${AUTO_MERGE}"
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
+          job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
+          if [ ${#all_results} -gt 64000 ]; then
+            result=$(echo -e "${JOB_STATUS}Job output is large ❗\n\n${job}")
+          elif test -z "${all_results}"; then
+            result=$(echo -e "${JOB_STATUS}Job output is missing ❓\n\n${job}")
+          else
+            result=$(echo -e "${JOB_STATUS}Job completed ✅\n\n${all_results}")
+          fi
+          echo "${result}" >> "$GITHUB_STEP_SUMMARY"
+          echo "result=${result}" >> "$GITHUB_OUTPUT"
+
       - name: Comment when done
         id: comment_when_done
         if: >
@@ -1053,52 +1158,29 @@ jobs:
           github.event_name == 'pull_request_review'
         uses: actions/github-script@v7
         env:
-          DEPLOY_RESULT: ${{ steps.deploy.outputs.result }}
-          AUTO_MERGE_FAIL: ${{ steps.auto_merge.outputs.fail }}
+          MERGE_RESULTS: ${{ steps.merge_results.outputs.result }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {DEPLOY_RESULT} = process.env ?? '';
-            const {AUTO_MERGE_FAIL} = process.env ?? '';
+            const {MERGE_RESULTS} = process.env ?? '';
             const {SUBSCRIPTION_ID} = process.env;
-            const STATUS = process.env.JOB_STATUS ?? 'success';
-            const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const HEAD_SHA = process.env.GITHUB_SHA;
+            const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
-            const current_time = new Date();
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            let body = '';
-            const details = `| Job | Commit | Actor | Subscription |
+            const body = `${MERGE_RESULTS}
+
+            | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
-            if (STATUS == 'failed') {
-              body = `## Deployment\n\nJob failed ⛔\n\n`;
-            } else if (STATUS == 'cancelled') {
-              body = `## Deployment\n\nJob cancelled 🗙\n\n`;
-            } else if (!DEPLOY_RESULT) {
-              body = `## Deployment\n\nDeployment result not found ⦸\n\n`;
-            } else {
-              body = `## Deployment\n\nDeployment completed ✅\n\n`;
-              if (AUTO_MERGE_FAIL != '') {
-                body += `${AUTO_MERGE_MESSAGE} 🚫\n\n`;
-              }
-              if (DEPLOY_RESULT.length > 64000) {
-                body += `Output is too large, please see job [#${context.runNumber}](${run_url}) for details!\n\n`;
-              } else {
-                body += `<details><summary>Click for details</summary>\n\n`;
-                body += `\`\`\`json\n${DEPLOY_RESULT}\n\`\`\`\n\n</details>\n\n`;
-              }
-            }
-            body += `${details}`;
-            core.info(`Create a comment with the text:`);
-            core.info(body);
+            core.info(`Create comment:\n${body}`);
             try {
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
@@ -1107,13 +1189,10 @@ jobs:
               });
               if (response_cc.status > 201 || !response_cc.data) {
                 const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
-                const message = `Failed to create comment for PR ${reason}`;
-                core.setFailed(message);
-                return;
+                core.setFailed(`Failed to create comment for PR ${reason}`);
               }
             } catch (e) {
-              const message = `Failed to comment when done: ${e}`;
-              core.setFailed(message);
+              core.setFailed(`Failed to comment when done. ${e}`);
             }
 
       - name: Dump github context
@@ -1156,6 +1235,8 @@ jobs:
         with:
           name: deploy_logs
           path: |
+            bicep_install.txt
             validate.txt
+            azure_providers.txt
             deploy.txt
           if-no-files-found: ignore

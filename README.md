@@ -134,17 +134,14 @@ jobs:
 
       # The template address.
       #
-      # A path or URI to the template / Bicep file or a template spec resource id.
+      # A path or URI to the a file or a template spec resource id.
       #
       # Default: main.bicep
       code_template: main.bicep
 
       # Deployment parameter values.
       #
-      # Parameters may be supplied from a file using the @{path} syntax, a JSON string,
-      # or as <KEY=VALUE> pairs. Parameters are evaluated in order, so when a value is
-      # assigned twice, the latter value will be used. It is recommended that you supply
-      # your parameters file first, and then override selectively using KEY=VALUE syntax.
+      # A path, URI, JSON string, or <KEY=VALUE> pairs.
       #
       # Default: ''
       parameters: main.bicepparam
@@ -167,13 +164,28 @@ jobs:
       # Default: '30'
       azure_provider_wait_count: 30
 
+      # A comma separated list of modules to use for analysis.
+      #
+      # For a list of modules see
+      # https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22
+      #
+      # Default: PSRule.Rules.Azure
+      psrule_modules: PSRule.Rules.CAF
+
+      # The name of a PSRule baseline to use.
+      #
+      # For a list of baseline names for module PSRule.Rules.Azure see
+      # https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/
+      #
+      # Default: Azure.Default
+      psrule_baseline: Azure.GA_2023_12
+
       # Ignore rules for PSRule analysis.
       #
-      # A list of names of specific rules to exclude from being evaluated.
-      # The list must be comma separated and each rule must be quoted.
+      # A comma separated list of specific rules to exclude from evaluation.
       #
       # Default: ''
-      psrule_exclude: "'Azure.Resource.UseTags', 'Azure.ACR.MinSku'"
+      psrule_exclude: Azure.Resource.UseTags, Azure.ACR.MinSku
 
       # Azure Cost Estimator version.
       #
