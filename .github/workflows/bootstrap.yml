@@ -68,7 +68,7 @@ on:
       psrule_modules:
         description: "A comma separated list of modules to use for analysis."
         required: false
-        default: "PSRule.Rules.Azure"
+        default: "Az.Resources,PSRule.Rules.Azure"
         type: string
       psrule_baseline:
         description: "The name of a PSRule baseline to use."
@@ -180,11 +180,11 @@ jobs:
         id: client_secret
         run: |
           if [ '${{ secrets.AZURE_CLIENT_SECRET }}' = '' ]; then
-            echo "Secret is not present, Log in to Azure with federated credentials."
-            echo "exist=false" >> "$GITHUB_OUTPUT"
+            echo 'Secret is not present, Log in to Azure with federated credentials.'
+            echo 'exist=false' >> "$GITHUB_OUTPUT"
           else
-            echo "Secret is not present, Log in to Azure with secret."
-            echo "exist=true" >> "$GITHUB_OUTPUT"
+            echo 'Secret is not present, Log in to Azure with secret.'
+            echo 'exist=true' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Log in to Azure (Federated)
@@ -291,7 +291,7 @@ jobs:
                 echo "${result}"
                 echo -e '```\n\n</details>'
               fi
-              echo "0047393e7aacb9de"
+              echo '0047393e7aacb9de'
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -333,7 +333,7 @@ jobs:
                 echo "${result}"
                 echo -e '```\n\n</details>'
               fi
-              echo "5a82231c8acf1cbd"
+              echo '5a82231c8acf1cbd'
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -398,7 +398,7 @@ jobs:
             else
               current_pwd="$(pwd)/"
               {
-                echo "result<<eddc1726f9bb37b6"
+                echo 'result<<eddc1726f9bb37b6'
                 echo -e '## PSRule\n'
                 if test -f ps_rule_summary.md; then
                   result2=$(cat ps_rule_summary.md)
@@ -412,7 +412,7 @@ jobs:
                   -e 's|## |### |g' \
                   -e "s|${current_pwd}||g"
                 echo -e '\n</details>'
-                echo "eddc1726f9bb37b6"
+                echo 'eddc1726f9bb37b6'
               } >> "$GITHUB_OUTPUT"
             fi
           fi
@@ -480,7 +480,7 @@ jobs:
                 echo "${result}"
                 echo -e '```\n\n</details>'
               fi
-              echo "7d9efa072f5be230"
+              echo '7d9efa072f5be230'
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -554,7 +554,7 @@ jobs:
                 echo "${result}"
                 echo -e '```\n\n</details>'
               fi
-              echo "e3599a2c6b8bc912"
+              echo 'e3599a2c6b8bc912'
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -583,9 +583,9 @@ jobs:
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
           case "${JOB_STATUS}" in
-            cancelled) JOB_STATUS=$(echo -e "# Plan\n\nJob cancelled ❌\n\nJob");;
-            failed)    JOB_STATUS=$(echo -e "# Plan\n\nJob failed ⛔\n\nJob");;
-            *)         JOB_STATUS=$(echo -e "# Plan\n\nJob");;
+            cancelled) title=$(echo -e "# Plan\n\nJob cancelled ❌\n\nJob");;
+            failed)    title=$(echo -e "# Plan\n\nJob failed ⛔\n\nJob");;
+            *)         title=$(echo -e "# Plan\n\nJob");;
           esac
           all_results="${BICEP_INSTALL}"
           all_results+=$(echo -e "\n\n${BICEP_BUILD}")
@@ -597,17 +597,19 @@ jobs:
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
           if [ ${#all_results} -gt 64000 ]; then
-            result=$(echo -e "${JOB_STATUS} output is too large ❗\n\n${job}")
+            result=$(echo -e "${title} output is too large ❗\n\n${job}")
           elif test -z "${all_results}"; then
-            result=$(echo -e "${JOB_STATUS} output is missing ❓\n\n${job}")
+            result=$(echo -e "${title} output is missing ❓\n\n${job}")
+          elif test -z "${JOB_STATUS}"; then
+            result=$(echo -e "${title} completed ✅\n\n${all_results}")
           else
-            result=$(echo -e "${JOB_STATUS} completed ✅\n\n${all_results}")
+            result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
           {
             echo 'result<<6f3a17c3a625f201'
             echo "${result}"
-            echo "6f3a17c3a625f201"
+            echo '6f3a17c3a625f201'
           } >> "$GITHUB_OUTPUT"
 
       - name: Comment when done
@@ -763,11 +765,11 @@ jobs:
         id: client_secret
         run: |
           if [ '${{ secrets.AZURE_CLIENT_SECRET }}' = '' ]; then
-            echo "Secret is not present, Log in to Azure with federated credentials."
-            echo "exist=false" >> "$GITHUB_OUTPUT"
+            echo 'Secret is not present, Log in to Azure with federated credentials.'
+            echo 'exist=false' >> "$GITHUB_OUTPUT"
           else
-            echo "Secret is not present, Log in to Azure with secret."
-            echo "exist=true" >> "$GITHUB_OUTPUT"
+            echo 'Secret is not present, Log in to Azure with secret.'
+            echo 'exist=true' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Log in to Azure (Federated)
@@ -914,7 +916,7 @@ jobs:
                 echo "${json_object}"
                 echo -e '```\n\n</details>'
               fi
-              echo "7444dac159e4ee0f"
+              echo '7444dac159e4ee0f'
             } >> "$GITHUB_OUTPUT"
           fi
           providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
@@ -945,14 +947,16 @@ jobs:
               --query "[?registrationState=='Registered'].namespace" \
               -o tsv $log_severity
           ))
-          echo -e "Registered providers:\n${registered}\n" | tee -a $log
+          echo -e "Registered providers:" | tee -a $log
+          echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')" | tee -a $log
           registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
           for provider in "${providers[@]}"; do
             value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
             if [[ ! " ${registered[*]} " =~ ${value} ]]; then
               echo "Register ${provider}" | tee -a $log
-              az provider register --consent-to-permissions \
-                --namespace $provider ${log_severity}
+              az provider register \
+                --consent-to-permissions --namespace $provider \
+                ${log_severity} 1> >(tee -a $log) 2> >(tee -a $log >&2)
               registeringProviders+=($provider)
             fi
           done
@@ -965,7 +969,8 @@ jobs:
               echo "Waiting for ${provider} to register..."
               state=$(
                 az provider show --namespace $provider \
-                  --query "registrationState" -o tsv $log_severity
+                  --query "registrationState" -o tsv \
+                  $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
               )
               ((timesTried++))
               sleep $WAIT_SECONDS
@@ -981,9 +986,9 @@ jobs:
                 echo 'result<<c6502444035f7f53'
                 echo -e '## Azure resource providers\n'
                 echo "${result}"
-                echo "c6502444035f7f53"
+                echo 'c6502444035f7f53'
               } >> "$GITHUB_OUTPUT"
-              fi
+            fi
           fi
 
       - name: Deploy
@@ -1047,7 +1052,7 @@ jobs:
                 echo "${result}"
                 echo -e '```\n\n</details>'
               fi
-              echo "f4b6bcbb24d55a01"
+              echo 'f4b6bcbb24d55a01'
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -1130,9 +1135,9 @@ jobs:
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
           case "${JOB_STATUS}" in
-            cancelled) JOB_STATUS=$(echo -e "# Deploy\n\nJob cancelled ❌\n\nJob");;
-            failed)    JOB_STATUS=$(echo -e "# Deploy\n\nJob failed ⛔\n\nJob");;
-            *)         JOB_STATUS=$(echo -e "# Deploy\n\nJob");;
+            cancelled) title=$(echo -e "# Deploy\n\nJob cancelled ❌\n\nJob");;
+            failed)    title=$(echo -e "# Deploy\n\nJob failed ⛔\n\nJob");;
+            *)         title=$(echo -e "# Deploy\n\nJob");;
           esac
           all_results="${BICEP_INSTALL}"
           all_results+=$(echo -e "\n\n${VALIDATE}")
@@ -1143,17 +1148,19 @@ jobs:
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
           if [ ${#all_results} -gt 64000 ]; then
-            result=$(echo -e "${JOB_STATUS} output is too large ❗\n\n${job}")
+            result=$(echo -e "${title} output is too large ❗\n\n${job}")
           elif test -z "${all_results}"; then
-            result=$(echo -e "${JOB_STATUS} output is missing ❓\n\n${job}")
+            result=$(echo -e "${title} output is missing ❓\n\n${job}")
+          elif test -z "${JOB_STATUS}"; then
+            result=$(echo -e "${title} completed ✅\n\n${all_results}")
           else
-            result=$(echo -e "${JOB_STATUS} completed ✅\n\n${all_results}")
+            result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
           {
             echo 'result<<c9f1e037a6f46a12'
             echo "${result}"
-            echo "c9f1e037a6f46a12"
+            echo 'c9f1e037a6f46a12'
           } >> "$GITHUB_OUTPUT"
 
       - name: Comment when done

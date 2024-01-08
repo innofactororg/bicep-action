@@ -169,8 +169,8 @@ jobs:
       # For a list of modules see
       # https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22
       #
-      # Default: PSRule.Rules.Azure
-      psrule_modules: PSRule.Rules.CAF
+      # Default: Az.Resources,PSRule.Rules.Azure
+      psrule_modules: Az.Resources,PSRule.Rules.CAF
 
       # The name of a PSRule baseline to use.
       #
