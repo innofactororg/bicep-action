@@ -628,12 +628,12 @@ jobs:
             failed)    title=$(echo -e "# Plan\n\nJob failed ⛔\n\nJob");;
             *)         title=$(echo -e "# Plan\n\nJob");;
           esac
-          all_results="${BICEP_INSTALL}"
+          all_results="${WHAT_IF}"
+          all_results+=$(echo -e "\n\n${COST}")
+          all_results+=$(echo -e "\n\n${BICEP_INSTALL}")
           all_results+=$(echo -e "\n\n${BICEP_BUILD}")
           all_results+=$(echo -e "\n\n${BICEP_BUILD_PARAM}")
           all_results+=$(echo -e "\n\n${PS_RULE_REPORT}")
-          all_results+=$(echo -e "\n\n${WHAT_IF}")
-          all_results+=$(echo -e "\n\n${COST}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
@@ -1222,10 +1222,10 @@ jobs:
             failed)    title=$(echo -e "# Deploy\n\nJob failed ⛔\n\nJob");;
             *)         title=$(echo -e "# Deploy\n\nJob");;
           esac
-          all_results="${BICEP_INSTALL}"
+          all_results="${DEPLOY}"
+          all_results+=$(echo -e "\n\n${BICEP_INSTALL}")
           all_results+=$(echo -e "\n\n${VALIDATE}")
           all_results+=$(echo -e "\n\n${AZURE_PROVIDERS}")
-          all_results+=$(echo -e "\n\n${DEPLOY}")
           all_results+=$(echo -e "\n\n${AUTO_MERGE}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
