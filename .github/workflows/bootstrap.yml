@@ -235,12 +235,12 @@ jobs:
               result=$(cat $1)
               if test -n "${result}"; then
                 {
-                  echo "result<<e9febe842f46ddcd"
-                  echo -e "## Bicep install\n"
-                  echo "```text"
+                  echo 'result<<e9febe842f46ddcd'
+                  echo -e '## Bicep install\n'
+                  echo '```text'
                   echo "${result}"
                   echo '```'
-                  echo "e9febe842f46ddcd"
+                  echo 'e9febe842f46ddcd'
                 } >> "$GITHUB_OUTPUT"
               fi
             fi
@@ -253,7 +253,8 @@ jobs:
           esac
           az config set bicep.use_binary_from_path=False >/dev/null 2>&1
           echo "Run: ${cmd}" | tee -a $log
-          echo "Azure CLI $(az version | jq -r '."azure-cli"')" | tee -a $log
+          az_version=$(az version | jq -r '."azure-cli"')
+          echo "Azure CLI ${az_version}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo 'Installed extensions:' | tee -a $log
           az version --query extensions -o yaml | tee -a $log
@@ -878,7 +879,8 @@ jobs:
           esac
           az config set bicep.use_binary_from_path=False >/dev/null 2>&1
           echo "Run: ${cmd}" | tee -a $log
-          echo "Azure CLI $(az version | jq -r '."azure-cli"')" | tee -a $log
+          az_version=$(az version | jq -r '."azure-cli"')
+          echo "Azure CLI ${az_version}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo 'Installed extensions:' | tee -a $log
           az version --query extensions -o yaml | tee -a $log
