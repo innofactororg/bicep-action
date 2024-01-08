@@ -1057,7 +1057,7 @@ jobs:
                   --query 'registrationState' -o tsv \
                   $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
               )
-              ((timesTried++))
+              timesTried=$((timesTried+1))
               sleep $WAIT_SECONDS
             done
             if ! [ "${state}" = 'Registered' ]; then
