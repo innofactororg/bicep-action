@@ -1033,7 +1033,7 @@ jobs:
               -o tsv $log_severity
           ))
           echo -e "Registered providers:" | tee -a $log
-          echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')" | tee -a $log
+          echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')\n" | tee -a $log
           registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
           for provider in "${providers[@]}"; do
             value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
