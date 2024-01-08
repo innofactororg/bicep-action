@@ -403,12 +403,14 @@ jobs:
                 echo -e '## PSRule\n'
                 if test -f ps_rule_summary.md; then
                   result2=$(cat ps_rule_summary.md)
-                  echo -e "${result2}\n"
+                  echo -e "${result2}\n" | sed -e ':a' -e 'N' -e '$!ba' \
+                    -e 's|# PSRule result summary\n\n||g' \
+                    -e 's|## |### |g'
                 fi
                 echo '<details><summary>Click to expand details</summary>'
                 echo "${result}" | sed -e ':a' -e 'N' -e '$!ba' \
                   -e 's|# PSRule\n\n||g' \
-                  -e 's|## |#### |g' \
+                  -e 's|## |### |g' \
                   -e "s|${current_pwd}||g"
                 echo -e '</details>\n'
                 echo "eddc1726f9bb37b6"
@@ -575,7 +577,7 @@ jobs:
         id: merge_results
         if: always()
         env:
-          BICEP_INSTALL: ${{ steps.bicep_build.outputs.result }}
+          BICEP_INSTALL: ${{ steps.bicep_install.outputs.result }}
           BICEP_BUILD: ${{ steps.bicep_build.outputs.result }}
           BICEP_BUILD_PARAM: ${{ steps.bicep_build_params.outputs.result }}
           PS_RULE_REPORT: ${{ steps.ps_rule_report.outputs.result }}
@@ -584,9 +586,9 @@ jobs:
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
           case "${JOB_STATUS}" in
-            cancelled) JOB_STATUS=$(echo -e "# Plan\n\nJob cancelled ❌\n\n");;
-            failed)    JOB_STATUS=$(echo -e "# Plan\n\nJob failed ⛔\n\n");;
-            *)         JOB_STATUS=$(echo -e "# Plan\n\n");;
+            cancelled) JOB_STATUS=$(echo -e "# Plan\n\nJob cancelled ❌\n\nJob");;
+            failed)    JOB_STATUS=$(echo -e "# Plan\n\nJob failed ⛔\n\nJob");;
+            *)         JOB_STATUS=$(echo -e "# Plan\n\nJob");;
           esac
           all_results="${BICEP_INSTALL}"
           all_results+="${BICEP_BUILD}"
@@ -598,14 +600,18 @@ jobs:
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
           if [ ${#all_results} -gt 64000 ]; then
-            result=$(echo -e "${JOB_STATUS}Job output is large ❗\n\n${job}")
+            result=$(echo -e "${JOB_STATUS} output is too large ❗\n\n${job}")
           elif test -z "${all_results}"; then
-            result=$(echo -e "${JOB_STATUS}Job output is missing ❓\n\n${job}")
+            result=$(echo -e "${JOB_STATUS} output is missing ❓\n\n${job}")
           else
-            result=$(echo -e "${JOB_STATUS}Job completed ✅\n\n${all_results}")
+            result=$(echo -e "${JOB_STATUS} completed ✅\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
-          echo "result=${result}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'result<<6f3a17c3a625f201'
+            echo "${result}"
+            echo "6f3a17c3a625f201"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Comment when done
         id: comment_when_done
@@ -1121,7 +1127,7 @@ jobs:
         id: merge_results
         if: always()
         env:
-          BICEP_INSTALL: ${{ steps.bicep_build.outputs.result }}
+          BICEP_INSTALL: ${{ steps.bicep_install.outputs.result }}
           VALIDATE: ${{ steps.validate.outputs.result }}
           AZURE_PROVIDERS: ${{ steps.azure_providers.outputs.result }}
           DEPLOY: ${{ steps.deploy.outputs.result }}
@@ -1129,9 +1135,9 @@ jobs:
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
           case "${JOB_STATUS}" in
-            cancelled) JOB_STATUS=$(echo -e "# Deploy\n\nJob cancelled ❌\n\n");;
-            failed)    JOB_STATUS=$(echo -e "# Deploy\n\nJob failed ⛔\n\n");;
-            *)         JOB_STATUS=$(echo -e "# Deploy\n\n");;
+            cancelled) JOB_STATUS=$(echo -e "# Deploy\n\nJob cancelled ❌\n\nJob");;
+            failed)    JOB_STATUS=$(echo -e "# Deploy\n\nJob failed ⛔\n\nJob");;
+            *)         JOB_STATUS=$(echo -e "# Deploy\n\nJob");;
           esac
           all_results="${BICEP_INSTALL}"
           all_results+="${VALIDATE}"
@@ -1142,14 +1148,18 @@ jobs:
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
           if [ ${#all_results} -gt 64000 ]; then
-            result=$(echo -e "${JOB_STATUS}Job output is large ❗\n\n${job}")
+            result=$(echo -e "${JOB_STATUS} output is too large ❗\n\n${job}")
           elif test -z "${all_results}"; then
-            result=$(echo -e "${JOB_STATUS}Job output is missing ❓\n\n${job}")
+            result=$(echo -e "${JOB_STATUS} output is missing ❓\n\n${job}")
           else
-            result=$(echo -e "${JOB_STATUS}Job completed ✅\n\n${all_results}")
+            result=$(echo -e "${JOB_STATUS} completed ✅\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
-          echo "result=${result}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'result<<c9f1e037a6f46a12'
+            echo "${result}"
+            echo "c9f1e037a6f46a12"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Comment when done
         id: comment_when_done
