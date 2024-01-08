@@ -85,16 +85,6 @@ on:
         required: false
         default: "1.3"
         type: string
-      merge_method:
-        description: "The merge method to use after a successful deployment."
-        required: false
-        default: "squash"
-        type: string
-      keep_branch_after_merge:
-        description: "Prevent deleting the branch after merge."
-        required: false
-        default: false
-        type: boolean
       log_severity:
         description: "The log verbosity."
         required: false
@@ -791,7 +781,7 @@ jobs:
     permissions:
       id-token: write # for azure login with OpenID Connect (OIDC)
       actions: read # for workflow details (upload artifacts needs write)
-      contents: read # for checkout (needs read) (auto merge need write)
+      contents: read # for checkout (needs read)
       pull-requests: write # for update issue comment
     runs-on: ubuntu-latest
     steps:
@@ -924,7 +914,7 @@ jobs:
                 )
               fi
               result=$(
-                cat $log | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+                cat $1 | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
               )
               {
                 echo 'result<<7444dac159e4ee0f'
@@ -1090,19 +1080,38 @@ jobs:
             exit $1
           }
           log_output() {
-            if test -f $1; then
-              result=$(cat $1)
-              if test -n "${result}"; then
-                {
-                  echo 'result<<f4b6bcbb24d55a01'
+            {
+              echo 'result<<f4b6bcbb24d55a01'
+              if test -f ${1}; then
+                result=$(cat ${1})
+                if test -n "${result}"; then
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n\n'
+                fi
+              fi
+              if test -f ${1}.json; then
+                json_object=$(
+                  cat ${1}.json | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                    -e '/^[[:space:]]*$/d'
+                )
+                result2=$(
+                  cat ${1}.json | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+                )
+                if test -n "${result2}"; then
+                  echo '```text'
+                  echo "${result2}"
+                  echo -e '```\n\n'
+                fi
+                if test -n "${json_object}"; then
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```json'
-                  echo "${result}"
+                  echo "${json_object}"
                   echo -e '```\n\n</details>'
-                  echo 'f4b6bcbb24d55a01'
-                } >> "$GITHUB_OUTPUT"
+                fi
               fi
-            fi
+              echo 'f4b6bcbb24d55a01'
+            } >> "$GITHUB_OUTPUT"
           }
           if [[ $TEMPLATE_PARAMS == http* ]]; then
             curl -o ${TEMPLATE_PARAMS##*/} -sSL $TEMPLATE_PARAMS 1> >(tee -a $log) 2> >(tee -a $log >&2)
@@ -1136,63 +1145,8 @@ jobs:
           cmd+=' --no-prompt true'
           az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}" | tee -a $log
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          eval "${cmd}" 1> >(tee -a ${log}.json) 2> >(tee -a $log >&2)
           log_output $log
-
-      - name: Auto merge
-        id: auto_merge
-        if: >
-          github.event_name == 'pull_request_review' &&
-          github.event.review.state == 'APPROVED' &&
-          contains(fromJSON('["merge", "squash", "rebase"]'), inputs.merge_method)
-        uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          MERGE_METHOD: ${{ inputs.merge_method }}
-          KEEP_BRANCH: ${{ inputs.keep_branch_after_merge }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const {PR_NUMBER} = process.env;
-            const {HEAD_REF} = process.env;
-            const {MERGE_METHOD} = process.env;
-            const repo = {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            };
-            let message = '';
-            try {
-              const response = await github.rest.pulls.merge({
-                ...repo,
-                pull_number: PR_NUMBER,
-                merge_method: MERGE_METHOD,
-              });
-              if (response.status == 200 && response.data) {
-                message = `${response.data.message}.`;
-                if (KEEP_BRANCH == 'false') {
-                  const response_dr = await github.rest.git.deleteRef({
-                    ...repo,
-                    ref: `heads/${HEAD_REF}`,
-                  });
-                  if (response_dr.status == 204) {
-                    message += `\nThe ${HEAD_REF} branch was deleted.`;
-                  } else {
-                    message += `Failed to delete the ${HEAD_REF} branch 🚫. ${JSON.stringify(response_dr)}`;
-                  }
-                }
-              } else {
-                message = `Failed to merge pull request ${PR_NUMBER} into the ${HEAD_REF} branch 🚫. ${JSON.stringify(response)}`;
-              }
-            } catch (e) {
-              message = `Auto merge failed 🚫. ${e}`;
-            }
-            if (message.includes('Failed')) {
-              core.setFailed(message);
-            } else {
-              core.info(message);
-            }
-            return `## Auto merge\n\n${message}\n\n`;
 
       - name: Job cancelled
         id: job_cancelled
@@ -1214,7 +1168,6 @@ jobs:
           VALIDATE: ${{ steps.validate.outputs.result }}
           AZURE_PROVIDERS: ${{ steps.azure_providers.outputs.result }}
           DEPLOY: ${{ steps.deploy.outputs.result }}
-          AUTO_MERGE: ${{ steps.auto_merge.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
           case "${JOB_STATUS}" in
@@ -1226,7 +1179,6 @@ jobs:
           all_results+=$(echo -e "\n\n${BICEP_INSTALL}")
           all_results+=$(echo -e "\n\n${VALIDATE}")
           all_results+=$(echo -e "\n\n${AZURE_PROVIDERS}")
-          all_results+=$(echo -e "\n\n${AUTO_MERGE}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"

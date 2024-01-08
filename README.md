@@ -52,9 +52,9 @@ When started, the workflow will [deploy](https://docs.microsoft.com/cli/azure/de
 
 1. Create a new branch and check in the needed code.
 1. Create a Pull Request (PR) in GitHub once the changes are ready.
-1. A GitHub Actions workflow will trigger to ensure the code is well formatted, internally consistent, and produces secure infrastructure. In addition, a What-If analysis will run to generate a preview of the changes that will happen in Azure.
-1. Once appropriately reviewed, the PR can be merged into the main branch.
-1. The changes are deployed to Azure.
+1. A GitHub Actions workflow will trigger to ensure the code is well formatted and internally consistent. In addition, a What-If analysis will run to generate a preview of the changes that will happen in Azure.
+1. The Pull Request must be reviewed and approved before it can be deployed.
+1. A GitHub Actions workflow will trigger to validate and deploy the code.
 
 ## Usage
 
@@ -195,22 +195,6 @@ jobs:
       # Default: '1.3'
       ace_version: 1.3
 
-      # The merge method to use after a successful deployment.
-      # Can be one of:
-      #
-      # merge - retain all of the commits.
-      # squash - retain the changes but omit the individual commits.
-      # rebase - move the commits to the tip of the target branch.
-      # disable - turn off auto merge.
-      #
-      # Default: squash
-      merge_method: disable
-
-      # Prevent deleting the branch after merge.
-      #
-      # Default: false
-      keep_branch_after_merge: true
-
       # The log verbosity. Can be one of:
       #
       # ERROR - Only show errors, suppressing warnings. Dump context at fail.
@@ -247,7 +231,7 @@ jobs:
     name: 🔧 Bootstrap
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@beta2
     with:
-      environment: ifsandboxvdc01
+      environment: production
       azure_tenant_id: e0bf45f5-b93b-4f96-9e73-4ea6caa2f3b4
       azure_client_id: 6a31b6a2-4558-43bb-896a-008e763058bd
       azure_subscription_id: aeac59a3-67af-474b-ac4a-67ee18414df1
@@ -261,6 +245,26 @@ jobs:
 ```
 
 <!-- end usage example -->
+
+## Branch protection
+
+To prevent changes in main branch, create a branch protection rule in the repository **Branches** settings.
+
+It is recommended to enable:
+
+- Require a pull request before merging
+  - Require approvals
+  - Dismiss stale pull request approvals when new commits are pushed
+  - Require approval of the most recent reviewable push
+- Require conversation resolution before merging
+- Require linear history
+- Require deployments to succeed before merging (and select the environment that must succeed)
+
+## Auto merge
+
+To allow pull requests to merge automatically, once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository **General** settings.
+
+When **Allow auto-merge** is enabled, it is important to prevent merging before deployment has succeeded. Therefore, remember to enable **Require deployments to succeed before merging** in **branch protection** and select the **environment** that the workflow use.
 
 ## Passing secret as input
 
