@@ -143,7 +143,7 @@ jobs:
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
-            const body = `## Job started to validate deployment... ⌛
+            const body = `## Job started to plan and validate deployment... ⌛
 
             | Job | Commit | Actor |
             | --- | --- | --- |
@@ -1176,7 +1176,7 @@ jobs:
                     ref: `heads/${HEAD_REF}`,
                   });
                   if (response_dr.status == 204) {
-                    message += `\nThe ${HEAD_REF} branch was deleted.`);
+                    message += `\nThe ${HEAD_REF} branch was deleted.`;
                   } else {
                     message += `Failed to delete the ${HEAD_REF} branch 🚫. ${JSON.stringify(response_dr)}`;
                   }
