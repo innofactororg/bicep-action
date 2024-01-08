@@ -244,7 +244,7 @@ jobs:
                   echo -e "Failed with exit code ${exit_code}!\n"
                   echo '```text'
                   echo "${result}"
-                  echo -e '```\n'
+                  echo '```'
                   echo 'e9febe842f46ddcd'
                 } >> "$GITHUB_OUTPUT"
               fi
@@ -289,8 +289,7 @@ jobs:
                 echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```text'
                 echo "${result}"
-                echo -e '```\n'
-                echo -e '</details>\n'
+                echo -e '```\n\n</details>'
               fi
               echo "0047393e7aacb9de"
             } >> "$GITHUB_OUTPUT"
@@ -332,8 +331,7 @@ jobs:
                 echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```text'
                 echo "${result}"
-                echo -e '```\n'
-                echo -e '</details>\n'
+                echo -e '```\n\n</details>'
               fi
               echo "5a82231c8acf1cbd"
             } >> "$GITHUB_OUTPUT"
@@ -376,6 +374,7 @@ jobs:
           rule:
             exclude: [${PSRULE_RULE_EXCLUDE}]
           81d174f4ee42ba3f
+          echo 'Created ps-rule.yaml'
 
       - name: PSRule analysis
         id: ps_rule
@@ -407,12 +406,12 @@ jobs:
                     -e 's|# PSRule result summary\n\n||g' \
                     -e 's|## |### |g'
                 fi
-                echo '<details><summary>Click to expand details</summary>'
+                echo -e '<details><summary>Click to expand details</summary>\n'
                 echo "${result}" | sed -e ':a' -e 'N' -e '$!ba' \
                   -e 's|# PSRule\n\n||g' \
                   -e 's|## |### |g' \
                   -e "s|${current_pwd}||g"
-                echo -e '</details>\n'
+                echo -e '\n</details>'
                 echo "eddc1726f9bb37b6"
               } >> "$GITHUB_OUTPUT"
             fi
@@ -479,8 +478,7 @@ jobs:
                 echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```diff'
                 echo "${result}"
-                echo -e '```\n'
-                echo -e '</details>\n'
+                echo -e '```\n\n</details>'
               fi
               echo "7d9efa072f5be230"
             } >> "$GITHUB_OUTPUT"
@@ -554,8 +552,7 @@ jobs:
                 echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```text'
                 echo "${result}"
-                echo -e '```\n'
-                echo -e '</details>\n'
+                echo -e '```\n\n</details>'
               fi
               echo "e3599a2c6b8bc912"
             } >> "$GITHUB_OUTPUT"
@@ -591,11 +588,11 @@ jobs:
             *)         JOB_STATUS=$(echo -e "# Plan\n\nJob");;
           esac
           all_results="${BICEP_INSTALL}"
-          all_results+="${BICEP_BUILD}"
-          all_results+="${BICEP_BUILD_PARAM}"
-          all_results+="${PS_RULE_REPORT}"
-          all_results+="${WHAT_IF}"
-          all_results+="${COST}"
+          all_results+=$(echo -e "\n\n${BICEP_BUILD}")
+          all_results+=$(echo -e "\n\n${BICEP_BUILD_PARAM}")
+          all_results+=$(echo -e "\n\n${PS_RULE_REPORT}")
+          all_results+=$(echo -e "\n\n${WHAT_IF}")
+          all_results+=$(echo -e "\n\n${COST}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
@@ -830,7 +827,7 @@ jobs:
                   echo -e "Failed with exit code ${exit_code}!\n"
                   echo '```text'
                   echo "${result}"
-                  echo -e '```\n'
+                  echo '```'
                   echo '8cfeacefe1900f1b'
                 } >> "$GITHUB_OUTPUT"
               fi
@@ -915,8 +912,7 @@ jobs:
                 echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```json'
                 echo "${json_object}"
-                echo -e '```\n'
-                echo -e '</details>\n'
+                echo -e '```\n\n</details>'
               fi
               echo "7444dac159e4ee0f"
             } >> "$GITHUB_OUTPUT"
@@ -980,14 +976,14 @@ jobs:
           done
           if test -f $log; then
             result=$(cat $log)
-            {
-              echo 'result<<c6502444035f7f53'
-              echo -e '## Azure resource providers\n'
-              if test -n "${result}"; then
-                echo -e "${result}\n"
+            if test -n "${result}"; then
+              {
+                echo 'result<<c6502444035f7f53'
+                echo -e '## Azure resource providers\n'
+                echo "${result}"
+                echo "c6502444035f7f53"
+              } >> "$GITHUB_OUTPUT"
               fi
-              echo "c6502444035f7f53"
-            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Deploy
@@ -1049,8 +1045,7 @@ jobs:
                 echo -e '<details><summary>Click to expand details</summary>\n'
                 echo '```json'
                 echo "${result}"
-                echo -e '```\n'
-                echo -e '</details>\n'
+                echo -e '```\n\n</details>'
               fi
               echo "f4b6bcbb24d55a01"
             } >> "$GITHUB_OUTPUT"
@@ -1140,10 +1135,10 @@ jobs:
             *)         JOB_STATUS=$(echo -e "# Deploy\n\nJob");;
           esac
           all_results="${BICEP_INSTALL}"
-          all_results+="${VALIDATE}"
-          all_results+="${AZURE_PROVIDERS}"
-          all_results+="${DEPLOY}"
-          all_results+="${AUTO_MERGE}"
+          all_results+=$(echo -e "\n\n${VALIDATE}")
+          all_results+=$(echo -e "\n\n${AZURE_PROVIDERS}")
+          all_results+=$(echo -e "\n\n${DEPLOY}")
+          all_results+=$(echo -e "\n\n${AUTO_MERGE}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
