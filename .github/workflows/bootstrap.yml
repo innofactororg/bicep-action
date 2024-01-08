@@ -942,11 +942,13 @@ jobs:
             *)       log_severity='';;
           esac
           az account set -s ${SUBSCRIPTION_ID}
+          exit_code=0
           registered=($(
             az provider list \
               --query "[?registrationState=='Registered'].namespace" \
               -o tsv $log_severity
           ))
+          exit_code=$?
           echo -e "Registered providers:" | tee -a $log
           echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')" | tee -a $log
           registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
@@ -957,6 +959,11 @@ jobs:
               az provider register \
                 --consent-to-permissions --namespace $provider \
                 ${log_severity} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+              exit_code=$?
+              if [ $exit_code -ne 0 ]; then
+                echo 'The "az provider register" command failed' | tee -a $log
+                break
+              fi
               registeringProviders+=($provider)
             fi
           done
@@ -972,6 +979,11 @@ jobs:
                   --query "registrationState" -o tsv \
                   $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
               )
+              exit_code=$?
+              if [ $exit_code -ne 0 ]; then
+                echo 'The "az provider show" command failed' | tee -a $log
+                break 2
+              fi
               ((timesTried++))
               sleep $WAIT_SECONDS
             done
@@ -985,7 +997,13 @@ jobs:
               {
                 echo 'result<<c6502444035f7f53'
                 echo -e '## Azure resource providers\n'
+                if [ $exit_code -ne 0 ]; then
+                  echo -e "Failed with exit code ${exit_code}!\n"
+                fi
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```text'
                 echo "${result}"
+                echo -e '```\n\n</details>'
                 echo 'c6502444035f7f53'
               } >> "$GITHUB_OUTPUT"
             fi
