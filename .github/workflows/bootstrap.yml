@@ -882,14 +882,14 @@ jobs:
           echo "Run: ${cmd}"
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           exit_code=$?
-          providers_in_code=''
+          from_code=''
           if test -f $log; then
             json_object=$(
               cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
                 -e '/^[[:space:]]*$/d'
             )
             if [[ "${json_object}" == {* ]]; then
-              providers_in_code=$(
+              from_code=$(
                 echo "${json_object}" | \
                   jq '.properties.providers | map(.namespace) | join(" ")'
               )
@@ -917,7 +917,7 @@ jobs:
               echo "7444dac159e4ee0f"
             } >> "$GITHUB_OUTPUT"
           fi
-          providers=$(echo "${PROVIDERS} ${providers_in_code}" | xargs)
+          providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
           echo "providers=${providers}" >> "$GITHUB_OUTPUT"
 
       - name: Check Azure providers
