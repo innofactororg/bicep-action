@@ -383,7 +383,7 @@ jobs:
         with:
           inputType: inputPath
           modules: ${{ inputs.psrule_modules }}
-          baseline: ${{ psrule_baseline }}
+          baseline: ${{ inputs.psrule_baseline }}
           outputFormat: Markdown
           outputPath: ps_rule.md
           summary: false
