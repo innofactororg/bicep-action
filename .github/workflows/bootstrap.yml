@@ -173,7 +173,7 @@ jobs:
             echo 'Secret is not present, Log in to Azure with federated credentials.'
             echo 'exist=false' >> "$GITHUB_OUTPUT"
           else
-            echo 'Secret is not present, Log in to Azure with secret.'
+            echo 'Secret is present, Log in to Azure with secret.'
             echo 'exist=true' >> "$GITHUB_OUTPUT"
           fi
 
@@ -201,7 +201,7 @@ jobs:
             *)       log_severity='';;
           esac
           az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
-            -p '${{ secrets.AZURE_AD_CLIENT_SECRET }}' $log_severity
+            -p '${{ secrets.AZURE_CLIENT_SECRET }}' $log_severity
 
       - name: Bicep install
         id: bicep_install
@@ -799,7 +799,7 @@ jobs:
             echo 'Secret is not present, Log in to Azure with federated credentials.'
             echo 'exist=false' >> "$GITHUB_OUTPUT"
           else
-            echo 'Secret is not present, Log in to Azure with secret.'
+            echo 'Secret is present, Log in to Azure with secret.'
             echo 'exist=true' >> "$GITHUB_OUTPUT"
           fi
 
@@ -827,7 +827,7 @@ jobs:
             *)       log_severity='';;
           esac
           az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
-            -p '${{ secrets.AZURE_AD_CLIENT_SECRET }}' $log_severity
+            -p '${{ secrets.AZURE_CLIENT_SECRET }}' $log_severity
 
       - name: Bicep install
         id: bicep_install
