@@ -146,13 +146,13 @@ jobs:
       # Default: ''
       parameters: main.bicepparam
 
-      # Required Azure resource providers.
+      # A comma separated list of Azure resource providers.
       #
       # The workflow will try to register the specified providers in addition
       # to the providers that is detected in code by deployment validate.
       #
       # Default: ''
-      azure_providers: "Microsoft.Advisor microsoft.support"
+      azure_providers: Microsoft.Advisor,microsoft.support
 
       # Seconds to wait between each provider status check.
       #
@@ -185,7 +185,7 @@ jobs:
       # A comma separated list of specific rules to exclude from evaluation.
       #
       # Default: ''
-      psrule_exclude: Azure.Resource.UseTags, Azure.ACR.MinSku
+      psrule_exclude: Azure.Resource.UseTags,Azure.ACR.MinSku
 
       # Azure Cost Estimator version.
       #
@@ -223,6 +223,44 @@ jobs:
 ```
 
 <!-- end usage -->
+
+### Usage example
+
+<!-- start usage example -->
+
+```yaml
+name: Azure Deploy
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - "**.bicep"
+      - "**.bicepparam"
+
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  deploy:
+    name: 🔧 Bootstrap
+    uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@beta2
+    with:
+      environment: ifsandboxvdc01
+      azure_tenant_id: e0bf45f5-b93b-4f96-9e73-4ea6caa2f3b4
+      azure_client_id: 6a31b6a2-4558-43bb-896a-008e763058bd
+      azure_subscription_id: aeac59a3-67af-474b-ac4a-67ee18414df1
+      location: westeurope
+      scope: sub
+      code_template: main.bicep
+      parameters: main.bicepparam
+      azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
+      psrule_exclude: Azure.Resource.UseTags,Azure.Storage.SoftDelete,Azure.Storage.ContainerSoftDelete,Azure.Storage.Firewall
+      log_severity: INFO
+```
+
+<!-- end usage example -->
 
 ## Passing secret as input
 

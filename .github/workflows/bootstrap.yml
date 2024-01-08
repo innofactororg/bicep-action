@@ -51,7 +51,7 @@ on:
         default: ""
         type: string
       azure_providers:
-        description: "Required Azure resource providers."
+        description: "A comma separated list of Azure resource providers."
         required: false
         default: ""
         type: string
