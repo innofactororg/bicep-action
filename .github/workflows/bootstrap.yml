@@ -219,8 +219,33 @@ jobs:
         env:
           SEVERITY: ${{ inputs.log_severity }}
         run: |
-          cmd="az bicep install"
+          set -e
           log='bicep_install.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo "result<<e9febe842f46ddcd"
+                  echo -e "## Bicep install\n"
+                  echo "```text"
+                  echo "${result}"
+                  echo '```'
+                  echo "e9febe842f46ddcd"
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
+          cmd="az bicep install"
           case "${SEVERITY}" in
             ERROR)   cmd+=' --only-show-errors';;
             VERBOSE) cmd+=' --verbose';;
@@ -230,26 +255,9 @@ jobs:
           echo "Run: ${cmd}" | tee -a $log
           echo "Azure CLI $(az version | jq -r '."azure-cli"')" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
           echo 'Installed extensions:' | tee -a $log
           az version --query extensions -o yaml | tee -a $log
-          if [ $exit_code -ne 0 ]; then
-            echo -e "\nExit code: ${exit_code}"
-            if test -f $log; then
-              result=$(cat $log)
-              if test -n $result; then
-                {
-                  echo 'result<<e9febe842f46ddcd'
-                  echo -e '## Bicep install\n'
-                  echo -e "Failed with exit code ${exit_code}!\n"
-                  echo '```text'
-                  echo "${result}"
-                  echo '```'
-                  echo 'e9febe842f46ddcd'
-                } >> "$GITHUB_OUTPUT"
-              fi
-            fi
-          fi
+          log_output $log
 
       - name: Bicep build
         id: bicep_build
@@ -260,13 +268,39 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
+          set -e
+          log='bicep_build.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<0047393e7aacb9de'
+                  echo -e '## Bicep build\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo '0047393e7aacb9de'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
           if [[ $TEMPLATE == http* ]]; then
             curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE="${TEMPLATE##*/}"
           fi
           out_file="${TEMPLATE/.bicep/.json}"
           cmd="az bicep build --file ${TEMPLATE} --outfile ${out_file}"
-          log='bicep_build.txt'
           case "${SEVERITY}" in
             ERROR)   cmd+=' --only-show-errors';;
             VERBOSE) cmd+=' --verbose';;
@@ -274,26 +308,7 @@ jobs:
           esac
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
-          if test -f $log; then
-            result=$(cat $log)
-            {
-              echo 'result<<0047393e7aacb9de'
-              echo -e '## Bicep build\n'
-              if [ $exit_code -ne 0 ]; then
-                echo -e "Failed with exit code ${exit_code}!\n"
-              else
-                echo -e "Successfully built ${out_file}\n"
-              fi
-              if test -n "${result}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```text'
-                echo "${result}"
-                echo -e '```\n\n</details>'
-              fi
-              echo '0047393e7aacb9de'
-            } >> "$GITHUB_OUTPUT"
-          fi
+          log_output $log
 
       - name: Bicep param build
         id: bicep_build_params
@@ -302,13 +317,39 @@ jobs:
           TEMPLATE: ${{ inputs.parameters }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
+          set -e
+          log='bicep_build_params.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<5a82231c8acf1cbd'
+                  echo -e '## Bicep build-params\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo '5a82231c8acf1cbd'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
           if [[ $TEMPLATE == http* ]]; then
             curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE="${TEMPLATE##*/}"
           fi
           out_file="${TEMPLATE/.bicepparam/.parameters.json}"
           cmd="az bicep build-params --file ${TEMPLATE} --outfile ${out_file}"
-          log='bicep_build_params.txt'
           case "${SEVERITY}" in
             ERROR)   cmd+=' --only-show-errors';;
             VERBOSE) cmd+=' --verbose';;
@@ -316,26 +357,7 @@ jobs:
           esac
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
-          if test -f $log; then
-            result=$(cat $log)
-            {
-              echo 'result<<5a82231c8acf1cbd'
-              echo -e '## Bicep build-params\n'
-              if [ $exit_code -ne 0 ]; then
-                echo -e "Failed with exit code ${exit_code}!\n"
-              else
-                echo -e "Successfully built ${out_file}\n"
-              fi
-              if test -n "${result}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```text'
-                echo "${result}"
-                echo -e '```\n\n</details>'
-              fi
-              echo '5a82231c8acf1cbd'
-            } >> "$GITHUB_OUTPUT"
-          fi
+          log_output $log
 
       - name: PSRule configuration
         id: ps_rule_config
@@ -429,6 +451,33 @@ jobs:
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
+          set -e
+          log='what_if.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1 | sed -E 's/^([[:space:]]+)([-+])/\2\1/g')
+              if test -n "${result}"; then
+                {
+                  echo 'result<<7d9efa072f5be230'
+                  echo -e '## What-if\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```diff'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo '7d9efa072f5be230'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
           if [[ $TEMPLATE == http* ]]; then
             TEMPLATE="${TEMPLATE##*/}"
           fi
@@ -436,7 +485,6 @@ jobs:
             TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
           fi
           cmd="az deployment ${SCOPE} what-if --name whatif-${GITHUB_RUN_ID}"
-          log='what_if.txt'
           if [[ $TEMPLATE == http* ]]; then
             cmd+=" --template-uri ${TEMPLATE}"
           elif [[ $TEMPLATE == /subscriptions/* ]]; then
@@ -462,27 +510,10 @@ jobs:
             DEBUG)   cmd+=' --debug';;
           esac
           cmd+=' --exclude-change-types Ignore NoChange --no-prompt true'
-          az account set -s ${SUBSCRIPTION_ID}
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
-          if test -f $log; then
-            result=$(cat $log | sed -E 's/^([[:space:]]+)([-+])/\2\1/g')
-            {
-              echo 'result<<7d9efa072f5be230'
-              echo -e '## What-if\n'
-              if [ $exit_code -ne 0 ]; then
-                echo -e "Failed with exit code ${exit_code}!\n"
-              fi
-              if test -n "${result}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```diff'
-                echo "${result}"
-                echo -e '```\n\n</details>'
-              fi
-              echo '7d9efa072f5be230'
-            } >> "$GITHUB_OUTPUT"
-          fi
+          log_output $log
 
       - name: Estimate cost
         id: cost
@@ -498,6 +529,33 @@ jobs:
           LOCATION: ${{ inputs.location }}
           ACE_VERSION: ${{ inputs.ace_version }}
         run: |
+          set -e
+          log='cost.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<e3599a2c6b8bc912'
+                  echo -e '## Cost\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo 'e3599a2c6b8bc912'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
           CODE_TEMPLATE="${TEMPLATE##*/}"
           if [[ $TEMPLATE == http* ]]; then
             TEMPLATE="${TEMPLATE##*/}"
@@ -511,7 +569,6 @@ jobs:
             exit
           fi
           cmd="./azure-cost-estimator"
-          log='cost.txt'
           server='https://github.com'
           org='TheCloudTheory'
           repo='arm-estimator'
@@ -533,28 +590,11 @@ jobs:
           cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2) || true
-          exit_code=$?
+          log_output $log
           if test -f cost_output.json; then
             {
               echo "total_cost=$(cat cost_output.json | jq -r '.TotalCost')"
               echo "currency=$(cat cost_output.json | jq -r '.Currency')"
-            } >> "$GITHUB_OUTPUT"
-          fi
-          if test -f $log; then
-            result=$(cat $log)
-            {
-              echo 'result<<e3599a2c6b8bc912'
-              echo -e '## Cost\n'
-              if [ $exit_code -ne 0 ]; then
-                echo -e "Failed with exit code ${exit_code}!\n"
-              fi
-              if test -n "${result}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```text'
-                echo "${result}"
-                echo -e '```\n\n</details>'
-              fi
-              echo 'e3599a2c6b8bc912'
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -804,8 +844,33 @@ jobs:
         env:
           SEVERITY: ${{ inputs.log_severity }}
         run: |
-          cmd="az bicep install"
+          set -e
           log='bicep_install.txt'
+          trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
+          error_handler() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<8cfeacefe1900f1b'
+                  echo -e '## Bicep install\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo '```'
+                  echo '8cfeacefe1900f1b'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
+          cmd="az bicep install"
           case "${SEVERITY}" in
             ERROR)   cmd+=' --only-show-errors';;
             VERBOSE) cmd+=' --verbose';;
@@ -815,26 +880,9 @@ jobs:
           echo "Run: ${cmd}" | tee -a $log
           echo "Azure CLI $(az version | jq -r '."azure-cli"')" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
           echo 'Installed extensions:' | tee -a $log
           az version --query extensions -o yaml | tee -a $log
-          if [ $exit_code -ne 0 ]; then
-            echo -e "\nExit code: ${exit_code}"
-            if test -f $log; then
-              result=$(cat $log)
-              if test -n $result; then
-                {
-                  echo 'result<<8cfeacefe1900f1b'
-                  echo -e '## Bicep install\n'
-                  echo -e "Failed with exit code ${exit_code}!\n"
-                  echo '```text'
-                  echo "${result}"
-                  echo '```'
-                  echo '8cfeacefe1900f1b'
-                } >> "$GITHUB_OUTPUT"
-              fi
-            fi
-          fi
+          log_output $log
 
       - name: Deployment validate
         id: validate
@@ -849,12 +897,58 @@ jobs:
           SEVERITY: ${{ inputs.log_severity }}
           PROVIDERS: ${{ inputs.azure_providers }}
         run: |
+          set -e
+          log='validate.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            from_code=''
+            if test -f $1; then
+              json_object=$(
+                cat $1 | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                  -e '/^[[:space:]]*$/d'
+              )
+              if [[ "${json_object}" == {* ]]; then
+                from_code=$(
+                  echo "${json_object}" | \
+                    jq '.properties.providers | map(.namespace) | join(" ")'
+                )
+              fi
+              result=$(
+                cat $log | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+              )
+              {
+                echo 'result<<7444dac159e4ee0f'
+                echo -e '## Validate\n'
+                if test -n "${result}"; then
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n'
+                fi
+                if test -n "${json_object}"; then
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```json'
+                  echo "${json_object}"
+                  echo -e '```\n\n</details>'
+                fi
+                echo '7444dac159e4ee0f'
+              } >> "$GITHUB_OUTPUT"
+            fi
+            providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
+            echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+          }
           if [[ $TEMPLATE_PARAMS == http* ]]; then
             curl -o ${TEMPLATE_PARAMS##*/} -sSL $TEMPLATE_PARAMS 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
           fi
           cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
-          log='validate.txt'
           if [[ $TEMPLATE == http* ]]; then
             cmd+=" --template-uri ${TEMPLATE}"
           elif [[ $TEMPLATE == /subscriptions/* ]]; then
@@ -880,47 +974,10 @@ jobs:
             DEBUG)   cmd+=' --debug';;
           esac
           cmd+=' --no-prompt true -o json'
-          az account set -s ${SUBSCRIPTION_ID}
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}"
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
-          from_code=''
-          if test -f $log; then
-            json_object=$(
-              cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
-                -e '/^[[:space:]]*$/d'
-            )
-            if [[ "${json_object}" == {* ]]; then
-              from_code=$(
-                echo "${json_object}" | \
-                  jq '.properties.providers | map(.namespace) | join(" ")'
-              )
-            fi
-            result=$(
-              cat $log | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
-            )
-            {
-              echo 'result<<7444dac159e4ee0f'
-              echo -e '## Validate\n'
-              if [ $exit_code -ne 0 ]; then
-                echo -e "Failed with exit code ${exit_code}!\n"
-              fi
-              if test -n "${result}"; then
-                echo '```text'
-                echo "${result}"
-                echo -e '```\n'
-              fi
-              if test -n "${json_object}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```json'
-                echo "${json_object}"
-                echo -e '```\n\n</details>'
-              fi
-              echo '7444dac159e4ee0f'
-            } >> "$GITHUB_OUTPUT"
-          fi
-          providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
-          echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+          log_output $log
 
       - name: Check Azure providers
         id: azure_providers
@@ -932,8 +989,34 @@ jobs:
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
-          providers=($(echo "${PROVIDERS}" | tr ' ' '\n' | sort -u))
+          set -e
           log='azure_providers.txt'
+          trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
+          error_handler() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<c6502444035f7f53'
+                  echo -e '## Azure resource providers\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo 'c6502444035f7f53'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
+          providers=($(echo "${PROVIDERS}" | tr ' ' '\n' | sort -u))
           declare -a registeringProviders=()
           case "${SEVERITY}" in
             ERROR)   log_severity=' --only-show-errors';;
@@ -941,14 +1024,12 @@ jobs:
             DEBUG)   log_severity=' --debug';;
             *)       log_severity='';;
           esac
-          az account set -s ${SUBSCRIPTION_ID}
-          exit_code=0
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           registered=($(
             az provider list \
               --query "[?registrationState=='Registered'].namespace" \
               -o tsv $log_severity
           ))
-          exit_code=$?
           echo -e "Registered providers:" | tee -a $log
           echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')" | tee -a $log
           registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
@@ -959,11 +1040,6 @@ jobs:
               az provider register \
                 --consent-to-permissions --namespace $provider \
                 ${log_severity} 1> >(tee -a $log) 2> >(tee -a $log >&2)
-              exit_code=$?
-              if [ $exit_code -ne 0 ]; then
-                echo 'The "az provider register" command failed' | tee -a $log
-                break
-              fi
               registeringProviders+=($provider)
             fi
           done
@@ -976,14 +1052,9 @@ jobs:
               echo "Waiting for ${provider} to register..."
               state=$(
                 az provider show --namespace $provider \
-                  --query "registrationState" -o tsv \
+                  --query 'registrationState' -o tsv \
                   $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
               )
-              exit_code=$?
-              if [ $exit_code -ne 0 ]; then
-                echo 'The "az provider show" command failed' | tee -a $log
-                break 2
-              fi
               ((timesTried++))
               sleep $WAIT_SECONDS
             done
@@ -991,23 +1062,7 @@ jobs:
               echo -e "Timeout: ${provider} in ${state} state..." | tee -a $log
             fi
           done
-          if test -f $log; then
-            result=$(cat $log)
-            if test -n "${result}"; then
-              {
-                echo 'result<<c6502444035f7f53'
-                echo -e '## Azure resource providers\n'
-                if [ $exit_code -ne 0 ]; then
-                  echo -e "Failed with exit code ${exit_code}!\n"
-                fi
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```text'
-                echo "${result}"
-                echo -e '```\n\n</details>'
-                echo 'c6502444035f7f53'
-              } >> "$GITHUB_OUTPUT"
-            fi
-          fi
+          log_output $log
 
       - name: Deploy
         id: deploy
@@ -1021,12 +1076,37 @@ jobs:
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
+          set -e
+          log='deploy.txt'
+          trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
+          error_handler() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<f4b6bcbb24d55a01'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```json'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo 'f4b6bcbb24d55a01'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
           if [[ $TEMPLATE_PARAMS == http* ]]; then
             curl -o ${TEMPLATE_PARAMS##*/} -sSL $TEMPLATE_PARAMS 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
           fi
           cmd="az deployment ${SCOPE} create --name deploy-${GITHUB_RUN_ID}"
-          log='deploy.txt'
           if [[ $TEMPLATE == http* ]]; then
             cmd+=" --template-uri ${TEMPLATE}"
           elif [[ $TEMPLATE == /subscriptions/* ]]; then
@@ -1052,27 +1132,10 @@ jobs:
             DEBUG)   cmd+=' --debug';;
           esac
           cmd+=' --no-prompt true'
-          az account set -s ${SUBSCRIPTION_ID}
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          exit_code=$?
-          if test -f $log; then
-            result=$(cat $log)
-            {
-              echo 'result<<f4b6bcbb24d55a01'
-              echo -e '## Deploy\n'
-              if [ $exit_code -ne 0 ]; then
-                echo -e "Failed with exit code ${exit_code}!\n"
-              fi
-              if test -n "${result}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```json'
-                echo "${result}"
-                echo -e '```\n\n</details>'
-              fi
-              echo 'f4b6bcbb24d55a01'
-            } >> "$GITHUB_OUTPUT"
-          fi
+          log_output $log
 
       - name: Auto merge
         id: auto_merge
