@@ -509,7 +509,7 @@ jobs:
         id: ps_rule
         uses: microsoft/ps-rule@v2
         with:
-          inputType: inputPath
+          inputType: repository
           modules: ${{ inputs.psrule_modules }}
           baseline: ${{ inputs.psrule_baseline }}
           outputFormat: Markdown
