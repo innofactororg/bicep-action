@@ -141,7 +141,7 @@ jobs:
 
       # Deployment parameter values.
       #
-      # A path, URI, JSON string, or <KEY=VALUE> pairs.
+      # Either a path, URI, JSON string, or <KEY=VALUE> pairs.
       #
       # Default: ''
       parameters: main.bicepparam

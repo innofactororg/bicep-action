@@ -253,7 +253,6 @@ jobs:
       - name: Bicep build
         id: bicep_build
         if: >
-          endsWith(inputs.code_template, '.bicep') &&
           !startsWith(inputs.code_template, '/subscriptions/')
         env:
           TEMPLATE: ${{ inputs.code_template }}
@@ -287,23 +286,28 @@ jobs:
             fi
           }
           if [[ $TEMPLATE == http* ]]; then
+            echo "Download ${TEMPLATE}"
             curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE="${TEMPLATE##*/}"
           fi
           out_file="${TEMPLATE/.bicep/.json}"
-          cmd="az bicep build --file ${TEMPLATE} --outfile ${out_file}"
-          case "${SEVERITY}" in
-            ERROR)   cmd+=' --only-show-errors';;
-            VERBOSE) cmd+=' --verbose';;
-            DEBUG)   cmd+=' --debug';;
-          esac
-          echo "Run: ${cmd}" | tee -a $log
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
+          if [[ $TEMPLATE == *.bicep ]]; then
+            cmd="az bicep build --file ${TEMPLATE} --outfile ${out_file}"
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            echo "Run: ${cmd}" | tee -a $log
+            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            log_output $log
+          else
+            echo "Skip bicep build, not a bicep file: ${TEMPLATE}"
+          fi
+          echo "JSON_FILE=${out_file}" >> "$GITHUB_OUTPUT"
 
       - name: Bicep param build
         id: bicep_build_params
-        if: endsWith(inputs.parameters, '.bicepparam')
         env:
           TEMPLATE: ${{ inputs.parameters }}
           SEVERITY: ${{ inputs.log_severity }}
@@ -336,29 +340,43 @@ jobs:
             fi
           }
           if [[ $TEMPLATE == http* ]]; then
+            echo "Download ${TEMPLATE}"
             curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE="${TEMPLATE##*/}"
           fi
           out_file="${TEMPLATE/.bicepparam/.parameters.json}"
-          cmd="az bicep build-params --file ${TEMPLATE} --outfile ${out_file}"
-          case "${SEVERITY}" in
-            ERROR)   cmd+=' --only-show-errors';;
-            VERBOSE) cmd+=' --verbose';;
-            DEBUG)   cmd+=' --debug';;
-          esac
-          echo "Run: ${cmd}" | tee -a $log
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
+          if [[ $TEMPLATE == *.bicepparam ]]; then
+            cmd="az bicep build-params --file ${TEMPLATE} --outfile ${out_file}"
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            echo "Run: ${cmd}" | tee -a $log
+            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            log_output $log
+          else
+            echo "Skip bicep build, not a bicep file: ${TEMPLATE}"
+          fi
+          echo "JSON_FILE=${out_file}" >> "$GITHUB_OUTPUT"
 
       - name: PSRule configuration
         id: ps_rule_config
+        if: steps.bicep_build.outputs.JSON_FILE != ''
         env:
+          TEMPLATE: ${{ steps.bicep_build.outputs.JSON_FILE }}
+          TEMPLATE_PARAMS: ${{ steps.bicep_build_params.outputs.JSON_FILE }}
           PSRULE_MODULES: ${{ inputs.psrule_modules }}
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
         run: |
           if test -f ps-rule.yaml; then
             echo 'Use existing ps-rule.yaml'
             exit
+          fi
+          if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
+            include_file=$TEMPLATE_PARAMS
+          else
+            include_file=$TEMPLATE
           fi
           cat > ps-rule.yaml << 81d174f4ee42ba3f
           binding:
@@ -368,14 +386,15 @@ jobs:
               - resourceType
           configuration:
             AZURE_PARAMETER_FILE_EXPANSION: true
-            AZURE_BICEP_FILE_EXPANSION: true
-            AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 10
           execution:
             unprocessedObject: Ignore
           include:
             module: [${PSRULE_MODULES}]
           input:
             ignoreUnchangedPath: true
+            pathIgnore:
+              - '*'
+              - '!**/${include_file}'
           output:
             culture:
               - en-US
@@ -508,12 +527,11 @@ jobs:
 
       - name: Estimate cost
         id: cost
-        if: >
-          !startsWith(inputs.code_template, '/subscriptions/')
+        if: steps.bicep_build.outputs.JSON_FILE != ''
         env:
           SCOPE: ${{ inputs.scope }}
-          TEMPLATE: ${{ inputs.code_template }}
-          TEMPLATE_PARAMS: ${{ inputs.parameters }}
+          TEMPLATE: ${{ steps.bicep_build.outputs.JSON_FILE }}
+          TEMPLATE_PARAMS: ${{ steps.bicep_build_params.outputs.JSON_FILE }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
@@ -547,16 +565,8 @@ jobs:
               fi
             fi
           }
-          CODE_TEMPLATE="${TEMPLATE##*/}"
-          if [[ $TEMPLATE == http* ]]; then
-            TEMPLATE="${TEMPLATE##*/}"
-          fi
-          if [[ $TEMPLATE_PARAMS == http* ]]; then
-            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
-          fi
-          TEMPLATE="${TEMPLATE/.bicep/.json}"
           if ! test -f ${TEMPLATE}; then
-            echo "Skip: Unable to get ${CODE_TEMPLATE}."
+            echo "Skip: Unable to find ${TEMPLATE}."
             exit
           fi
           cmd="./azure-cost-estimator"
@@ -576,7 +586,7 @@ jobs:
             group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
           esac
           if test -n "${TEMPLATE_PARAMS}"; then
-            cmd+=" --parameters ${TEMPLATE_PARAMS/.bicepparam/.parameters.json}"
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
           fi
           cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
           echo "Run: ${cmd}" | tee -a $log
@@ -767,6 +777,8 @@ jobs:
             what_if.txt
             cost_output.json
             cost.txt
+            ${{ steps.bicep_build.outputs.JSON_FILE }}
+            ${{ steps.bicep_build_params.outputs.JSON_FILE }}
           if-no-files-found: ignore
 
   deploy:
