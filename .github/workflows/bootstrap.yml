@@ -80,6 +80,11 @@ on:
         required: false
         default: ""
         type: string
+      psrule_path_ignore:
+        description: "A comma separated list of paths to ignore for analysis."
+        required: false
+        default: "bicepconfig.json,modules/**/*.bicep"
+        type: string
       ace_version:
         description: "Azure Cost Estimator version."
         required: false
@@ -442,6 +447,7 @@ jobs:
         env:
           TEMPLATE: ${{ steps.bicep_build.outputs.JSON_FILE }}
           TEMPLATE_PARAMS: ${{ steps.bicep_build_params.outputs.JSON_FILE }}
+          PSRULE_IGNORE: ${{ inputs.psrule_path_ignore }}
           PSRULE_MODULES: ${{ inputs.psrule_modules }}
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
         run: |
@@ -485,9 +491,7 @@ jobs:
           include:
             module: [${PSRULE_MODULES}]
           input:
-            pathIgnore:
-              - '*'
-              - '!**/${include}'
+            pathIgnore: [${PSRULE_IGNORE}]
           output:
             culture:
               - en-US

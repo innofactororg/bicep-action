@@ -187,6 +187,11 @@ jobs:
       # Default: ''
       psrule_exclude: Azure.Resource.UseTags,Azure.ACR.MinSku
 
+      # A comma separated list of paths to ignore for analysis.
+      #
+      # Default: 'bicepconfig.json,modules/**/*.bicep'
+      psrule_path_ignore: bicepconfig.json,modules/**/*.bicep
+
       # Azure Cost Estimator version.
       #
       # The version to use for cost estimation. See versions at
