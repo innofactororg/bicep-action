@@ -563,6 +563,7 @@ jobs:
           SCOPE: ${{ inputs.scope }}
           TEMPLATE: ${{ steps.bicep_build.outputs.JSON_FILE }}
           TEMPLATE_PARAMS: ${{ steps.bicep_build_params.outputs.JSON_FILE }}
+          IN_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
@@ -588,7 +589,28 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<e3599a2c6b8bc912'
-                  echo -e '## Cost\n'
+                  echo -e '## Cost estimate (month)\n'
+                  if test -f $2; then
+                    total=$(jq -r '.TotalCost | select (.!=null)' $2)
+                    delta=$(jq -r '.Delta | select (.!=null)' $2)
+                    currency=$(jq -r '.Currency | select (.!=null)' $2)
+                    if [ "${total}" != "${delta}" ]; then
+                      if [ "${delta}" = "0.00" ]; then
+                        echo 'No change detected!'
+                      else
+                        if [ $(echo "${delta} > 0" | bc -l) -eq 1 ]; then
+                          echo "Estimated increase is +${delta} ${currency}!"
+                        else
+                          echo "Estimated decrease is -${delta} ${currency}!"
+                        fi
+                      fi
+                      echo -e "Total estimated cost is ${total} ${currency}.\n"
+                    elif [ "${total}" = "0.00" ]; then
+                      echo -e 'No cost detected!\n'
+                    else
+                      echo -e "Estimated increase is +${total} ${currency}!\n"
+                    fi
+                  fi
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
                   echo "${result}"
@@ -618,22 +640,23 @@ jobs:
             sub)    cmd+=" ${SCOPE} ${TEMPLATE} ${SUBSCRIPTION_ID} ${LOCATION}";;
             group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
           esac
-          if test -n "${TEMPLATE_PARAMS}"; then
+          if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
             cmd+=" --parameters ${TEMPLATE_PARAMS}"
           fi
-          cmd+=' --disableDetailedMetrics --disable-cache --generateJsonOutput'
-          cmd+=" --currency ${ACE_CURRENCY}"
-          cmd+=" --threshold ${ACE_THRESHOLD}"
-          cmd+=" --jsonOutputFilename cost_output.json"
+          if [[ $IN_PARAMS == *=* ]]; then
+            param_list=($IN_PARAMS)
+            for pair in "${param_list[@]}"; do
+              if test -n "${pair%=*}"; then
+                cmd+=" --inline ${pair%=*}=${pair#*=}"
+              fi
+            done
+          fi
+          cmd+=" --currency ${ACE_CURRENCY} --threshold ${ACE_THRESHOLD}"
+          cmd+=' --disable-cache --generateJsonOutput'
+          cmd+=' --jsonOutputFilename cost_output'
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2) || true
-          log_output $log
-          if test -f cost_output.json; then
-            {
-              echo "total_cost=$(cat cost_output.json | jq -r '.TotalCost')"
-              echo "currency=$(cat cost_output.json | jq -r '.Currency')"
-            } >> "$GITHUB_OUTPUT"
-          fi
+          log_output $log cost_output.json
 
       - name: Job cancelled
         id: job_cancelled
