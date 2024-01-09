@@ -90,6 +90,16 @@ on:
         required: false
         default: "1.3"
         type: string
+      ace_currency:
+        description: "Currency code to use for estimations."
+        required: false
+        default: "EUR"
+        type: string
+      ace_threshold:
+        description: "Max acceptable estimated cost."
+        required: false
+        default: "-1"
+        type: string
       log_severity:
         description: "The log verbosity."
         required: false
@@ -558,6 +568,8 @@ jobs:
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           ACE_VERSION: ${{ inputs.ace_version }}
+          ACE_CURRENCY: ${{ inputs.ace_currency }}
+          ACE_THRESHOLD: ${{ inputs.ace_threshold }}
         run: |
           set -e
           log='cost.txt'
@@ -609,7 +621,10 @@ jobs:
           if test -n "${TEMPLATE_PARAMS}"; then
             cmd+=" --parameters ${TEMPLATE_PARAMS}"
           fi
-          cmd+=" --disableDetailedMetrics --generateJsonOutput --jsonOutputFilename cost_output.json"
+          cmd+=' --disableDetailedMetrics --disable-cache --generateJsonOutput'
+          cmd+=" --currency ${ACE_CURRENCY}"
+          cmd+=" --threshold ${ACE_THRESHOLD}"
+          cmd+=" --jsonOutputFilename cost_output.json"
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2) || true
           log_output $log

@@ -200,6 +200,21 @@ jobs:
       # Default: '1.3'
       ace_version: 1.3
 
+      # Currency code to use for estimations.
+      #
+      # See allowed values at
+      # https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency
+      #
+      # Default: 'EUR'
+      ace_currency: USD
+
+      # Max acceptable estimated cost.
+      #
+      # Exceeding threshold causes plan to fail.
+      #
+      # Default: '-1'
+      ace_threshold: 1000
+
       # The log verbosity. Can be one of:
       #
       # ERROR - Only show errors, suppressing warnings. Dump context at fail.
