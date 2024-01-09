@@ -197,7 +197,7 @@ jobs:
       # The version to use for cost estimation. See versions at
       # https://github.com/TheCloudTheory/arm-estimator/releases
       #
-      # Default: '1.3'
+      # Default: '1.4-beta1'
       ace_version: 1.3
 
       # Currency code to use for estimations.
