@@ -360,6 +360,82 @@ jobs:
           fi
           echo "JSON_FILE=${out_file}" >> "$GITHUB_OUTPUT"
 
+      - name: Deployment what-if
+        id: what_if
+        env:
+          SCOPE: ${{ inputs.scope }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
+          MANAGEMENT_GROUP: ${{ inputs.management_group }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          RESOURCE_GROUP: ${{ inputs.resource_group }}
+          LOCATION: ${{ inputs.location }}
+          SEVERITY: ${{ inputs.log_severity }}
+        run: |
+          set -e
+          log='what_if.txt'
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1 | sed -E 's/^([[:space:]]+)([-+])/\2\1/g')
+              if test -n "${result}"; then
+                {
+                  echo 'result<<7d9efa072f5be230'
+                  echo -e '## What-if\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo '```diff'
+                  echo "${result}"
+                  echo -e '```\n\n</details>'
+                  echo '7d9efa072f5be230'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
+          if [[ $TEMPLATE == http* ]]; then
+            TEMPLATE="${TEMPLATE##*/}"
+          fi
+          if [[ $TEMPLATE_PARAMS == http* ]]; then
+            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
+          fi
+          cmd="az deployment ${SCOPE} what-if --name whatif-${GITHUB_RUN_ID}"
+          if [[ $TEMPLATE == http* ]]; then
+            cmd+=" --template-uri ${TEMPLATE}"
+          elif [[ $TEMPLATE == /subscriptions/* ]]; then
+            cmd+=" --template-spec ${TEMPLATE}"
+          else
+            cmd+=" --template-file ${TEMPLATE}"
+          fi
+          if test -n "${TEMPLATE_PARAMS}"; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
+          fi
+          if ! [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --location ${LOCATION}"
+          fi
+          if [ "${SCOPE}" = 'mg' ]; then
+            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+          fi
+          if [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --resource-group ${RESOURCE_GROUP}"
+          fi
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          cmd+=' --exclude-change-types Ignore NoChange --no-prompt true'
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          log_output $log
+
       - name: PSRule configuration
         id: ps_rule_config
         if: steps.bicep_build.outputs.JSON_FILE != ''
@@ -465,82 +541,6 @@ jobs:
               } >> "$GITHUB_OUTPUT"
             fi
           fi
-
-      - name: Deployment what-if
-        id: what_if
-        env:
-          SCOPE: ${{ inputs.scope }}
-          TEMPLATE: ${{ inputs.code_template }}
-          TEMPLATE_PARAMS: ${{ inputs.parameters }}
-          MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
-          LOCATION: ${{ inputs.location }}
-          SEVERITY: ${{ inputs.log_severity }}
-        run: |
-          set -e
-          log='what_if.txt'
-          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
-          error() {
-            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
-            log_output "$4"
-            exit $1
-          }
-          log_output() {
-            if test -f $1; then
-              result=$(cat $1 | sed -E 's/^([[:space:]]+)([-+])/\2\1/g')
-              if test -n "${result}"; then
-                {
-                  echo 'result<<7d9efa072f5be230'
-                  echo -e '## What-if\n'
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```diff'
-                  echo "${result}"
-                  echo -e '```\n\n</details>'
-                  echo '7d9efa072f5be230'
-                } >> "$GITHUB_OUTPUT"
-              fi
-            fi
-          }
-          if [[ $TEMPLATE == http* ]]; then
-            TEMPLATE="${TEMPLATE##*/}"
-          fi
-          if [[ $TEMPLATE_PARAMS == http* ]]; then
-            TEMPLATE_PARAMS="${TEMPLATE_PARAMS##*/}"
-          fi
-          cmd="az deployment ${SCOPE} what-if --name whatif-${GITHUB_RUN_ID}"
-          if [[ $TEMPLATE == http* ]]; then
-            cmd+=" --template-uri ${TEMPLATE}"
-          elif [[ $TEMPLATE == /subscriptions/* ]]; then
-            cmd+=" --template-spec ${TEMPLATE}"
-          else
-            cmd+=" --template-file ${TEMPLATE}"
-          fi
-          if test -n "${TEMPLATE_PARAMS}"; then
-            cmd+=" --parameters ${TEMPLATE_PARAMS}"
-          fi
-          if ! [ "${SCOPE}" = 'group' ]; then
-            cmd+=" --location ${LOCATION}"
-          fi
-          if [ "${SCOPE}" = 'mg' ]; then
-            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
-          fi
-          if [ "${SCOPE}" = 'group' ]; then
-            cmd+=" --resource-group ${RESOURCE_GROUP}"
-          fi
-          case "${SEVERITY}" in
-            ERROR)   cmd+=' --only-show-errors';;
-            VERBOSE) cmd+=' --verbose';;
-            DEBUG)   cmd+=' --debug';;
-          esac
-          cmd+=' --exclude-change-types Ignore NoChange --no-prompt true'
-          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          echo "Run: ${cmd}" | tee -a $log
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
 
       - name: Estimate cost
         id: cost
