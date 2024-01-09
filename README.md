@@ -185,7 +185,7 @@ jobs:
       # A comma separated list of specific rules to exclude from evaluation.
       #
       # Default: ''
-      psrule_exclude: Azure.Resource.UseTags,Azure.ACR.MinSku
+      psrule_exclude: Azure.Template.UseDescriptions,Azure.Resource.UseTags,Azure.ACR.MinSku
 
       # A comma separated list of paths to ignore for analysis.
       #
@@ -245,7 +245,7 @@ jobs:
       code_template: main.bicep
       parameters: main.bicepparam
       azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
-      psrule_exclude: Azure.Resource.UseTags,Azure.Storage.SoftDelete,Azure.Storage.ContainerSoftDelete,Azure.Storage.Firewall
+      psrule_exclude: Azure.Template.UseDescriptions,Azure.Resource.UseTags,Azure.Storage.SoftDelete,Azure.Storage.ContainerSoftDelete,Azure.Storage.Firewall
       log_severity: INFO
 ```
 
