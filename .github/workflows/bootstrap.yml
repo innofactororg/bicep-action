@@ -591,23 +591,25 @@ jobs:
                   echo 'result<<e3599a2c6b8bc912'
                   echo -e '## Cost estimate (month)\n'
                   if test -f $2; then
-                    total=$(jq -r '.TotalCost | select (.!=null)' $2)
-                    delta=$(jq -r '.Delta | select (.!=null)' $2)
+                    total=$(jq -r '.TotalCost.Value | select (.!=null)' $2)
+                    delta=$(jq -r '.Delta.Value | select (.!=null)' $2)
                     currency=$(jq -r '.Currency | select (.!=null)' $2)
                     if [ "${total}" != "${delta}" ]; then
                       if [ "${delta}" = "0.00" ]; then
                         echo 'No change detected!'
-                      else
+                      elif [[ "${delta}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
                         if [ $(echo "${delta} > 0" | bc -l) -eq 1 ]; then
                           echo "Estimated increase is +${delta} ${currency}!"
                         else
                           echo "Estimated decrease is -${delta} ${currency}!"
                         fi
                       fi
-                      echo -e "Total estimated cost is ${total} ${currency}.\n"
+                      if [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                        echo -e "Total estimated cost is ${total} ${currency}.\n"
+                      fi
                     elif [ "${total}" = "0.00" ]; then
                       echo -e 'No cost detected!\n'
-                    else
+                    elif [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
                       echo -e "Estimated increase is +${total} ${currency}!\n"
                     fi
                   fi
