@@ -369,14 +369,32 @@ jobs:
           PSRULE_MODULES: ${{ inputs.psrule_modules }}
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
         run: |
+          if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
+            include=$TEMPLATE_PARAMS
+            meta=$(
+              jq -r '.metadata | select (.!=null)' $include
+            )
+            if test -z "${meta}"; then
+              json=$(
+                jq --arg t $TEMPLATE '. += {metadata:{template:$t}}' $include
+              )
+              if test -n "${json}"; then
+                printf '%s\n' "${json}" >$include
+              fi
+            else
+              json=$(
+                jq --arg t $TEMPLATE '.metadata += {template:$t}' $include
+              )
+              if test -n "${json}"; then
+                printf '%s\n' "${json}" >$include
+              fi
+            fi
+          else
+            include=$TEMPLATE
+          fi
           if test -f ps-rule.yaml; then
             echo 'Use existing ps-rule.yaml'
             exit
-          fi
-          if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
-            include_file=$TEMPLATE_PARAMS
-          else
-            include_file=$TEMPLATE
           fi
           cat > ps-rule.yaml << 81d174f4ee42ba3f
           binding:
@@ -391,10 +409,9 @@ jobs:
           include:
             module: [${PSRULE_MODULES}]
           input:
-            ignoreUnchangedPath: true
             pathIgnore:
               - '*'
-              - '!**/${include_file}'
+              - '!**/${include}'
           output:
             culture:
               - en-US
