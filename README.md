@@ -32,7 +32,7 @@ Note that there is a limit of 20 federated credentials per application. For this
 
 #### Use client secret
 
-To use a **Client secret** instead of federated credentials, specify **AZURE_AD_CLIENT_SECRET** as a secret for the workflow, as shown in usage below.
+To use a **Client secret** instead of federated credentials, specify **AZURE_CLIENT_SECRET** as a secret for the workflow, as shown in usage below.
 
 ## Workflow
 
