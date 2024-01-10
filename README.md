@@ -44,7 +44,7 @@ The workflow has two separate jobs that run independently:
 
 - Deploy: Validate the deployment and register resource providers. Deploy the code to Azure.
 
-  The specified GitHub Environment name is used as the concurrency key for the Deploy job. GitHub Actions will ensure that only one Deploy job for a given environment runs at any given time. If a new Deploy job starts in the same environment, GitHub Actions will cancel any job already running for that environment name.
+  The specified GitHub Environment name is used as the concurrency key for the Deploy job. GitHub Actions will ensure that only one Deploy job for a given environment runs at any given time. If a new Deploy job starts in the same environment, GitHub Actions will wait for completion of any job already running for that environment name, before starting the job.
 
 ### Plan
 

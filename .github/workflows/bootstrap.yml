@@ -869,7 +869,6 @@ jobs:
     environment: ${{ inputs.environment }}
     concurrency:
       group: ${{ inputs.environment }}
-      cancel-in-progress: true
     permissions:
       id-token: write # for Log in to Azure (Federated)
       contents: read # for Checkout
