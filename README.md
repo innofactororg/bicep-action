@@ -104,7 +104,7 @@ on:
   pull_request_review:
     types: [submitted]
 
-permissions: read-all
+permissions: {}
 
 jobs:
   deploy:
@@ -279,7 +279,7 @@ on:
   pull_request_review:
     types: [submitted]
 
-permissions: read-all
+permissions: {}
 
 jobs:
   deploy:
@@ -344,7 +344,7 @@ on:
   pull_request_review:
     types: [submitted]
 
-permissions: read-all
+permissions: {}
 
 jobs:
   deploy:
