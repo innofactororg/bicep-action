@@ -58,13 +58,13 @@ on:
       azure_provider_wait_seconds:
         description: "Seconds to wait between each provider status check."
         required: false
-        default: "10"
-        type: string
+        default: 10
+        type: number
       azure_provider_wait_count:
         description: "Times to check provider status before giving up."
         required: false
-        default: "30"
-        type: string
+        default: 30
+        type: number
       psrule_modules:
         description: "A comma separated list of modules to use for analysis."
         required: false
@@ -98,8 +98,8 @@ on:
       ace_threshold:
         description: "Max acceptable estimated cost."
         required: false
-        default: "-1"
-        type: string
+        default: -1
+        type: number
       log_severity:
         description: "The log verbosity."
         required: false
@@ -115,7 +115,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ inputs.environment }}
   cancel-in-progress: true
 
 permissions: read-all
@@ -127,10 +127,9 @@ jobs:
       github.event_name == 'pull_request' ||
       github.event_name == 'pull_request_target'
     permissions:
-      id-token: write # for azure login with OpenID Connect (OIDC)
-      actions: read # for workflow details (upload artifacts needs write)
-      contents: read # for checkout
-      pull-requests: write # for update issue comment
+      id-token: write # for Log in to Azure (Federated)
+      contents: read # for Checkout
+      pull-requests: write # for Add comment / Comment when done
     runs-on: ubuntu-latest
     steps:
       - name: Add comment
@@ -143,12 +142,15 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
-            const body = `## Job started to plan and validate deployment... ⌛
+            const body = `# Plan ${WORKFLOW}
+
+            Started to plan and validate deployment... ⌛
 
             | Job | Commit | Actor |
             | --- | --- | --- |
@@ -305,7 +307,7 @@ jobs:
             curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE="${TEMPLATE##*/}"
           fi
-          out_file="${TEMPLATE/.bicep/.json}"
+          out_file=$(readlink -f "${TEMPLATE/.bicep/.json}")
           if [[ $TEMPLATE == *.bicep ]]; then
             cmd="az bicep build --file ${TEMPLATE} --outfile ${out_file}"
             case "${SEVERITY}" in
@@ -359,7 +361,7 @@ jobs:
             curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
             TEMPLATE="${TEMPLATE##*/}"
           fi
-          out_file="${TEMPLATE/.bicepparam/.parameters.json}"
+          out_file=$(readlink -f "${TEMPLATE/.bicepparam/.parameters.json}")
           if [[ $TEMPLATE == *.bicepparam ]]; then
             cmd="az bicep build-params --file ${TEMPLATE} --outfile ${out_file}"
             case "${SEVERITY}" in
@@ -462,27 +464,25 @@ jobs:
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
         run: |
           if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
-            include=$TEMPLATE_PARAMS
+            file=$TEMPLATE_PARAMS
             meta=$(
-              jq -r '.metadata | select (.!=null)' $include
+              jq -r '.metadata | select (.!=null)' $file
             )
             if test -z "${meta}"; then
               json=$(
-                jq --arg t $TEMPLATE '. += {metadata:{template:$t}}' $include
+                jq --arg t $TEMPLATE '. += {metadata:{template:$t}}' $file
               )
               if test -n "${json}"; then
-                printf '%s\n' "${json}" >$include
+                printf '%s\n' "${json}" >$file
               fi
             else
               json=$(
-                jq --arg t $TEMPLATE '.metadata += {template:$t}' $include
+                jq --arg t $TEMPLATE '.metadata += {template:$t}' $file
               )
               if test -n "${json}"; then
-                printf '%s\n' "${json}" >$include
+                printf '%s\n' "${json}" >$file
               fi
             fi
-          else
-            include=$TEMPLATE
           fi
           if test -f ps-rule.yaml; then
             echo 'Use existing ps-rule.yaml'
@@ -584,6 +584,7 @@ jobs:
             exit $1
           }
           log_output() {
+            over_threshold=''
             if test -f $1; then
               result=$(cat $1)
               if test -n "${result}"; then
@@ -612,6 +613,13 @@ jobs:
                     elif [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
                       echo -e "Estimated increase is +${total} ${currency}!\n"
                     fi
+                    if [[ "${ACE_THRESHOLD}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
+                       [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
+                       [ $(echo "${total} > ${ACE_THRESHOLD}" | bc -l) -eq 1 ]
+                    then
+                      over_threshold="Total estimated cost exceeds threshold of ${ACE_THRESHOLD}!"
+                      echo -e "${over_threshold}\n"
+                    fi
                   fi
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
@@ -620,6 +628,10 @@ jobs:
                   echo 'e3599a2c6b8bc912'
                 } >> "$GITHUB_OUTPUT"
               fi
+            fi
+            if test -n "${over_threshold}"; then
+              echo "::error::$over_threshold"
+              exit 1
             fi
           }
           if ! test -f ${TEMPLATE}; then
@@ -648,12 +660,12 @@ jobs:
           if [[ $IN_PARAMS == *=* ]]; then
             param_list=($IN_PARAMS)
             for pair in "${param_list[@]}"; do
-              if test -n "${pair%=*}"; then
+              if test -n "${pair%=*}" && [[ "${pair}" == *=* ]]; then
                 cmd+=" --inline ${pair%=*}=${pair#*=}"
               fi
             done
           fi
-          cmd+=" --currency ${ACE_CURRENCY} --threshold ${ACE_THRESHOLD}"
+          cmd+=" --currency ${ACE_CURRENCY}"
           cmd+=' --disable-cache --generateJsonOutput'
           cmd+=' --jsonOutputFilename cost_output'
           echo "Run: ${cmd}" | tee -a $log
@@ -684,10 +696,10 @@ jobs:
           COST: ${{ steps.cost.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
+          title=$(echo -e "# Plan ${GITHUB_WORKFLOW}\n\nJob")
           case "${JOB_STATUS}" in
-            cancelled) title=$(echo -e "# Plan\n\nJob cancelled ❌\n\nJob");;
-            failed)    title=$(echo -e "# Plan\n\nJob failed ⛔\n\nJob");;
-            *)         title=$(echo -e "# Plan\n\nJob");;
+            cancelled) title+=$(echo -e ' cancelled ❌\n\nJob');;
+            failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
           esac
           all_results="${WHAT_IF}"
           all_results+=$(echo -e "\n\n${COST}")
@@ -852,10 +864,9 @@ jobs:
       )
     environment: ${{ inputs.environment }}
     permissions:
-      id-token: write # for azure login with OpenID Connect (OIDC)
-      actions: read # for workflow details (upload artifacts needs write)
-      contents: read # for checkout (needs read)
-      pull-requests: write # for update issue comment
+      id-token: write # for Log in to Azure (Federated)
+      contents: read # for Checkout
+      pull-requests: write # for Comment when done
     runs-on: ubuntu-latest
     steps:
       - name: Checkout head ref (src)
@@ -1243,10 +1254,10 @@ jobs:
           DEPLOY: ${{ steps.deploy.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
+          title=$(echo -e "# ${GITHUB_WORKFLOW}\n\nJob")
           case "${JOB_STATUS}" in
-            cancelled) title=$(echo -e "# Deploy\n\nJob cancelled ❌\n\nJob");;
-            failed)    title=$(echo -e "# Deploy\n\nJob failed ⛔\n\nJob");;
-            *)         title=$(echo -e "# Deploy\n\nJob");;
+            cancelled) title+=$(echo -e ' cancelled ❌\n\nJob');;
+            failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
           esac
           all_results="${DEPLOY}"
           all_results+=$(echo -e "\n\n${BICEP_INSTALL}")

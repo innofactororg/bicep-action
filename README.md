@@ -1,6 +1,6 @@
 # Bicep workflow
 
-A reusable workflow to to manage Azure infrastructure with Bicep.
+A reusable workflow to plan and deploy Azure infrastructure.
 
 ## Getting Started
 
@@ -36,9 +36,25 @@ To use a **Client secret** instead of federated credentials, specify **AZURE_CLI
 
 ## Workflow
 
+The workflow has two separate jobs that run independently:
+
+- Plan: Build and test the code. Report on what will change in Azure if the code is deployed.
+- Deploy: Validate the deployment and register resource providers. Deploy the code to Azure.
+
+The specified GitHub Environment name is used as the concurrency key. GitHub Actions will ensure that only one workflow or job with that key runs at any given time. If a new workflow starts with the same concurrency key, GitHub Actions will cancel any job already running with that key.
+
 ### Plan
 
-Each time a **pull request** is created or updated, the workflow will start and validate the code. If no issues are found in the code, a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report is generated for easy review.
+Each time a **pull request** is created or updated, the workflow will build and test the code. If no issues are found in the code, a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report is generated for easy review.
+
+The job is done using the following tools:
+
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/)
+  - [az bicep build](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build)
+  - [az bicep build-params](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build-params)
+  - [az deployment {SCOPE} what-if](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-what-if)
+- [microsoft/ps-rule@v2](https://github.com/microsoft/ps-rule)
+- [azure-cost-estimator](https://github.com/TheCloudTheory/arm-estimator)
 
 ### Deploy
 
@@ -47,6 +63,13 @@ The workflow can be started manually (**workflow dispatch**) or automatically wh
 This stage is set to a specific [environment](#create-github-environment). If **required reviewers** have been added, the deployment job will only run after manual approval from one of the specified approvers.
 
 When started, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
+
+The job is done using the following tools:
+
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/)
+  - [az deployment {SCOPE} validate](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-validate)
+  - [az provider register](https://learn.microsoft.com/en-us/cli/azure/provider?view=azure-cli-latest#az-provider-register)
+  - [az deployment {SCOPE} create](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-create)
 
 ![Bicep workflow](images/deployment-action-flow.png)
 
@@ -58,6 +81,15 @@ When started, the workflow will [deploy](https://docs.microsoft.com/cli/azure/de
 
 ## Usage
 
+Note that **name: Azure Deploy** and **pull_request.paths** below are just examples and should be modified to match requirements.
+
+For example:
+
+- Use `name: Deploy Governance` for a workflow that deploys governance resources to Azure.
+- Use `paths: ["gov/*.bicep", "gov/*.bicepparam"]` for starting the workflow when change occur to a .bicep or .bicepparam file within the root of the gov directory, at the root of the repository.
+- Use `paths: ["main.json", "main.parameters.json"]` for starting the workflow when change occur to main.json or main.parameters.json within the root of the repository.
+- Use `paths: ["**.bicep", "**.bicepparam", "!modules/**"]` for starting the workflow when change occur to a .bicep or .bicepparam file anywhere in the repository except under the modules folder.
+
 <!-- start usage -->
 
 ```yaml
@@ -67,18 +99,21 @@ on:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
-    paths:
-      - "**.json"
-      - "**.bicep"
-      - "**.bicepparam"
+    paths: ["bicep/main.bicep", "bicep/main.bicepparam"]
 
   pull_request_review:
     types: [submitted]
+
+permissions: read-all
 
 jobs:
   deploy:
     name: 🔧 Bootstrap
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
+    permissions:
+      id-token: write # for Log in to Azure (Federated)
+      contents: read # for Checkout
+      pull-requests: write # for Comment when done
     secrets:
       # The service principal secret used for Azure login.
       #
@@ -156,12 +191,12 @@ jobs:
 
       # Seconds to wait between each provider status check.
       #
-      # Default: '10'
+      # Default: 10
       azure_provider_wait_seconds: 10
 
       # Times to check provider status before giving up.
       #
-      # Default: '30'
+      # Default: 30
       azure_provider_wait_count: 30
 
       # A comma separated list of modules to use for analysis.
@@ -198,7 +233,7 @@ jobs:
       # https://github.com/TheCloudTheory/arm-estimator/releases
       #
       # Default: '1.4-beta1'
-      ace_version: 1.3
+      ace_version: "1.3"
 
       # Currency code to use for estimations.
       #
@@ -212,7 +247,7 @@ jobs:
       #
       # Exceeding threshold causes plan to fail.
       #
-      # Default: '-1'
+      # Default: -1
       ace_threshold: 1000
 
       # The log verbosity. Can be one of:
@@ -239,17 +274,21 @@ on:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
-    paths:
-      - "**.bicep"
-      - "**.bicepparam"
+    paths: ["bicep/main.bicep", "bicep/main.bicepparam"]
 
   pull_request_review:
     types: [submitted]
+
+permissions: read-all
 
 jobs:
   deploy:
     name: 🔧 Bootstrap
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@beta2
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     with:
       environment: production
       azure_tenant_id: e0bf45f5-b93b-4f96-9e73-4ea6caa2f3b4
@@ -261,6 +300,7 @@ jobs:
       parameters: main.bicepparam
       azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
       psrule_exclude: Azure.Template.UseDescriptions,Azure.Resource.UseTags,Azure.Storage.SoftDelete,Azure.Storage.ContainerSoftDelete,Azure.Storage.Firewall
+      ace_threshold: 500
       log_severity: INFO
 ```
 
@@ -299,17 +339,21 @@ on:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
-    paths:
-      - "**.bicep"
-      - "**.bicepparam"
+    paths: ["bicep/main.bicep", "bicep/main.bicepparam"]
 
   pull_request_review:
     types: [submitted]
+
+permissions: read-all
 
 jobs:
   deploy:
     name: 🔧 Bootstrap
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     env:
       TENANT_ID: ${{ secrets.AZURE_APP1_TENANT_ID }}
     with:
