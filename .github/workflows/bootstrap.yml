@@ -114,10 +114,6 @@ defaults:
   run:
     shell: bash
 
-concurrency:
-  group: ${{ inputs.environment }}
-  cancel-in-progress: true
-
 permissions: {}
 
 jobs:
@@ -126,6 +122,9 @@ jobs:
     if: >
       github.event_name == 'pull_request' ||
       github.event_name == 'pull_request_target'
+    concurrency:
+      group: ${{ github.workflow }}
+      cancel-in-progress: true
     permissions:
       id-token: write # for Log in to Azure (Federated)
       contents: read # for Checkout
@@ -867,6 +866,9 @@ jobs:
         github.event.review.state == 'APPROVED'
       )
     environment: ${{ inputs.environment }}
+    concurrency:
+      group: ${{ inputs.environment }}
+      cancel-in-progress: true
     permissions:
       id-token: write # for Log in to Azure (Federated)
       contents: read # for Checkout

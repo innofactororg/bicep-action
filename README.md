@@ -39,9 +39,12 @@ To use a **Client secret** instead of federated credentials, specify **AZURE_CLI
 The workflow has two separate jobs that run independently:
 
 - Plan: Build and test the code. Report on what will change in Azure if the code is deployed.
+
+  The specified workflow name is used as the concurrency key for the Plan job. GitHub Actions will ensure that only one Plan workflow runs at any given time. If a new Plan workflow starts with the same name, GitHub Actions will cancel any job already running with that name.
+
 - Deploy: Validate the deployment and register resource providers. Deploy the code to Azure.
 
-The specified GitHub Environment name is used as the concurrency key. GitHub Actions will ensure that only one workflow or job with that key runs at any given time. If a new workflow starts with the same concurrency key, GitHub Actions will cancel any job already running with that key.
+  The specified GitHub Environment name is used as the concurrency key for the Deploy job. GitHub Actions will ensure that only one Deploy job for a given environment runs at any given time. If a new Deploy job starts in the same environment, GitHub Actions will cancel any job already running for that environment name.
 
 ### Plan
 
