@@ -602,31 +602,33 @@ jobs:
                     total=$(jq -r '.TotalCost.Value | select (.!=null)' $2)
                     delta=$(jq -r '.Delta.Value | select (.!=null)' $2)
                     currency=$(jq -r '.Currency | select (.!=null)' $2)
+                    txt=''
                     if [ "${total}" != "${delta}" ]; then
                       if [ "${delta}" = "0.00" ]; then
-                        echo 'No change detected!'
+                        txt='No cost change detected! '
                       elif [[ "${delta}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
                         if [ $(echo "${delta} > 0" | bc -l) -eq 1 ]; then
-                          echo "Estimated increase is +${delta} ${currency}!"
+                          txt="Estimated increase is +${delta} ${currency}! "
                         else
-                          echo "Estimated decrease is -${delta} ${currency}!"
+                          txt="Estimated decrease is -${delta} ${currency}! "
                         fi
                       fi
                       if [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-                        echo -e "Total estimated cost is ${total} ${currency}.\n"
+                        txt+="Total estimated cost is ${total} ${currency}."
                       fi
                     elif [ "${total}" = "0.00" ]; then
-                      echo -e 'No cost detected!\n'
+                      txt='No cost detected!'
                     elif [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-                      echo -e "Estimated increase is +${total} ${currency}!\n"
+                      txt="Estimated cost increase is +${total} ${currency}!"
                     fi
                     if [[ "${ACE_THRESHOLD}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
                        [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
                        [ $(echo "${total} > ${ACE_THRESHOLD}" | bc -l) -eq 1 ]
                     then
-                      over_threshold="Total estimated cost exceeds threshold of ${ACE_THRESHOLD}!"
-                      echo -e "${over_threshold}\n"
+                      txt+="\n\nWarning: Total estimated cost exceeds"
+                      txt+=" ${ACE_THRESHOLD} ${currency}!"
                     fi
+                    echo -e "${txt}\n"
                   fi
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
