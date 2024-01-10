@@ -465,22 +465,26 @@ jobs:
         run: |
           if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
             file=$TEMPLATE_PARAMS
-            meta=$(
-              jq -r '.metadata | select (.!=null)' $file
-            )
-            if test -z "${meta}"; then
-              json=$(
-                jq --arg t $TEMPLATE '. += {metadata:{template:$t}}' $file
+            t=$(basename "${TEMPLATE}")
+            p=$(basename "${file}")
+            if [ "${t/.json/}" != "${p/.parameters.json/}" ]; then
+              meta=$(
+                jq -r '.metadata | select (.!=null)' $file
               )
-              if test -n "${json}"; then
-                printf '%s\n' "${json}" >$file
-              fi
-            else
-              json=$(
-                jq --arg t $TEMPLATE '.metadata += {template:$t}' $file
-              )
-              if test -n "${json}"; then
-                printf '%s\n' "${json}" >$file
+              if test -z "${meta}"; then
+                json=$(
+                  jq --arg t $t '. += {metadata:{template:$t}}' $file
+                )
+                if test -n "${json}"; then
+                  printf '%s\n' "${json}" >$file
+                fi
+              else
+                json=$(
+                  jq --arg t $t '.metadata += {template:$t}' $file
+                )
+                if test -n "${json}"; then
+                  printf '%s\n' "${json}" >$file
+                fi
               fi
             fi
           fi
