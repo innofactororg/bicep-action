@@ -153,7 +153,7 @@ jobs:
 
             | Job | Commit | Actor |
             | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
+            | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -751,6 +751,7 @@ jobs:
             const HEAD_SHA = process.env.GITHUB_SHA;
             const HEAD_REF = process.env.GITHUB_REF;
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
@@ -770,7 +771,7 @@ jobs:
 
             | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
+            | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
             if (isNaN(comment_id) || comment_id == 0) {
               core.info(`Create comment:\n${body}`);
@@ -1304,6 +1305,7 @@ jobs:
             const {SUBSCRIPTION_ID} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
@@ -1316,7 +1318,7 @@ jobs:
 
             | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
-            | [#${context.runNumber}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
+            | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             core.info(`Create comment:\n${body}`);
             try {
               const response_cc = await github.rest.issues.createComment({
