@@ -99,6 +99,12 @@ For example:
 name: Azure Deploy
 on:
   workflow_dispatch:
+    inputs:
+      job:
+        default: Plan
+        type: choice
+        options: [Plan, Deploy]
+
   pull_request:
     types: [opened, synchronize]
     branches: [main]
@@ -262,6 +268,11 @@ jobs:
       #
       # Default: ERROR
       log_severity: INFO
+
+      # Job to run when using workflow_dispatch.
+      #
+      # Default: Plan
+      workflow_dispatch_job: ${{ github.event.inputs.job }}
 ```
 
 <!-- end usage -->
@@ -274,6 +285,12 @@ jobs:
 name: Azure Deploy
 on:
   workflow_dispatch:
+    inputs:
+      job:
+        default: Plan
+        type: choice
+        options: [Plan, Deploy]
+
   pull_request:
     types: [opened, synchronize]
     branches: [main]
@@ -305,6 +322,7 @@ jobs:
       psrule_exclude: Azure.Template.UseDescriptions,Azure.Resource.UseTags,Azure.Storage.SoftDelete,Azure.Storage.ContainerSoftDelete,Azure.Storage.Firewall
       ace_threshold: 500
       log_severity: INFO
+      workflow_dispatch_job: ${{ github.event.inputs.job }}
 ```
 
 <!-- end usage example -->
@@ -339,6 +357,12 @@ In the following example a secret called **AZURE_APP1_TENANT_ID** is passed to t
 name: Azure Deploy
 on:
   workflow_dispatch:
+    inputs:
+      job:
+        default: Plan
+        type: choice
+        options: [Plan, Deploy]
+
   pull_request:
     types: [opened, synchronize]
     branches: [main]
@@ -369,6 +393,7 @@ jobs:
       code_template: main.bicep
       parameters: main.bicepparam
       log_severity: INFO
+      workflow_dispatch_job: ${{ github.event.inputs.job }}
 ```
 
 ## License

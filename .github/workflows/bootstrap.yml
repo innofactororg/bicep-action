@@ -105,6 +105,11 @@ on:
         required: false
         default: "ERROR"
         type: string
+      workflow_dispatch_job:
+        description: "Job to run when using workflow_dispatch."
+        required: false
+        default: "Plan"
+        type: string
     secrets:
       AZURE_CLIENT_SECRET:
         description: "The service principal secret used for Azure login."
@@ -120,8 +125,14 @@ jobs:
   plan:
     name: "🗓️ Plan"
     if: >
-      github.event_name == 'pull_request' ||
-      github.event_name == 'pull_request_target'
+      (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.workflow_dispatch_job == 'Plan'
+      ) ||
+      (
+        github.event_name == 'pull_request' ||
+        github.event_name == 'pull_request_target'
+      )
     concurrency:
       group: ${{ github.workflow }}
       cancel-in-progress: true
@@ -867,7 +878,10 @@ jobs:
   deploy:
     name: "🏃 Deploy"
     if: >
-      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        inputs.workflow_dispatch_job == 'Deploy'
+      ) ||
       (
         github.event_name == 'pull_request_review' &&
         github.event.review.state == 'approved'
