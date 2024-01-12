@@ -161,7 +161,7 @@ jobs:
                 owner, repo,
                 pull_number: prNo
               });
-              const r = ${JSON.stringify(response)};
+              const r = `${JSON.stringify(response)}`;
               if (response.status !== 200) {
                 return `${reason} ${r}`;
               }
@@ -175,6 +175,7 @@ jobs:
               core.setFailed(`${reason} ${e}`);
               return `${reason} ${e}`;
             }
+
       - name: Print variables and event
         id: dump_env
         if: >
