@@ -4,35 +4,34 @@ A reusable workflow to plan and deploy Azure infrastructure.
 
 ## Getting Started
 
-To use the workflow, several prerequisite steps are required.
+To use the workflow, several prerequisite steps are required:
 
-### Create GitHub Environment
+1. [Create an environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
 
-The workflow utilizes GitHub Environments to enable an approval process for the deployment.
+   To prevent unapproved deployments, make sure to add **"Required reviewers"**.
 
-[Create an environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment) in the repository that use this workflow.
+   Remember to save the protection rules after making changes.
 
-Add **Required reviewers** that need to sign off on deployments. Save the protection rules.
+1. [Register an application with the Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
 
-### Setup Azure Identity
+1. [Assign appropriate Azure roles to the application](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps).
 
-A Microsoft Entra ID application is required by this workload. It must have permission to deploy the code.
+1. Give the workflow Azure login permission:
 
-Create a single application and give it the appropriate read/write permissions in Azure.
+   - Option 1 - [Add federated credentials (recommended)](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect):
 
-#### Use federated credentials (recommended)
+     - Use the scenario **"GitHub Actions deploying Azure resources"**.
+     - Select entity type **"Pull request"**. This will allow a pull request to validate and test deployments.
+     - Save the credential.
+     - Add one more federated credential with the same scenario, but select entity type is **"Environment"**.
+     - Specify the **"GitHub Environment name"** that is passed to the workflow, e.g. `production`.
+     - Save the credential.
 
-[Add federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) for the scenario **GitHub Actions deploying Azure resources** and for each repository that use this workflow.
+     Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
 
-To allow a pull request to validate and test deployments, add a credential where entity type is **Pull request**.
+   - Option 2 - [Add client secret](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-a-client-secret):
 
-To allow deployments, add a credential where entity type is **Environment**. Specify the **GitHub Environment name** that is passed to the workflow, e.g. `production`.
-
-Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
-
-#### Use client secret
-
-To use a **Client secret** instead of federated credentials, specify **AZURE_CLIENT_SECRET** as a secret for the workflow, as shown in usage below.
+     To use a **"Client secret"** instead of federated credentials, specify **"AZURE_CLIENT_SECRET"** as a secret for the workflow.
 
 ## Workflow
 
@@ -42,7 +41,7 @@ The workflow has two separate jobs that run independently:
 
   The specified workflow name is used as the concurrency key for the Plan job. GitHub Actions will ensure that only one Plan workflow runs at any given time. If a new Plan workflow starts with the same name, GitHub Actions will cancel any job already running with that name.
 
-- Deploy: Validate the deployment and register resource providers. Deploy the code to Azure.
+- Deploy: Validate the deployment, register resource providers and deploy the code to Azure.
 
   The specified GitHub Environment name is used as the concurrency key for the Deploy job. GitHub Actions will ensure that only one Deploy job for a given environment runs at any given time. If a new Deploy job starts in the same environment, GitHub Actions will wait for completion of any job already running for that environment name, before starting the job.
 
@@ -63,7 +62,7 @@ The job is done using the following tools:
 
 The workflow can be started manually (**workflow dispatch**) or automatically when a **pull request review** is submitted with an **approved** state.
 
-This stage is set to a specific [environment](#create-github-environment). If **required reviewers** have been added, the deployment job will only run after manual approval from one of the specified approvers.
+This job targets a specific [environment](#getting-started). If **required reviewers** have been added, the deployment job will only run after manual approval from one of the specified approvers.
 
 When started, the workflow will [deploy](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-create) the code to Azure.
 
@@ -78,17 +77,18 @@ The job is done using the following tools:
 
 1. Create a new branch and check in the needed code.
 1. Create a Pull Request (PR) in GitHub once the changes are ready.
-1. A GitHub Actions workflow will trigger to ensure the code is well formatted and internally consistent. In addition, a What-If analysis will run to generate a preview of the changes that will happen in Azure.
+1. A GitHub Actions job will ensure that the code is valid and internally consistent. In addition, a What-If analysis will run to generate a preview of the changes that will happen in Azure.
 1. The Pull Request must be reviewed and approved before it can be deployed.
-1. A GitHub Actions workflow will trigger to validate and deploy the code.
+1. A GitHub Actions job will validate and deploy the code.
 
 ## Usage
 
-Note that **name: Azure Deploy** and **pull_request.paths** below are just examples and should be modified to match requirements.
+Note that the workflow below should be modified to match specific requirements.
 
 For example:
 
 - Use `name: Deploy Governance` for a workflow that deploys governance resources to Azure.
+- Use `branches: [main, dev]` for starting the workflow on pull requests to both main and dev branch.
 - Use `paths: ["gov/*.bicep", "gov/*.bicepparam"]` for starting the workflow when change occur to a .bicep or .bicepparam file within the root of the gov directory, at the root of the repository.
 - Use `paths: ["main.json", "main.parameters.json"]` for starting the workflow when change occur to main.json or main.parameters.json within the root of the repository.
 - Use `paths: ["**.bicep", "**.bicepparam", "!modules/**"]` for starting the workflow when change occur to a .bicep or .bicepparam file anywhere in the repository except under the modules folder.
@@ -241,8 +241,8 @@ jobs:
       # The version to use for cost estimation. See versions at
       # https://github.com/TheCloudTheory/arm-estimator/releases
       #
-      # Default: '1.4-beta1'
-      ace_version: "1.3"
+      # Default: '1.4-beta2'
+      ace_version: "1.4-beta2"
 
       # Currency code to use for estimations.
       #
@@ -258,6 +258,14 @@ jobs:
       #
       # Default: -1
       ace_threshold: 1000
+
+      # Allow deployment on commented and approved review.
+      #
+      # When set to false, deployment will start on approved review.
+      # Set to true to allow deployment to start on commented review.
+      #
+      # Default: false
+      deploy_on_review_comment: true
 
       # The log verbosity. Can be one of:
       #
@@ -304,7 +312,7 @@ permissions: {}
 jobs:
   deploy:
     name: 🔧 Bootstrap
-    uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@beta2
+    uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write
       contents: read
@@ -329,23 +337,28 @@ jobs:
 
 ## Branch protection
 
-To prevent changes in main branch, create a branch protection rule in the repository **Branches** settings.
+It is recommended to protect the default branch. This is done in the repository settings under **Branches**.
 
-It is recommended to enable:
+For production use, the following settings are recommended:
 
 - Require a pull request before merging
   - Require approvals
   - Dismiss stale pull request approvals when new commits are pushed
   - Require approval of the most recent reviewable push
+- Require status checks to pass before merging
+  - Require branches to be up to date before merging
+  - Add the following status checks:
+    - Bootstrap / 🗓️ Plan
+    - Bootstrap / 🏃 Deploy
 - Require conversation resolution before merging
 - Require linear history
 - Require deployments to succeed before merging (and select the environment that must succeed)
 
+This ensures that no changes to the pull request are possible between the approval and the merging and that a successful plan and deploy has occurred.
+
 ## Auto merge
 
 To allow pull requests to merge automatically, once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository **General** settings.
-
-When **Allow auto-merge** is enabled, it is important to prevent merging before deployment has succeeded. Therefore, remember to enable **Require deployments to succeed before merging** in **branch protection** and select the **environment** that the workflow use.
 
 ## Passing secret as input
 

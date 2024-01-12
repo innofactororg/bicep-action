@@ -88,7 +88,7 @@ on:
       ace_version:
         description: "Azure Cost Estimator version."
         required: false
-        default: "1.4-beta1"
+        default: "1.4-beta2"
         type: string
       ace_currency:
         description: "Currency code to use for estimations."
@@ -100,6 +100,11 @@ on:
         required: false
         default: -1
         type: number
+      deploy_on_review_comment:
+        description: "Allow deployment on commented and approved review."
+        required: false
+        default: false
+        type: boolean
       log_severity:
         description: "The log verbosity."
         required: false
@@ -122,6 +127,63 @@ defaults:
 permissions: {}
 
 jobs:
+  check:
+    name: "👮 Check"
+    permissions:
+      pull-requests: read # for skip_reason
+    outputs:
+      skip_reason: ${{ steps.skip_reason.outputs.result }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get skip reason
+        id: skip_reason
+        uses: actions/github-script@v7
+        env:
+          TEMPLATE: ${{ inputs.code_template }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
+          script: |
+            const {TEMPLATE} = process.env;
+            if (
+              !TEMPLATE.includes('/') ||
+              context.eventName !== 'pull_request_review'
+            ) {
+              return;
+            }
+            const end = TEMPLATE.lastIndexOf('/') + 1;
+            const path = TEMPLATE.substring(0, end);
+            const { repo: { owner, repo } } = context;
+            const prNo = context.issue.number;
+            const reason = `Could not list files for pull request ${prNo}.`;
+            try {
+              const response = await github.rest.pulls.listFiles({
+                owner, repo,
+                pull_number: prNo
+              });
+              const r = ${JSON.stringify(response)};
+              if (response.status !== 200) {
+                return `${reason} ${r}`;
+              }
+              for (const f of response.data) {
+                if (f.status !== 'removed' && f.filename.includes(path)) {
+                  return;
+                }
+              }
+              return `Code path ${path} is not included in PR ${prNo}. ${r}`;
+            } catch (e) {
+              core.setFailed(`${reason} ${e}`);
+              return `${reason} ${e}`;
+            }
+      - name: Print variables and event
+        id: dump_env
+        if: >
+          failure() || (
+            success() &&
+            inputs.log_severity != 'ERROR'
+          )
+        uses: hmarr/debug-action@v2
+
   plan:
     name: "🗓️ Plan"
     if: >
@@ -137,9 +199,9 @@ jobs:
       group: ${{ github.workflow }}
       cancel-in-progress: true
     permissions:
-      id-token: write # for Log in to Azure (Federated)
-      contents: read # for Checkout
-      pull-requests: write # for Add comment / Comment when done
+      id-token: write # for login_open_id
+      contents: read # for checkout_src
+      pull-requests: write # for add_comment / comment_when_done
     runs-on: ubuntu-latest
     steps:
       - name: Add comment
@@ -150,6 +212,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
           script: |
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
             const WORKFLOW = process.env.GITHUB_WORKFLOW;
@@ -177,7 +240,7 @@ jobs:
                 body: body,
               });
               if (response_cc.status == 201 && response_cc.data) {
-                core.setOutput('id', response_cc.data.id);
+                return response_cc.data.id;
               } else {
                 const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
                 core.setFailed(`Failed to create comment for PR ${reason}`);
@@ -757,12 +820,12 @@ jobs:
         uses: actions/github-script@v7
         env:
           MERGE_RESULTS: ${{ steps.merge_results.outputs.result }}
-          EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.id }}
+          EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.result }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {MERGE_RESULTS} = process.env ?? '';
+            const {MERGE_RESULTS} = process.env;
             const {EVENT_COMMENT_ID} = process.env ?? 0;
             const {SUBSCRIPTION_ID} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
@@ -822,6 +885,15 @@ jobs:
               }
             }
 
+      - name: Print variables and event
+        id: dump_env
+        if: >
+          failure() || (
+            success() &&
+            inputs.log_severity != 'ERROR'
+          )
+        uses: hmarr/debug-action@v2
+
       - name: Dump github context
         id: dump_github_context
         if: >
@@ -846,15 +918,6 @@ jobs:
         run: |
           echo "${STEPS_CONTEXT}"
 
-      - name: Print variables and event
-        id: dump_env
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        uses: hmarr/debug-action@v2
-
       - name: Upload artifacts
         id: upload_artifacts
         if: always()
@@ -877,22 +940,30 @@ jobs:
 
   deploy:
     name: "🏃 Deploy"
+    needs: check
     if: >
       (
         github.event_name == 'workflow_dispatch' &&
         inputs.workflow_dispatch_job == 'Deploy'
       ) ||
       (
+        needs.check.outputs.skip_reason == '' &&
         github.event_name == 'pull_request_review' &&
-        github.event.review.state == 'approved'
+        (
+          github.event.review.state == 'approved' ||
+          (
+            inputs.deploy_on_review_comment &&
+            github.event.review.state == 'commented'
+          )
+        )
       )
     environment: ${{ inputs.environment }}
     concurrency:
       group: ${{ inputs.environment }}
     permissions:
-      id-token: write # for Log in to Azure (Federated)
-      contents: read # for Checkout
-      pull-requests: write # for Comment when done
+      id-token: write # for login_open_id
+      contents: read # for checkout_src
+      pull-requests: write # for comment_when_done
     runs-on: ubuntu-latest
     steps:
       - name: Checkout head ref (src)
@@ -1127,12 +1198,13 @@ jobs:
             *)       log_severity='';;
           esac
           az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          echo "Check resource providers for subscription ${SUBSCRIPTION_ID}..." | tee -a $log
           registered=($(
             az provider list \
               --query "[?registrationState=='Registered'].namespace" \
               -o tsv $log_severity
           ))
-          echo -e "Registered providers:" | tee -a $log
+          echo 'Currently registered:' | tee -a $log
           echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')\n" | tee -a $log
           registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
           for provider in "${providers[@]}"; do
@@ -1145,25 +1217,31 @@ jobs:
               registeringProviders+=($provider)
             fi
           done
-          for provider in "${registeringProviders[@]}"; do
-            state='Registering'
-            timesTried=0
-            while [ "${state}" != 'Registered' ] || \
-                  [ $timesTried -gt $WAIT_COUNT ]
-            do
-              echo "Waiting for ${provider} to register..."
-              state=$(
-                az provider show --namespace $provider \
-                  --query 'registrationState' -o tsv \
-                  $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
-              )
-              timesTried=$((timesTried+1))
-              sleep $WAIT_SECONDS
+          if [ ${#registeringProviders} -eq 0 ]; then
+            echo 'All providers registered' | tee -a $log
+          else
+            for provider in "${registeringProviders[@]}"; do
+              state='Registering'
+              timesTried=0
+              while [ "${state}" != 'Registered' ] || \
+                    [ $timesTried -gt $WAIT_COUNT ]
+              do
+                echo "Waiting for ${provider} to register..."
+                state=$(
+                  az provider show --namespace $provider \
+                    --query 'registrationState' -o tsv \
+                    $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                )
+                timesTried=$((timesTried+1))
+                sleep $WAIT_SECONDS
+              done
+              if ! [ "${state}" = 'Registered' ]; then
+                echo "Timeout: ${provider} in ${state} state..." | tee -a $log
+              else
+                echo 'Providers successfully registered' | tee -a $log
+              fi
             done
-            if ! [ "${state}" = 'Registered' ]; then
-              echo -e "Timeout: ${provider} in ${state} state..." | tee -a $log
-            fi
-          done
+          fi
           log_output $log
 
       - name: Deploy
@@ -1320,7 +1398,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {MERGE_RESULTS} = process.env ?? '';
+            const {MERGE_RESULTS} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
@@ -1353,6 +1431,15 @@ jobs:
               core.setFailed(`Failed to comment when done. ${e}`);
             }
 
+      - name: Print variables and event
+        id: dump_env
+        if: >
+          failure() || (
+            success() &&
+            inputs.log_severity != 'ERROR'
+          )
+        uses: hmarr/debug-action@v2
+
       - name: Dump github context
         id: dump_github_context
         if: >
@@ -1376,15 +1463,6 @@ jobs:
           STEPS_CONTEXT: ${{ toJson(steps) }}
         run: |
           echo "${STEPS_CONTEXT}"
-
-      - name: Print variables and event
-        id: dump_env
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        uses: hmarr/debug-action@v2
 
       - name: Upload artifacts
         id: upload_artifacts
