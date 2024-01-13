@@ -145,10 +145,13 @@ jobs:
           result-encoding: string
           script: |
             const {TEMPLATE} = process.env;
-            if (
-              !TEMPLATE.includes('/') ||
-              context.eventName !== 'pull_request_review'
-            ) {
+            if (context.eventName !== 'pull_request_review') {
+              console.log(`The ${context.eventName} event will not be skipped`);
+              return;
+            }
+            if (!TEMPLATE.includes('/')) {
+              console.log(`Code template ${TEMPLATE} is in repository root`);
+              console.log('Deploy job will not be skipped');
               return;
             }
             const end = TEMPLATE.lastIndexOf('/') + 1;
@@ -163,15 +166,24 @@ jobs:
               });
               const r = `${JSON.stringify(response)}`;
               if (response.status !== 200) {
+                console.log(`${reason} ${r}`);
+                console.log('Deploy job will be skipped!');
                 return `${reason} ${r}`;
               }
               for (const f of response.data) {
                 if (f.status !== 'removed' && f.filename.includes(path)) {
+                  console.log(`Found ${f.filename} in ${path}`);
+                  console.log('Deploy job will not be skipped');
                   return;
                 }
               }
-              return `Code path ${path} is not included in PR ${prNo}. ${r}`;
+              const notFound = `Path ${path} is not part of PR ${prNo}. ${r}`;
+              console.log(notFound);
+              console.log('Deploy job will be skipped!');
+              return notFound;
             } catch (e) {
+              console.log(`${reason} ${e}`);
+              console.log('Deploy job will be skipped!');
               core.setFailed(`${reason} ${e}`);
               return `${reason} ${e}`;
             }
