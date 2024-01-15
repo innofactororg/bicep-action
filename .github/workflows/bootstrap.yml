@@ -282,6 +282,7 @@ jobs:
             } catch (e) {
               core.setFailed(`Failed to comment at start. ${e}`);
             }
+            return '0';
 
       - name: Checkout head ref (src)
         id: checkout_src
@@ -1389,7 +1390,7 @@ jobs:
                 mutation {
                   enablePullRequestAutoMerge(input: {
                     pullRequestId: "${context.payload.pull_request.node_id}",
-                    mergeMethod: ${METHOD},
+                    mergeMethod: ${METHOD.toUpperCase()},
                   }) {
                     pullRequest {
                       autoMergeRequest {
