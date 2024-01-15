@@ -997,7 +997,7 @@ jobs:
       group: ${{ inputs.environment }}
     permissions:
       id-token: write # for login_open_id
-      contents: read # for checkout_src
+      contents: write # for auto_merge
       pull-requests: write # for comment_when_done
     runs-on: ubuntu-latest
     steps:

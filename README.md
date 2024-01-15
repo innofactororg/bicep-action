@@ -121,7 +121,7 @@ jobs:
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write # for Log in to Azure (Federated)
-      contents: read # for Checkout
+      contents: write # for Auto Merge
       pull-requests: write # for Comment when done
     secrets:
       # The service principal secret used for Azure login.
@@ -322,7 +322,7 @@ jobs:
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
     with:
       environment: production
@@ -399,7 +399,7 @@ jobs:
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
     env:
       TENANT_ID: ${{ secrets.AZURE_APP1_TENANT_ID }}
