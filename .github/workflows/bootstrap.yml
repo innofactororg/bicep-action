@@ -152,12 +152,12 @@ jobs:
             const {TEMPLATE} = process.env;
             if (context.eventName !== 'pull_request_review') {
               core.info(`The ${context.eventName} event will not be skipped`);
-              return;
+              return '';
             }
             if (!TEMPLATE.includes('/')) {
               core.info(`Code template ${TEMPLATE} is in repository root`);
               core.info('Deploy job will not be skipped');
-              return;
+              return '';
             }
             const end = TEMPLATE.lastIndexOf('/') + 1;
             const path = TEMPLATE.substring(0, end);
@@ -179,7 +179,7 @@ jobs:
                 if (f.status !== 'removed' && f.filename.includes(path)) {
                   core.info(`Found ${f.filename} in ${path}`);
                   core.info('Deploy job will not be skipped');
-                  return;
+                  return '';
                 }
               }
               const notFound = `Path ${path} is not part of PR ${prNo}. ${r}`;
