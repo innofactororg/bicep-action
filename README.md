@@ -117,7 +117,7 @@ permissions: {}
 
 jobs:
   deploy:
-    name: 🔧 Bootstrap
+    name: 🔧 Bicep
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write # for Log in to Azure (Federated)
@@ -267,6 +267,18 @@ jobs:
       # Default: false
       deploy_on_review_comment: true
 
+      # Auto merge method to use after successful deployment.
+      #
+      # Can be one of: merge, squash, rebase or disable (turn off auto merge).
+      #
+      # Default: squash
+      auto_merge: disable
+
+      # Job to run when using workflow_dispatch.
+      #
+      # Default: Plan
+      workflow_dispatch_job: ${{ github.event.inputs.job }}
+
       # The log verbosity. Can be one of:
       #
       # ERROR - Only show errors, suppressing warnings. Dump context at fail.
@@ -276,11 +288,6 @@ jobs:
       #
       # Default: ERROR
       log_severity: INFO
-
-      # Job to run when using workflow_dispatch.
-      #
-      # Default: Plan
-      workflow_dispatch_job: ${{ github.event.inputs.job }}
 ```
 
 <!-- end usage -->
@@ -311,7 +318,7 @@ permissions: {}
 
 jobs:
   deploy:
-    name: 🔧 Bootstrap
+    name: 🔧 Bicep
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write
@@ -329,8 +336,8 @@ jobs:
       azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
       psrule_exclude: Azure.Template.UseDescriptions,Azure.Resource.UseTags,Azure.Storage.SoftDelete,Azure.Storage.ContainerSoftDelete,Azure.Storage.Firewall
       ace_threshold: 500
-      log_severity: INFO
       workflow_dispatch_job: ${{ github.event.inputs.job }}
+      log_severity: INFO
 ```
 
 <!-- end usage example -->
@@ -348,8 +355,8 @@ For production use, the following settings are recommended:
 - Require status checks to pass before merging
   - Require branches to be up to date before merging
   - Add the following status checks:
-    - Bootstrap / 🗓️ Plan
-    - Bootstrap / 🏃 Deploy
+    - 🔧 Bicep / 🗓️ Plan
+    - 🔧 Bicep / 🏃 Deploy
 - Require conversation resolution before merging
 - Require linear history
 - Require deployments to succeed before merging (and select the environment that must succeed)
@@ -358,7 +365,7 @@ This ensures that no changes to the pull request are possible between the approv
 
 ## Auto merge
 
-To allow pull requests to merge automatically, once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository **General** settings.
+To allow pull requests to merge automatically, once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository **General** settings and ensure branch protection is configured as described above.
 
 ## Passing secret as input
 
@@ -388,7 +395,7 @@ permissions: {}
 
 jobs:
   deploy:
-    name: 🔧 Bootstrap
+    name: 🔧 Bicep
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write
@@ -405,8 +412,8 @@ jobs:
       scope: sub
       code_template: main.bicep
       parameters: main.bicepparam
-      log_severity: INFO
       workflow_dispatch_job: ${{ github.event.inputs.job }}
+      log_severity: INFO
 ```
 
 ## License

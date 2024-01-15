@@ -1,5 +1,5 @@
 ---
-name: "🥾 Bootstrap"
+name: "Bootstrap"
 on:
   workflow_call:
     inputs:
@@ -105,15 +105,20 @@ on:
         required: false
         default: false
         type: boolean
-      log_severity:
-        description: "The log verbosity."
+      auto_merge:
+        description: "Auto merge method to use after successful deployment."
         required: false
-        default: "ERROR"
+        default: "squash"
         type: string
       workflow_dispatch_job:
         description: "Job to run when using workflow_dispatch."
         required: false
         default: "Plan"
+        type: string
+      log_severity:
+        description: "The log verbosity."
+        required: false
+        default: "ERROR"
         type: string
     secrets:
       AZURE_CLIENT_SECRET:
@@ -146,12 +151,12 @@ jobs:
           script: |
             const {TEMPLATE} = process.env;
             if (context.eventName !== 'pull_request_review') {
-              console.log(`The ${context.eventName} event will not be skipped`);
+              core.info(`The ${context.eventName} event will not be skipped`);
               return;
             }
             if (!TEMPLATE.includes('/')) {
-              console.log(`Code template ${TEMPLATE} is in repository root`);
-              console.log('Deploy job will not be skipped');
+              core.info(`Code template ${TEMPLATE} is in repository root`);
+              core.info('Deploy job will not be skipped');
               return;
             }
             const end = TEMPLATE.lastIndexOf('/') + 1;
@@ -166,24 +171,24 @@ jobs:
               });
               const r = `${JSON.stringify(response)}`;
               if (response.status !== 200) {
-                console.log(`${reason} ${r}`);
-                console.log('Deploy job will be skipped!');
+                core.info(`${reason} ${r}`);
+                core.info('Deploy job will be skipped!');
                 return `${reason} ${r}`;
               }
               for (const f of response.data) {
                 if (f.status !== 'removed' && f.filename.includes(path)) {
-                  console.log(`Found ${f.filename} in ${path}`);
-                  console.log('Deploy job will not be skipped');
+                  core.info(`Found ${f.filename} in ${path}`);
+                  core.info('Deploy job will not be skipped');
                   return;
                 }
               }
               const notFound = `Path ${path} is not part of PR ${prNo}. ${r}`;
-              console.log(notFound);
-              console.log('Deploy job will be skipped!');
+              core.info(notFound);
+              core.info('Deploy job will be skipped!');
               return notFound;
             } catch (e) {
-              console.log(`${reason} ${e}`);
-              console.log('Deploy job will be skipped!');
+              core.info(`${reason} ${e}`);
+              core.info('Deploy job will be skipped!');
               core.setFailed(`${reason} ${e}`);
               return `${reason} ${e}`;
             }
@@ -199,14 +204,18 @@ jobs:
 
   plan:
     name: "🗓️ Plan"
+    needs: check
     if: >
+      needs.check.outputs.skip_reason == '' &&
       (
-        github.event_name == 'workflow_dispatch' &&
-        inputs.workflow_dispatch_job == 'Plan'
-      ) ||
-      (
-        github.event_name == 'pull_request' ||
-        github.event_name == 'pull_request_target'
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.workflow_dispatch_job == 'Plan'
+        ) ||
+        (
+          github.event_name == 'pull_request' ||
+          github.event_name == 'pull_request_target'
+        )
       )
     concurrency:
       group: ${{ github.workflow }}
@@ -771,13 +780,11 @@ jobs:
       - name: Job cancelled
         id: job_cancelled
         if: cancelled()
-        shell: bash
         run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
 
       - name: Job failed
         id: job_failed
         if: failure()
-        shell: bash
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
       - name: Merge results
@@ -955,18 +962,20 @@ jobs:
     name: "🏃 Deploy"
     needs: check
     if: >
+      needs.check.outputs.skip_reason == '' &&
       (
-        github.event_name == 'workflow_dispatch' &&
-        inputs.workflow_dispatch_job == 'Deploy'
-      ) ||
-      (
-        needs.check.outputs.skip_reason == '' &&
-        github.event_name == 'pull_request_review' &&
         (
-          github.event.review.state == 'approved' ||
+          github.event_name == 'workflow_dispatch' &&
+          inputs.workflow_dispatch_job == 'Deploy'
+        ) ||
+        (
+          github.event_name == 'pull_request_review' &&
           (
-            inputs.deploy_on_review_comment &&
-            github.event.review.state == 'commented'
+            github.event.review.state == 'approved' ||
+            (
+              inputs.deploy_on_review_comment &&
+              github.event.review.state == 'commented'
+            )
           )
         )
       )
@@ -1349,16 +1358,50 @@ jobs:
           eval "${cmd}" 1> >(tee -a ${log}.json) 2> >(tee -a $log >&2)
           log_output $log
 
+      - name: Auto merge
+        id: auto_merge
+        if: >
+          github.event_name == 'pull_request_review' &&
+          contains(
+            fromJSON('["merge", "squash", "rebase"]'), inputs.auto_merge
+          )
+        uses: actions/github-script@v7
+        env:
+          METHOD: ${{ inputs.auto_merge }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {METHOD} = process.env;
+            try {
+              const response = await github.graphql(`
+                mutation {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: "${context.payload.pull_request.node_id}",
+                    mergeMethod: ${METHOD},
+                  }) {
+                    pullRequest {
+                      autoMergeRequest {
+                        enabledAt
+                      }
+                    }
+                  }
+                }
+              `);
+              core.info(`Auto-merge enabled. ${JSON.stringify(response)}`);
+            } catch (e) {
+              const msg = `Failed to enable auto-merge! ${e}`;
+              core.info(msg);
+              core.setFailed(msg);
+            }
+
       - name: Job cancelled
         id: job_cancelled
         if: cancelled()
-        shell: bash
         run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
 
       - name: Job failed
         id: job_failed
         if: failure()
-        shell: bash
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
       - name: Merge results
