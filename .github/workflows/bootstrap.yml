@@ -431,6 +431,7 @@ jobs:
 
       - name: Bicep param build
         id: bicep_build_params
+        if: inputs.parameters != ''
         env:
           TEMPLATE: ${{ inputs.parameters }}
           SEVERITY: ${{ inputs.log_severity }}
