@@ -150,47 +150,45 @@ jobs:
           result-encoding: string
           script: |
             const {TEMPLATE} = process.env;
-            if (context.eventName !== 'pull_request_review') {
-              core.info(`The ${context.eventName} event will not be skipped`);
-              return '';
+            if (context.eventName !== "pull_request_review") {
+              core.info(`Allow ${context.eventName} events!`);
+              return "";
             }
-            if (!TEMPLATE.includes('/')) {
-              core.info(`Code template ${TEMPLATE} is in repository root`);
-              core.info('Deploy job will not be skipped');
-              return '';
+            const end = TEMPLATE.lastIndexOf("/") + 1;
+            const path = TEMPLATE.substring(0, end).replace(/^\.\//, "");
+            if (!path.includes("/")) {
+              core.info(`Allow ${TEMPLATE} in repository root!`);
+              return "";
             }
-            const end = TEMPLATE.lastIndexOf('/') + 1;
-            const path = TEMPLATE.substring(0, end);
             const { repo: { owner, repo } } = context;
             const prNo = context.issue.number;
-            const reason = `Could not list files for pull request ${prNo}.`;
+            core.info(`Check if pull request ${prNo} includes ${path}.`);
             try {
               const response = await github.rest.pulls.listFiles({
                 owner, repo,
                 pull_number: prNo
               });
-              const r = `${JSON.stringify(response)}`;
               if (response.status !== 200) {
-                core.info(`${reason} ${r}`);
-                core.info('Deploy job will be skipped!');
-                return `${reason} ${r}`;
+                const reason = `List files failed! ${JSON.stringify(response)}`;
+                core.info(reason);
+                return reason;
               }
               for (const f of response.data) {
-                if (f.status !== 'removed' && f.filename.includes(path)) {
-                  core.info(`Found ${f.filename} in ${path}`);
-                  core.info('Deploy job will not be skipped');
-                  return '';
+                if (f.filename.includes(path) && f.status !== "removed") {
+                  core.info(`Allow ${f.status} ${f.filename}`);
+                  return "";
+                } else {
+                  core.info(`- ${f.status} ${f.filename}`);
                 }
               }
-              const notFound = `Path ${path} is not part of PR ${prNo}. ${r}`;
-              core.info(notFound);
-              core.info('Deploy job will be skipped!');
-              return notFound;
+              const reason = `Path ${path} is not included in pull request!`;
+              core.info(reason);
+              return reason;
             } catch (e) {
-              core.info(`${reason} ${e}`);
-              core.info('Deploy job will be skipped!');
-              core.setFailed(`${reason} ${e}`);
-              return `${reason} ${e}`;
+              const reason = `List files threw exception! ${e}`;
+              core.info(reason);
+              core.setFailed(reason);
+              return reason;
             }
 
       - name: Print variables and event
@@ -282,7 +280,7 @@ jobs:
             } catch (e) {
               core.setFailed(`Failed to comment at start. ${e}`);
             }
-            return '0';
+            return "0";
 
       - name: Checkout head ref (src)
         id: checkout_src
