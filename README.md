@@ -386,7 +386,7 @@ on:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
-    paths: ["bicep/main.bicep", "bicep/main.bicepparam"]
+    paths: ["bicep/**.bicep*"]
 
   pull_request_review:
     types: [submitted]
@@ -394,18 +394,26 @@ on:
 permissions: {}
 
 jobs:
+  vars:
+    name: vars
+    runs-on: ubuntu-latest
+    env:
+      TENANT_ID: ${{ secrets.AZURE_APP1_TENANT_ID }}
+    outputs:
+      TENANT_ID: ${{ env.TENANT_ID }}
+    steps:
+      - run: echo 'Exposing secrets as env vars'
   deploy:
     name: 🔧 Bicep
+    needs: vars
     uses: innofactororg/bicep-action/.github/workflows/bootstrap.yml@v1
     permissions:
       id-token: write
       contents: write
       pull-requests: write
-    env:
-      TENANT_ID: ${{ secrets.AZURE_APP1_TENANT_ID }}
     with:
       environment: sandbox1
-      azure_tenant_id: ${{ env.TENANT_ID }}
+      azure_tenant_id: ${{ needs.vars.outputs.TENANT_ID }}
       azure_client_id: 6a31b6a2-4558-43bb-896a-008e763058bd
       azure_subscription_id: aeac59a3-67af-474b-ac4a-67ee18414df1
       location: westeurope
