@@ -191,26 +191,34 @@ jobs:
               return reason;
             }
 
-      - name: Print variables and event
-        id: dump_env
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        uses: hmarr/debug-action@v2
-
-      - name: Dump steps context
-        id: dump_steps_context
+      - name: Debug details
+        id: debug
         if: >
           failure() || (
             success() &&
             inputs.log_severity != 'ERROR'
           )
         env:
+          GH_CONTEXT: ${{ toJson(github) }}
           STEPS_CONTEXT: ${{ toJson(steps) }}
         run: |
+          RESUME_TOKEN=$(uuidgen)
+          echo "::add-mask::${RESUME_TOKEN}"
+          echo '::group::environment variables'
+          echo "::stop-commands::${RESUME_TOKEN}"
+          env | sed -e '/^GH_CONTEXT=/d' -e '/^STEPS_CONTEXT=/d' | sort
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
+          echo '::group::github context'
+          echo "::stop-commands::${RESUME_TOKEN}"
+          echo "${GH_CONTEXT}"
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
+          echo '::group::steps context'
+          echo "::stop-commands::${RESUME_TOKEN}"
           echo "${STEPS_CONTEXT}"
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
 
   plan:
     name: "🗓️ Plan"
@@ -480,7 +488,7 @@ jobs:
             eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
             log_output $log
           else
-            echo "Skip bicep build, not a bicep file: ${TEMPLATE}"
+            echo "Skip bicep build-params, not a bicepparam file: ${TEMPLATE}"
           fi
           echo "JSON_FILE=${out_file}" >> "$GITHUB_OUTPUT"
 
@@ -917,17 +925,8 @@ jobs:
               }
             }
 
-      - name: Print variables and event
-        id: dump_env
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        uses: hmarr/debug-action@v2
-
-      - name: Dump github context
-        id: dump_github_context
+      - name: Debug details
+        id: debug
         if: >
           failure() || (
             success() &&
@@ -935,20 +934,25 @@ jobs:
           )
         env:
           GH_CONTEXT: ${{ toJson(github) }}
-        run: |
-          echo "${GH_CONTEXT}"
-
-      - name: Dump steps context
-        id: dump_steps_context
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        env:
           STEPS_CONTEXT: ${{ toJson(steps) }}
         run: |
+          RESUME_TOKEN=$(uuidgen)
+          echo "::add-mask::${RESUME_TOKEN}"
+          echo '::group::environment variables'
+          echo "::stop-commands::${RESUME_TOKEN}"
+          env | sed -e '/^GH_CONTEXT=/d' -e '/^STEPS_CONTEXT=/d' | sort
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
+          echo '::group::github context'
+          echo "::stop-commands::${RESUME_TOKEN}"
+          echo "${GH_CONTEXT}"
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
+          echo '::group::steps context'
+          echo "::stop-commands::${RESUME_TOKEN}"
           echo "${STEPS_CONTEXT}"
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
 
       - name: Upload artifacts
         id: upload_artifacts
@@ -1499,17 +1503,8 @@ jobs:
               core.setFailed(`Failed to comment when done. ${e}`);
             }
 
-      - name: Print variables and event
-        id: dump_env
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        uses: hmarr/debug-action@v2
-
-      - name: Dump github context
-        id: dump_github_context
+      - name: Debug details
+        id: debug
         if: >
           failure() || (
             success() &&
@@ -1517,20 +1512,25 @@ jobs:
           )
         env:
           GH_CONTEXT: ${{ toJson(github) }}
-        run: |
-          echo "${GH_CONTEXT}"
-
-      - name: Dump steps context
-        id: dump_steps_context
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        env:
           STEPS_CONTEXT: ${{ toJson(steps) }}
         run: |
+          RESUME_TOKEN=$(uuidgen)
+          echo "::add-mask::${RESUME_TOKEN}"
+          echo '::group::environment variables'
+          echo "::stop-commands::${RESUME_TOKEN}"
+          env | sed -e '/^GH_CONTEXT=/d' -e '/^STEPS_CONTEXT=/d' | sort
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
+          echo '::group::github context'
+          echo "::stop-commands::${RESUME_TOKEN}"
+          echo "${GH_CONTEXT}"
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
+          echo '::group::steps context'
+          echo "::stop-commands::${RESUME_TOKEN}"
           echo "${STEPS_CONTEXT}"
+          echo "::${RESUME_TOKEN}::"
+          echo "::endgroup::"
 
       - name: Upload artifacts
         id: upload_artifacts

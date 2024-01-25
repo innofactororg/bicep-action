@@ -108,7 +108,7 @@ on:
   pull_request:
     types: [opened, synchronize]
     branches: [main]
-    paths: ["bicep/main.bicep", "bicep/main.bicepparam"]
+    paths: ["bicep/**.bicep*"]
 
   pull_request_review:
     types: [submitted]
@@ -365,13 +365,13 @@ This ensures that no changes to the pull request are possible between the approv
 
 ## Auto merge
 
-To allow pull requests to merge automatically, once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository **General** settings and ensure branch protection is configured as described above.
+To allow pull requests to merge automatically once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository settings under **General**. Ensure branch protection is configured as described above.
 
 ## Passing secret as input
 
-If the input value is stored as a secret, it can still be passed using the env syntax.
+If the input value is stored as a secret, it can still be passed using the needs syntax.
 
-In the following example a secret called **AZURE_APP1_TENANT_ID** is passed to the input **azure_tenant_id** using environment variable **TENANT_ID**:
+In the following example, a secret called **AZURE_APP1_TENANT_ID** is passed to the input **azure_tenant_id**:
 
 ```yaml
 name: Azure Deploy
