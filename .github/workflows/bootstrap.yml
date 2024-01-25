@@ -191,7 +191,7 @@ jobs:
               return reason;
             }
 
-      - name: Debug details
+      - name: Show debug info
         id: debug
         if: >
           failure() || (
@@ -206,7 +206,13 @@ jobs:
           echo "::add-mask::${RESUME_TOKEN}"
           echo '::group::environment variables'
           echo "::stop-commands::${RESUME_TOKEN}"
-          env | sed -e '/^GH_CONTEXT=/d' -e '/^STEPS_CONTEXT=/d' | sort
+          list=($(compgen -e))
+          skip='GH_CONTEXT STEPS_CONTEXT'
+          for key in "${list[@]}"; do
+            if [[ ! " ${skip} " =~ ${key} ]]; then
+              echo "${key}=$(printenv $key)"
+            fi
+          done
           echo "::${RESUME_TOKEN}::"
           echo "::endgroup::"
           echo '::group::github context'
@@ -925,7 +931,7 @@ jobs:
               }
             }
 
-      - name: Debug details
+      - name: Show debug info
         id: debug
         if: >
           failure() || (
@@ -940,7 +946,13 @@ jobs:
           echo "::add-mask::${RESUME_TOKEN}"
           echo '::group::environment variables'
           echo "::stop-commands::${RESUME_TOKEN}"
-          env | sed -e '/^GH_CONTEXT=/d' -e '/^STEPS_CONTEXT=/d' | sort
+          list=($(compgen -e))
+          skip='GH_CONTEXT STEPS_CONTEXT'
+          for key in "${list[@]}"; do
+            if [[ ! " ${skip} " =~ ${key} ]]; then
+              echo "${key}=$(printenv $key)"
+            fi
+          done
           echo "::${RESUME_TOKEN}::"
           echo "::endgroup::"
           echo '::group::github context'
@@ -1244,10 +1256,10 @@ jobs:
           ))
           echo 'Currently registered:' | tee -a $log
           echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')\n" | tee -a $log
-          registered=$(echo " ${registered[*]} " | tr '[:upper:]' '[:lower:]')
+          registered=$(echo "${registered[*]}" | tr '[:upper:]' '[:lower:]')
           for provider in "${providers[@]}"; do
             value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
-            if [[ ! " ${registered[*]} " =~ ${value} ]]; then
+            if [[ ! " ${registered} " =~ ${value} ]]; then
               echo "Register ${provider}" | tee -a $log
               az provider register \
                 --consent-to-permissions --namespace $provider \
@@ -1503,7 +1515,7 @@ jobs:
               core.setFailed(`Failed to comment when done. ${e}`);
             }
 
-      - name: Debug details
+      - name: Show debug info
         id: debug
         if: >
           failure() || (
@@ -1518,7 +1530,13 @@ jobs:
           echo "::add-mask::${RESUME_TOKEN}"
           echo '::group::environment variables'
           echo "::stop-commands::${RESUME_TOKEN}"
-          env | sed -e '/^GH_CONTEXT=/d' -e '/^STEPS_CONTEXT=/d' | sort
+          list=($(compgen -e))
+          skip='GH_CONTEXT STEPS_CONTEXT'
+          for key in "${list[@]}"; do
+            if [[ ! " ${skip} " =~ ${key} ]]; then
+              echo "${key}=$(printenv $key)"
+            fi
+          done
           echo "::${RESUME_TOKEN}::"
           echo "::endgroup::"
           echo '::group::github context'
