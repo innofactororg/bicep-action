@@ -124,14 +124,33 @@ jobs:
       contents: write # for Auto Merge
       pull-requests: write # for Comment when done
     secrets:
-      # The service principal secret used for Azure login.
+      # The tenant ID in which the subscription exists.
       #
-      # This secret is optional and only needed as an alternative to
-      # federated credentials.
+      # Required if input azure_tenant_id is not specified.
+      # Ignored if input azure_tenant_id is specified.
+      AZURE_TENANT_ID: ${{ secrets.TENANT_ID }}
+
+      # The client ID of the service principal for Azure login.
+      #
+      # This service principal must have permission to deploy within the
+      # Azure subscription.
+      #
+      # Required if input azure_client_id is not specified.
+      # Ignored if input azure_client_id is specified.
+      AZURE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+
+      # The subscription ID in which to deploy the resources.
+      #
+      # Required if input azure_subscription_id is not specified.
+      # Ignored if input azure_subscription_id is specified.
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTION_ID }}
+
+      # The service principal secret used for Azure login.
       #
       # Note: Don't add this secret if you want to use federated credentials.
       #
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_APP1_CLIENT_SECRET }}
+      # Optional: only needed as an alternative to federated credentials.
+      AZURE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
     with:
       # The GitHub environment name for the Azure deploy job.
       #
@@ -140,7 +159,7 @@ jobs:
 
       # The tenant ID in which the subscription exists.
       #
-      # Required
+      # Required if secret AZURE_TENANT_ID is not specified.
       azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
 
       # The client ID of the service principal for Azure login.
@@ -148,12 +167,12 @@ jobs:
       # This service principal must have permission to deploy within the
       # Azure subscription.
       #
-      # Required
+      # Required if secret AZURE_CLIENT_ID is not specified.
       azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
 
       # The subscription ID in which to deploy the resources.
       #
-      # Required
+      # Required if secret AZURE_SUBSCRIPTION_ID is not specified.
       azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
 
       # The Azure location to store the deployment metadata.
@@ -367,11 +386,11 @@ This ensures that no changes to the pull request are possible between the approv
 
 To allow pull requests to merge automatically once all required reviews and status checks have passed, enable **Allow auto-merge** in the repository settings under **General**. Ensure branch protection is configured as described above.
 
-## Passing secret as input
+## Passing secrets
 
-If the input value is stored as a secret, it can still be passed using the needs syntax.
+If the value of azure_tenant_id, azure_client_id or azure_subscription_id is stored as a secret, it can be passed using the secrets syntax.
 
-In the following example, a secret called **AZURE_APP1_TENANT_ID** is passed to the input **azure_tenant_id**:
+Note that secrets are masked in the job log. IDs can't be seen and it may be difficult to see if the wrong ID is used.
 
 ```yaml
 name: Azure Deploy
@@ -394,15 +413,6 @@ on:
 permissions: {}
 
 jobs:
-  vars:
-    name: vars
-    runs-on: ubuntu-latest
-    env:
-      TENANT_ID: ${{ secrets.AZURE_APP1_TENANT_ID }}
-    outputs:
-      TENANT_ID: ${{ env.TENANT_ID }}
-    steps:
-      - run: echo 'Exposing secrets as env vars'
   deploy:
     name: 🔧 Bicep
     needs: vars
@@ -411,11 +421,13 @@ jobs:
       id-token: write
       contents: write
       pull-requests: write
+    secrets:
+      AZURE_TENANT_ID: ${{ secrets.TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTION_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
     with:
       environment: sandbox1
-      azure_tenant_id: ${{ needs.vars.outputs.TENANT_ID }}
-      azure_client_id: 6a31b6a2-4558-43bb-896a-008e763058bd
-      azure_subscription_id: aeac59a3-67af-474b-ac4a-67ee18414df1
       location: westeurope
       scope: sub
       code_template: main.bicep

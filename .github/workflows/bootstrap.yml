@@ -121,6 +121,15 @@ on:
         default: "ERROR"
         type: string
     secrets:
+      AZURE_TENANT_ID:
+        description: "The tenant ID in which the subscription exists."
+        required: false
+      AZURE_CLIENT_ID:
+        description: "The client ID of the service principal for Azure login."
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        description: "The subscription ID in which to deploy the resources."
+        required: false
       AZURE_CLIENT_SECRET:
         description: "The service principal secret used for Azure login."
         required: false
@@ -319,16 +328,16 @@ jobs:
         if: steps.client_secret.outputs.exist != 'true'
         uses: azure/login@v1
         with:
-          client-id: ${{ inputs.azure_client_id }}
-          tenant-id: ${{ inputs.azure_tenant_id }}
-          subscription-id: ${{ inputs.azure_subscription_id }}
+          client-id: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
 
       - name: Log in to Azure (Secret)
         id: login_secret
         if: steps.client_secret.outputs.exist == 'true'
         env:
-          CLIENT_ID: ${{ inputs.azure_client_id }}
-          TENANT_ID: ${{ inputs.azure_tenant_id }}
+          CLIENT_ID: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
           case "${SEVERITY}" in
@@ -345,9 +354,11 @@ jobs:
         if: endsWith(inputs.code_template, '.bicep')
         env:
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='bicep_install.txt'
+          mkdir -p "${LOG_PATH}"
+          log="${LOG_PATH}/bicep_install.txt"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -394,9 +405,10 @@ jobs:
         env:
           TEMPLATE: ${{ inputs.code_template }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='bicep_build.txt'
+          log="${LOG_PATH}/bicep_build.txt"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -437,6 +449,9 @@ jobs:
             esac
             echo "Run: ${cmd}" | tee -a $log
             eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            if test -f "${out_file}"; then
+              cp ${out_file} ${LOG_PATH}/
+            fi
             log_output $log
           else
             echo "Skip bicep build, not a bicep file: ${TEMPLATE}"
@@ -449,9 +464,10 @@ jobs:
         env:
           TEMPLATE: ${{ inputs.parameters }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='bicep_build_params.txt'
+          log="${LOG_PATH}/bicep_build_params.txt"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -493,6 +509,9 @@ jobs:
             esac
             echo "Run: ${cmd}" | tee -a $log
             eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            if test -f "${out_file}"; then
+              cp ${out_file} ${LOG_PATH}/
+            fi
             log_output $log
           else
             echo "Skip bicep build-params, not a bicepparam file: ${TEMPLATE}"
@@ -506,13 +525,14 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='what_if.txt'
+          log="${LOG_PATH}/what_if.txt"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -589,6 +609,7 @@ jobs:
           PSRULE_IGNORE: ${{ inputs.psrule_path_ignore }}
           PSRULE_MODULES: ${{ inputs.psrule_modules }}
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
             file=$TEMPLATE_PARAMS
@@ -638,13 +659,16 @@ jobs:
               - en-US
             footer: RuleCount
             format: Markdown
-            jobSummaryPath: ps_rule_summary.md
+            jobSummaryPath: ${LOG_PATH}/ps_rule_summary.md
             outcome: Processed
-            style: GitHubActions
+            style: Detect
           rule:
             exclude: [${PSRULE_RULE_EXCLUDE}]
           81d174f4ee42ba3f
-          echo 'Created ps-rule.yaml'
+          if test -f ps-rule.yaml; then
+            cp ps-rule.yaml ${LOG_PATH}/
+            echo 'Created ps-rule.yaml'
+          fi
 
       - name: PSRule analysis
         id: ps_rule
@@ -654,15 +678,17 @@ jobs:
           modules: ${{ inputs.psrule_modules }}
           baseline: ${{ inputs.psrule_baseline }}
           outputFormat: Markdown
-          outputPath: ps_rule.md
+          outputPath: ${{ runner.workspace }}/logs/ps_rule.md
           summary: false
 
       - name: PSRule report
         id: ps_rule_report
         if: failure() || success()
+        env:
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
-          if test -f ps_rule.md; then
-            result=$(cat ps_rule.md)
+          if test -f "${LOG_PATH}/ps_rule.md"; then
+            result=$(cat "${LOG_PATH}/ps_rule.md")
             if [ "${result}" = "# PSRule" ]; then
               echo 'PSRule report is empty'
             else
@@ -670,8 +696,8 @@ jobs:
               {
                 echo 'result<<eddc1726f9bb37b6'
                 echo -e '## PSRule\n'
-                if test -f ps_rule_summary.md; then
-                  result2=$(cat ps_rule_summary.md)
+                if test -f "${LOG_PATH}/ps_rule_summary.md"; then
+                  result2=$(cat "${LOG_PATH}/ps_rule_summary.md")
                   echo -e "${result2}\n" | sed -e ':a' -e 'N' -e '$!ba' \
                     -e 's|# PSRule result summary\n\n||g' \
                     -e 's|## |### |g'
@@ -696,15 +722,16 @@ jobs:
           TEMPLATE_PARAMS: ${{ steps.bicep_build_params.outputs.JSON_FILE }}
           IN_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           ACE_VERSION: ${{ inputs.ace_version }}
           ACE_CURRENCY: ${{ inputs.ace_currency }}
           ACE_THRESHOLD: ${{ inputs.ace_threshold }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='cost.txt'
+          log="${LOG_PATH}/cost.txt"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -803,6 +830,9 @@ jobs:
           cmd+=' --jsonOutputFilename cost_output'
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2) || true
+          if test -f cost_output.json; then
+            cp cost_output.json ${LOG_PATH}/
+          fi
           log_output $log cost_output.json
 
       - name: Job cancelled
@@ -815,8 +845,8 @@ jobs:
         if: failure()
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
-      - name: Merge results
-        id: merge_results
+      - name: Get results
+        id: get_results
         if: always()
         env:
           BICEP_INSTALL: ${{ steps.bicep_install.outputs.result }}
@@ -867,13 +897,13 @@ jobs:
           )
         uses: actions/github-script@v7
         env:
-          MERGE_RESULTS: ${{ steps.merge_results.outputs.result }}
+          ALL_RESULTS: ${{ steps.get_results.outputs.result }}
           EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.result }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {MERGE_RESULTS} = process.env;
+            const {ALL_RESULTS} = process.env;
             const {EVENT_COMMENT_ID} = process.env ?? 0;
             const {SUBSCRIPTION_ID} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
@@ -888,7 +918,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            const body = `${MERGE_RESULTS}
+            const body = `${ALL_RESULTS}
 
             ### Actions
 
@@ -968,24 +998,13 @@ jobs:
           echo "::${RESUME_TOKEN}::"
           echo "::endgroup::"
 
-      - name: Upload artifacts
-        id: upload_artifacts
+      - name: Upload logs
+        id: upload_logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: plan_logs
-          path: |
-            bicep_install.txt
-            bicep_build.txt
-            bicep_build_params.txt
-            ps_rule.md
-            ps_rule_summary.md
-            ps-rule.yaml
-            what_if.txt
-            cost_output.json
-            cost.txt
-            ${{ steps.bicep_build.outputs.JSON_FILE }}
-            ${{ steps.bicep_build_params.outputs.JSON_FILE }}
+          path: ${{ runner.workspace }}/logs/
           if-no-files-found: ignore
 
   deploy:
@@ -1041,16 +1060,16 @@ jobs:
         if: steps.client_secret.outputs.exist != 'true'
         uses: azure/login@v1
         with:
-          client-id: ${{ inputs.azure_client_id }}
-          tenant-id: ${{ inputs.azure_tenant_id }}
-          subscription-id: ${{ inputs.azure_subscription_id }}
+          client-id: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
 
       - name: Log in to Azure (Secret)
         id: login_secret
         if: steps.client_secret.outputs.exist == 'true'
         env:
-          CLIENT_ID: ${{ inputs.azure_client_id }}
-          TENANT_ID: ${{ inputs.azure_tenant_id }}
+          CLIENT_ID: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
           SEVERITY: ${{ inputs.log_severity }}
         run: |
           case "${SEVERITY}" in
@@ -1067,9 +1086,11 @@ jobs:
         if: endsWith(inputs.code_template, '.bicep')
         env:
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='bicep_install.txt'
+          mkdir -p "${LOG_PATH}"
+          log="${LOG_PATH}/bicep_install.txt"
           trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1116,14 +1137,15 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
           PROVIDERS: ${{ inputs.azure_providers }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='validate.txt'
+          log="${LOG_PATH}/validate.txt"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1133,41 +1155,27 @@ jobs:
             log_output "$4"
             exit $1
           }
+          json_object=''
           log_output() {
-            from_code=''
-            if test -f $1; then
-              json_object=$(
-                cat $1 | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
-                  -e '/^[[:space:]]*$/d'
-              )
-              if [[ "${json_object}" == {* ]]; then
-                from_code=$(
-                  echo "${json_object}" | \
-                    jq '.properties.providers | map(.namespace) | join(" ")'
-                )
-              fi
+            {
               result=$(
                 cat $1 | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
               )
-              {
-                echo 'result<<7444dac159e4ee0f'
-                echo -e '## Validate\n'
-                if test -n "${result}"; then
-                  echo '```text'
-                  echo "${result}"
-                  echo -e '```\n'
-                fi
-                if test -n "${json_object}"; then
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```json'
-                  echo "${json_object}"
-                  echo -e '```\n\n</details>'
-                fi
-                echo '7444dac159e4ee0f'
-              } >> "$GITHUB_OUTPUT"
-            fi
-            providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
-            echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+              echo 'result<<7444dac159e4ee0f'
+              echo -e '## Validate\n'
+              if test -n "${result}"; then
+                echo '```text'
+                echo "${result}"
+                echo -e '```\n'
+              fi
+              if test -n "${json_object}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```json'
+                echo "${json_object}"
+                echo -e '```\n\n</details>'
+              fi
+              echo '7444dac159e4ee0f'
+            } >> "$GITHUB_OUTPUT"
           }
           if [[ $TEMPLATE_PARAMS == http* ]]; then
             file="${TEMPLATE_PARAMS%% *}"
@@ -1203,7 +1211,22 @@ jobs:
           az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}"
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
+          if test -f $log; then
+            json_object=$(
+              cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                -e '/^[[:space:]]*$/d'
+            )
+            from_code=''
+            if [[ "${json_object}" == {* ]]; then
+              from_code=$(
+                echo "${json_object}" | \
+                  jq '.properties.providers | map(.namespace) | join(" ")'
+              )
+            fi
+            providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
+            echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+            log_output $log
+          fi
 
       - name: Check Azure providers
         id: azure_providers
@@ -1212,11 +1235,12 @@ jobs:
           PROVIDERS: ${{ steps.validate.outputs.providers }}
           WAIT_SECONDS: ${{ inputs.azure_provider_wait_seconds }}
           WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='azure_providers.txt'
+          log="${LOG_PATH}/azure_providers.txt"
           trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1304,13 +1328,14 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log='deploy.txt'
+          log="${LOG_PATH}/deploy.txt"
           trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1436,8 +1461,8 @@ jobs:
         if: failure()
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
-      - name: Merge results
-        id: merge_results
+      - name: Get results
+        id: get_results
         if: always()
         env:
           BICEP_INSTALL: ${{ steps.bicep_install.outputs.result }}
@@ -1481,12 +1506,12 @@ jobs:
           github.event_name == 'pull_request_review'
         uses: actions/github-script@v7
         env:
-          MERGE_RESULTS: ${{ steps.merge_results.outputs.result }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+          ALL_RESULTS: ${{ steps.get_results.outputs.result }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const {MERGE_RESULTS} = process.env;
+            const {ALL_RESULTS} = process.env;
             const {SUBSCRIPTION_ID} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
@@ -1499,7 +1524,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            const body = `${MERGE_RESULTS}
+            const body = `${ALL_RESULTS}
 
             | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
@@ -1554,15 +1579,11 @@ jobs:
           echo "::${RESUME_TOKEN}::"
           echo "::endgroup::"
 
-      - name: Upload artifacts
-        id: upload_artifacts
+      - name: Upload logs
+        id: upload_logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deploy_logs
-          path: |
-            bicep_install.txt
-            validate.txt
-            azure_providers.txt
-            deploy.txt
+          path: ${{ runner.workspace }}/logs/
           if-no-files-found: ignore
