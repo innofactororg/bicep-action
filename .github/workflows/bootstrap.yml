@@ -315,11 +315,63 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Install tools
+        id: install_tools
+        env:
+          TEMPLATE: ${{ inputs.code_template }}
+          SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
+        run: |
+          set -e
+          mkdir -p "${LOG_PATH}"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<e9febe842f46ddcd'
+                  echo -e '## Bicep install\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo '```'
+                  echo 'e9febe842f46ddcd'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
+          az_version=$(az version | jq -r '."azure-cli"')
+          echo "Azure CLI ${az_version}" | tee -a $log
+          echo 'Installed extensions:' | tee -a $log
+          az version --query extensions -o yaml | tee -a $log
+          if [[ $TEMPLATE == *.bicep ]]; then
+            cmd="az bicep install"
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            az config set bicep.use_binary_from_path=False >/dev/null 2>&1
+            echo "Run: ${cmd}" | tee -a $log
+            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          fi
+          log_output $log
+
       - name: Log in to Azure
         id: azure_login
         env:
           CLIENT_ID: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
           TENANT_ID: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           SEVERITY: ${{ inputs.log_severity }}
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
@@ -377,55 +429,7 @@ jobs:
           cmd+=" --allow-no-subscriptions ${log_severity}"
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
-
-      - name: Bicep install
-        id: bicep_install
-        if: endsWith(inputs.code_template, '.bicep')
-        env:
-          SEVERITY: ${{ inputs.log_severity }}
-          LOG_PATH: ${{ runner.workspace }}/logs
-        run: |
-          set -e
-          mkdir -p "${LOG_PATH}"
-          log="${LOG_PATH}/${GITHUB_ACTION}.log"
-          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
-          error() {
-            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
-            log_output "$4"
-            exit $1
-          }
-          log_output() {
-            if test -f $1; then
-              result=$(cat $1)
-              if test -n "${result}"; then
-                {
-                  echo 'result<<e9febe842f46ddcd'
-                  echo -e '## Bicep install\n'
-                  echo '```text'
-                  echo "${result}"
-                  echo '```'
-                  echo 'e9febe842f46ddcd'
-                } >> "$GITHUB_OUTPUT"
-              fi
-            fi
-          }
-          cmd="az bicep install"
-          case "${SEVERITY}" in
-            ERROR)   cmd+=' --only-show-errors';;
-            VERBOSE) cmd+=' --verbose';;
-            DEBUG)   cmd+=' --debug';;
-          esac
-          az config set bicep.use_binary_from_path=False >/dev/null 2>&1
-          echo "Run: ${cmd}" | tee -a $log
-          az_version=$(az version | jq -r '."azure-cli"')
-          echo "Azure CLI ${az_version}" | tee -a $log
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          echo 'Installed extensions:' | tee -a $log
-          az version --query extensions -o yaml | tee -a $log
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           log_output $log
 
       - name: Bicep build
@@ -555,7 +559,6 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
@@ -625,7 +628,6 @@ jobs:
             DEBUG)   cmd+=' --debug';;
           esac
           cmd+=' --exclude-change-types Ignore NoChange --no-prompt true'
-          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           log_output $log
@@ -879,8 +881,8 @@ jobs:
         id: get_results
         if: always()
         env:
+          INSTALL_TOOLS: ${{ steps.install_tools.outputs.result }}
           AZURE_LOGIN: ${{ steps.azure_login.outputs.result }}
-          BICEP_INSTALL: ${{ steps.bicep_install.outputs.result }}
           BICEP_BUILD: ${{ steps.bicep_build.outputs.result }}
           BICEP_BUILD_PARAM: ${{ steps.bicep_build_params.outputs.result }}
           PS_RULE_REPORT: ${{ steps.ps_rule_report.outputs.result }}
@@ -895,8 +897,8 @@ jobs:
           esac
           all_results="${WHAT_IF}"
           all_results+=$(echo -e "\n\n${COST}")
+          all_results+=$(echo -e "\n\n${INSTALL_TOOLS}")
           all_results+=$(echo -e "\n\n${AZURE_LOGIN}")
-          all_results+=$(echo -e "\n\n${BICEP_INSTALL}")
           all_results+=$(echo -e "\n\n${BICEP_BUILD}")
           all_results+=$(echo -e "\n\n${BICEP_BUILD_PARAM}")
           all_results+=$(echo -e "\n\n${PS_RULE_REPORT}")
@@ -1076,6 +1078,57 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Install tools
+        id: install_tools
+        env:
+          TEMPLATE: ${{ inputs.code_template }}
+          SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
+        run: |
+          set -e
+          mkdir -p "${LOG_PATH}"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(cat $1)
+              if test -n "${result}"; then
+                {
+                  echo 'result<<8cfeacefe1900f1b'
+                  echo -e '## Bicep install\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo '```'
+                  echo '8cfeacefe1900f1b'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
+          az_version=$(az version | jq -r '."azure-cli"')
+          echo "Azure CLI ${az_version}" | tee -a $log
+          echo 'Installed extensions:' | tee -a $log
+          az version --query extensions -o yaml | tee -a $log
+          if [[ $TEMPLATE == *.bicep ]]; then
+            cmd="az bicep install"
+            case "${SEVERITY}" in
+              ERROR)   cmd+=' --only-show-errors';;
+              VERBOSE) cmd+=' --verbose';;
+              DEBUG)   cmd+=' --debug';;
+            esac
+            az config set bicep.use_binary_from_path=False >/dev/null 2>&1
+            echo "Run: ${cmd}" | tee -a $log
+            eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          fi
+          log_output $log
+
       - name: Check Client secret
         id: client_secret
         run: |
@@ -1112,55 +1165,6 @@ jobs:
           esac
           az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
             -p '${{ secrets.AZURE_CLIENT_SECRET }}' $log_severity
-
-      - name: Bicep install
-        id: bicep_install
-        if: endsWith(inputs.code_template, '.bicep')
-        env:
-          SEVERITY: ${{ inputs.log_severity }}
-          LOG_PATH: ${{ runner.workspace }}/logs
-        run: |
-          set -e
-          mkdir -p "${LOG_PATH}"
-          log="${LOG_PATH}/${GITHUB_ACTION}.log"
-          trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
-          error_handler() {
-            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
-            log_output "$4"
-            exit $1
-          }
-          log_output() {
-            if test -f $1; then
-              result=$(cat $1)
-              if test -n "${result}"; then
-                {
-                  echo 'result<<8cfeacefe1900f1b'
-                  echo -e '## Bicep install\n'
-                  echo '```text'
-                  echo "${result}"
-                  echo '```'
-                  echo '8cfeacefe1900f1b'
-                } >> "$GITHUB_OUTPUT"
-              fi
-            fi
-          }
-          cmd="az bicep install"
-          case "${SEVERITY}" in
-            ERROR)   cmd+=' --only-show-errors';;
-            VERBOSE) cmd+=' --verbose';;
-            DEBUG)   cmd+=' --debug';;
-          esac
-          az config set bicep.use_binary_from_path=False >/dev/null 2>&1
-          echo "Run: ${cmd}" | tee -a $log
-          az_version=$(az version | jq -r '."azure-cli"')
-          echo "Azure CLI ${az_version}" | tee -a $log
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          echo 'Installed extensions:' | tee -a $log
-          az version --query extensions -o yaml | tee -a $log
-          log_output $log
 
       - name: Deployment validate
         id: validate
@@ -1497,7 +1501,7 @@ jobs:
         id: get_results
         if: always()
         env:
-          BICEP_INSTALL: ${{ steps.bicep_install.outputs.result }}
+          INSTALL_TOOLS: ${{ steps.install_tools.outputs.result }}
           VALIDATE: ${{ steps.validate.outputs.result }}
           AZURE_PROVIDERS: ${{ steps.azure_providers.outputs.result }}
           DEPLOY: ${{ steps.deploy.outputs.result }}
@@ -1509,7 +1513,7 @@ jobs:
             failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
           esac
           all_results="${DEPLOY}"
-          all_results+=$(echo -e "\n\n${BICEP_INSTALL}")
+          all_results+=$(echo -e "\n\n${INSTALL_TOOLS}")
           all_results+=$(echo -e "\n\n${VALIDATE}")
           all_results+=$(echo -e "\n\n${AZURE_PROVIDERS}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
