@@ -362,12 +362,13 @@ jobs:
           if test -n '${{ secrets.AZURE_CLIENT_SECRET }}'; then
             cmd+=" -p ${{ secrets.AZURE_CLIENT_SECRET }}"
           else
-            audience='api://AzureADTokenExchange'
-            url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience}"
             token=$(
-              curl -H \
-                "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-                "${url}" | jq -r '.value'
+              curl -sSL \
+                -H 'Accept: application/json; api-version=2.0' \
+                -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                -H 'Content-Type: application/json' \
+                -G --data-urlencode "audience=api://AzureADTokenExchange" \
+                "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value'
             )
             echo "::add-mask::${token}"
             cmd+=" --federated-token ${token}"
