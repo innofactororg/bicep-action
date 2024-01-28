@@ -291,13 +291,13 @@ jobs:
               repo: context.repo.repo,
             };
             try {
-              core.info(`Create comment:\n${body}`);
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
                 issue_number: prNo,
                 body: body,
               });
               if (response_cc.status == 201 && response_cc.data) {
+                core.info(`Created comment response_cc.data.id!`);
                 return response_cc.data.id;
               } else {
                 const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
@@ -397,9 +397,10 @@ jobs:
                 {
                   echo 'result<<75cfa50190dc802c'
                   echo -e '## Azure login\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
                   echo "${result}"
-                  echo -e '```\n'
+                  echo -e '```\n\n</details>'
                   echo '75cfa50190dc802c'
                 } >> "$GITHUB_OUTPUT"
               fi
@@ -742,6 +743,7 @@ jobs:
                 echo -e '\n</details>'
                 echo 'eddc1726f9bb37b6'
               } >> "$GITHUB_OUTPUT"
+              echo 'PSRule report created'
             fi
           fi
 
@@ -906,12 +908,17 @@ jobs:
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
           if [ ${#all_results} -gt 64000 ]; then
+            echo "Combined step results is ${#all_results} characters long."
+            echo 'This is too large for use in comment.'
             result=$(echo -e "${title} output is too large ❗\n\n${job}")
           elif test -z "${all_results}"; then
+            echo 'No output found in any step result.'
             result=$(echo -e "${title} output is missing ❓\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
+            echo 'Step results merged for use in comment.'
             result=$(echo -e "${title} completed ✅\n\n${all_results}")
           else
+            echo "Job ${JOB_STATUS}. Step results merged for use in comment."
             result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
@@ -966,7 +973,6 @@ jobs:
             | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
             if (isNaN(comment_id) || comment_id == 0) {
-              core.info(`Create comment:\n${body}`);
               try {
                 const response_cc = await github.rest.issues.createComment({
                   ...repo,
@@ -976,6 +982,8 @@ jobs:
                 if (response_cc.status > 201 || !response_cc.data) {
                   const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
                   core.setFailed(`Failed to create comment for PR ${reason}`);
+                } else {
+                  core.info(`Created comment ${response_cc.data.id}!`);
                 }
               } catch (e) {
                 core.setFailed(`Failed to comment when done: ${e}`);
@@ -991,6 +999,8 @@ jobs:
                 if (response.status != 200 || !response.data) {
                   const reason = `${comment_id}. ${JSON.stringify(response)}`;
                   core.setFailed(`Failed to update comment ${reason}`);
+                } else {
+                  core.info(`Updated comment ${comment_id}!`);
                 }
               } catch (e) {
                 core.setFailed(`Failed to update comment ${comment_id}: ${e}`);
@@ -1160,9 +1170,10 @@ jobs:
                 {
                   echo 'result<<283472273471e6aa'
                   echo -e '## Azure login\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
                   echo "${result}"
-                  echo -e '```\n'
+                  echo -e '```\n\n</details>'
                   echo '283472273471e6aa'
                 } >> "$GITHUB_OUTPUT"
               fi
@@ -1543,12 +1554,17 @@ jobs:
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
           if [ ${#all_results} -gt 64000 ]; then
+            echo "Combined step results is ${#all_results} characters long."
+            echo 'This is too large for use in comment.'
             result=$(echo -e "${title} output is too large ❗\n\n${job}")
           elif test -z "${all_results}"; then
+            echo 'No output found in any step result.'
             result=$(echo -e "${title} output is missing ❓\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
+            echo 'Step results merged for use in comment.'
             result=$(echo -e "${title} completed ✅\n\n${all_results}")
           else
+            echo "Job ${JOB_STATUS}. Step results merged for use in comment."
             result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
@@ -1588,7 +1604,6 @@ jobs:
             | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
             | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
-            core.info(`Create comment:\n${body}`);
             try {
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
@@ -1598,6 +1613,8 @@ jobs:
               if (response_cc.status > 201 || !response_cc.data) {
                 const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
                 core.setFailed(`Failed to create comment for PR ${reason}`);
+              } else {
+                core.info(`Created comment ${response_cc.data.id}!`);
               }
             } catch (e) {
               core.setFailed(`Failed to comment when done. ${e}`);
