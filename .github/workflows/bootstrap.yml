@@ -321,6 +321,7 @@ jobs:
           CLIENT_ID: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
           TENANT_ID: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
           log="${LOG_PATH}/${GITHUB_ACTION}.log"
