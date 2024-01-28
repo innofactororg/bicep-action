@@ -1129,42 +1129,71 @@ jobs:
           fi
           log_output $log
 
-      - name: Check Client secret
-        id: client_secret
-        run: |
-          if [ '${{ secrets.AZURE_CLIENT_SECRET }}' = '' ]; then
-            echo 'Secret is not present, Log in to Azure with federated credentials.'
-            echo 'exist=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'Secret is present, Log in to Azure with secret.'
-            echo 'exist=true' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Log in to Azure (Federated)
-        id: login_open_id
-        if: steps.client_secret.outputs.exist != 'true'
-        uses: azure/login@v1
-        with:
-          client-id: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
-
-      - name: Log in to Azure (Secret)
-        id: login_secret
-        if: steps.client_secret.outputs.exist == 'true'
+      - name: Log in to Azure
+        id: azure_login
         env:
           CLIENT_ID: ${{ inputs.azure_client_id || secrets.AZURE_CLIENT_ID }}
           TENANT_ID: ${{ inputs.azure_tenant_id || secrets.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           SEVERITY: ${{ inputs.log_severity }}
+          LOG_PATH: ${{ runner.workspace }}/logs
         run: |
+          set -e
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          log_output() {
+            if test -f $1; then
+              result=$(
+                cat $1 | \
+                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | \
+                sed -e 's/^~/!/g'
+              )
+              if test -n "${result}"; then
+                {
+                  echo 'result<<283472273471e6aa'
+                  echo -e '## Azure login\n'
+                  echo '```text'
+                  echo "${result}"
+                  echo -e '```\n'
+                  echo '283472273471e6aa'
+                } >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          }
           case "${SEVERITY}" in
             ERROR)   log_severity=' --only-show-errors';;
             VERBOSE) log_severity=' --verbose';;
             DEBUG)   log_severity=' --debug';;
             *)       log_severity='';;
           esac
-          az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID} \
-            -p '${{ secrets.AZURE_CLIENT_SECRET }}' $log_severity
+          cmd="az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID}"
+          if test -n '${{ secrets.AZURE_CLIENT_SECRET }}'; then
+            cmd+=" -p ${{ secrets.AZURE_CLIENT_SECRET }}"
+          else
+            token=$(
+              curl -sSL \
+                -H 'Accept: application/json; api-version=2.0' \
+                -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                -H 'Content-Type: application/json' \
+                -G --data-urlencode "audience=api://AzureADTokenExchange" \
+                "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value'
+            )
+            echo "::add-mask::${token}"
+            cmd+=" --federated-token ${token}"
+          fi
+          cmd+=" --allow-no-subscriptions ${log_severity}"
+          echo "Run: ${cmd}" | tee -a $log
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          log_output $log
 
       - name: Deployment validate
         id: validate
@@ -1173,7 +1202,6 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
@@ -1244,7 +1272,6 @@ jobs:
             DEBUG)   cmd+=' --debug';;
           esac
           cmd+=' --no-prompt true -o json'
-          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}"
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           if test -f $log; then
@@ -1271,7 +1298,6 @@ jobs:
           PROVIDERS: ${{ steps.validate.outputs.providers }}
           WAIT_SECONDS: ${{ inputs.azure_provider_wait_seconds }}
           WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           SEVERITY: ${{ inputs.log_severity }}
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
@@ -1310,8 +1336,7 @@ jobs:
             DEBUG)   log_severity=' --debug';;
             *)       log_severity='';;
           esac
-          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          echo "Check resource providers for subscription ${SUBSCRIPTION_ID}..." | tee -a $log
+          echo "Check resource providers..." | tee -a $log
           registered=($(
             az provider list \
               --query "[?registrationState=='Registered'].namespace" \
@@ -1364,7 +1389,6 @@ jobs:
           TEMPLATE: ${{ inputs.code_template }}
           TEMPLATE_PARAMS: ${{ inputs.parameters }}
           MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
           RESOURCE_GROUP: ${{ inputs.resource_group }}
           LOCATION: ${{ inputs.location }}
           SEVERITY: ${{ inputs.log_severity }}
@@ -1446,7 +1470,6 @@ jobs:
             DEBUG)   cmd+=' --debug';;
           esac
           cmd+=' --no-prompt true'
-          az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a ${log}.json) 2> >(tee -a $log >&2)
           log_output $log
