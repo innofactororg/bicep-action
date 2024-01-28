@@ -297,7 +297,7 @@ jobs:
                 body: body,
               });
               if (response_cc.status == 201 && response_cc.data) {
-                core.info(`Created comment response_cc.data.id!`);
+                core.info(`Created comment ${response_cc.data.id}!`);
                 return response_cc.data.id;
               } else {
                 const reason = `${prNo}. ${JSON.stringify(response_cc)}`;
