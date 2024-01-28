@@ -361,7 +361,7 @@ jobs:
         run: |
           set -e
           mkdir -p "${LOG_PATH}"
-          log="${LOG_PATH}/bicep_install.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -411,7 +411,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/bicep_build.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -470,7 +470,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/bicep_build_params.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -535,7 +535,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/what_if.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -734,7 +734,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/cost.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1093,7 +1093,7 @@ jobs:
         run: |
           set -e
           mkdir -p "${LOG_PATH}"
-          log="${LOG_PATH}/bicep_install.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1148,7 +1148,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/validate.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1243,7 +1243,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/azure_providers.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -1338,7 +1338,7 @@ jobs:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
           set -e
-          log="${LOG_PATH}/deploy.txt"
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
           trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
