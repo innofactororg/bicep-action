@@ -31,7 +31,11 @@ To use the workflow, several prerequisite steps are required:
    - **Option 1**: [Add federated credentials (recommended)](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect)
 
      - Use the scenario **"GitHub Actions deploying Azure resources"**.
-     - Select entity type **"Pull request"**.
+     - Select entity type **"Pull request"** (needed for the [plan job](#plan-job)).
+     - Save the credential.
+     - Add another federated credential with the scenario **"GitHub Actions deploying Azure resources"**.
+     - Select entity type **"Environment"** (needed for the [create job](#create-job)).
+     - Specify the environment name that the workflow use.
      - Save the credential.
 
      Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
@@ -73,7 +77,7 @@ This ensures that no changes to the pull request are possible between the approv
 
 The workflow name is used to ensure that only one deploy workflow runs at any given time. If a new workflow starts with the same name, GitHub Actions will cancel any workflow already running with that name.
 
-### Plan
+### Plan job
 
 The plan job will build and test the code. If no issues are found in the code, a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report is generated.
 
@@ -97,7 +101,7 @@ For more information about PSRule configuration, see:
 - [Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
-### Create
+### Create job
 
 The create job requires that the plan job was successfully completed and targets a specific [environment](#get-started). If the environment is configured with **required reviewers**, the job will require manual approval.
 
