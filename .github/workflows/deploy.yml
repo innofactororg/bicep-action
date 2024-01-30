@@ -1002,8 +1002,8 @@ jobs:
           path: ${{ runner.workspace }}/logs/
           if-no-files-found: ignore
 
-  deploy:
-    name: "🏃 Deploy"
+  create:
+    name: "🏃 Create"
     needs: plan
     environment: ${{ inputs.environment }}
     permissions:
