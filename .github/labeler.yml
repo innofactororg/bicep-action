@@ -1,7 +1,0 @@
----
-area/github:
-  - ".github/**/*"
-area/vscode:
-  - ".vscode/**/*"
-area/documentation:
-  - "docs/**/*"

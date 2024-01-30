@@ -1,5 +1,5 @@
 ---
-name: "Bootstrap"
+name: "Deploy"
 on:
   workflow_call:
     inputs:
@@ -68,25 +68,10 @@ on:
         required: false
         default: 30
         type: number
-      psrule_modules:
-        description: "A comma separated list of modules to use for analysis."
+      auto_merge:
+        description: "Auto merge method to use after successful deployment."
         required: false
-        default: "Az.Resources,PSRule.Rules.Azure"
-        type: string
-      psrule_baseline:
-        description: "The name of a PSRule baseline to use."
-        required: false
-        default: "Azure.Default"
-        type: string
-      psrule_exclude:
-        description: "Ignore rules for PSRule analysis."
-        required: false
-        default: ""
-        type: string
-      psrule_path_ignore:
-        description: "A comma separated list of paths to ignore for analysis."
-        required: false
-        default: "bicepconfig.json,modules/**/*.bicep"
+        default: "squash"
         type: string
       ace_version:
         description: "Azure Cost Estimator version."
@@ -103,20 +88,15 @@ on:
         required: false
         default: -1
         type: number
-      deploy_on_review_comment:
-        description: "Allow deployment on commented and approved review."
+      psrule_baseline:
+        description: "The name of a PSRule baseline to use."
         required: false
-        default: false
-        type: boolean
-      auto_merge:
-        description: "Auto merge method to use after successful deployment."
-        required: false
-        default: "squash"
+        default: "Azure.Default"
         type: string
-      workflow_dispatch_job:
-        description: "Job to run when using workflow_dispatch."
+      psrule_modules:
+        description: "A comma separated list of modules to use for analysis."
         required: false
-        default: "Plan"
+        default: "Az.Resources,PSRule.Rules.Azure"
         type: string
       log_severity:
         description: "The log verbosity."
@@ -141,125 +121,21 @@ defaults:
   run:
     shell: bash
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
-  check:
-    name: "👮 Check"
-    permissions:
-      pull-requests: read # for skip_reason
-    outputs:
-      skip_reason: ${{ steps.skip_reason.outputs.result }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get skip reason
-        id: skip_reason
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
-        env:
-          TEMPLATE: ${{ inputs.code_template }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          result-encoding: string
-          script: |
-            const {TEMPLATE} = process.env;
-            if (context.eventName !== "pull_request_review") {
-              core.info(`Allow ${context.eventName} events!`);
-              return "";
-            }
-            const end = TEMPLATE.lastIndexOf("/") + 1;
-            const path = TEMPLATE.substring(0, end).replace(/^\.\//, "");
-            if (!path.includes("/")) {
-              core.info(`Allow ${TEMPLATE} in repository root!`);
-              return "";
-            }
-            const { repo: { owner, repo } } = context;
-            const prNo = context.issue.number;
-            core.info(`Check if pull request ${prNo} includes ${path}.`);
-            try {
-              const response = await github.rest.pulls.listFiles({
-                owner, repo,
-                pull_number: prNo
-              });
-              if (response.status !== 200) {
-                const reason = `List files failed! ${JSON.stringify(response)}`;
-                core.info(reason);
-                return reason;
-              }
-              for (const f of response.data) {
-                if (f.filename.includes(path) && f.status !== "removed") {
-                  core.info(`Allow ${f.status} ${f.filename}`);
-                  return "";
-                } else {
-                  core.info(`- ${f.status} ${f.filename}`);
-                }
-              }
-              const reason = `Path ${path} is not included in pull request!`;
-              core.info(reason);
-              return reason;
-            } catch (e) {
-              const reason = `List files threw exception! ${e}`;
-              core.info(reason);
-              core.setFailed(reason);
-              return reason;
-            }
-
-      - name: Show debug info
-        id: debug
-        if: >
-          failure() || (
-            success() &&
-            inputs.log_severity != 'ERROR'
-          )
-        env:
-          GH_CONTEXT: ${{ toJson(github) }}
-          STEPS_CONTEXT: ${{ toJson(steps) }}
-        run: |
-          RESUME_TOKEN=$(uuidgen)
-          echo "::add-mask::${RESUME_TOKEN}"
-          echo '::group::environment variables'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          list=($(compgen -e))
-          skip='GH_CONTEXT STEPS_CONTEXT'
-          for key in "${list[@]}"; do
-            if [[ ! " ${skip} " =~ ${key} ]]; then
-              echo "${key}=$(printenv $key)"
-            fi
-          done
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-          echo '::group::github context'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          echo "${GH_CONTEXT}"
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-          echo '::group::steps context'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          echo "${STEPS_CONTEXT}"
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-
   plan:
     name: "🗓️ Plan"
-    needs: check
-    if: >
-      needs.check.outputs.skip_reason == '' &&
-      (
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.workflow_dispatch_job == 'Plan'
-        ) ||
-        (
-          github.event_name == 'pull_request' ||
-          github.event_name == 'pull_request_target'
-        )
-      )
-    concurrency:
-      group: ${{ github.workflow }}
-      cancel-in-progress: true
     permissions:
       id-token: write # for login_open_id
       contents: read # for checkout_src
       pull-requests: write # for add_comment / comment_when_done
+    outputs:
+      providers: ${{ steps.validate.outputs.providers }}
     runs-on: ubuntu-latest
     steps:
       - name: Add comment
@@ -553,6 +429,102 @@ jobs:
           fi
           echo "JSON_FILE=${out_file}" >> "$GITHUB_OUTPUT"
 
+      - name: Deployment validate
+        id: validate
+        env:
+          SCOPE: ${{ inputs.scope }}
+          TEMPLATE: ${{ inputs.code_template }}
+          TEMPLATE_PARAMS: ${{ inputs.parameters }}
+          MANAGEMENT_GROUP: ${{ inputs.management_group }}
+          RESOURCE_GROUP: ${{ inputs.resource_group }}
+          LOCATION: ${{ inputs.location }}
+          SEVERITY: ${{ inputs.log_severity }}
+          PROVIDERS: ${{ inputs.azure_providers }}
+          LOG_PATH: ${{ runner.workspace }}/logs
+        run: |
+          set -e
+          log="${LOG_PATH}/${GITHUB_ACTION}.log"
+          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+          error() {
+            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+            echo "::error line=$(expr $2 + 1)::$msg"
+            echo "$msg" >> "$4"
+            log_output "$4"
+            exit $1
+          }
+          json_object=''
+          log_output() {
+            {
+              result=$(
+                cat $1 | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+              )
+              echo 'result<<7444dac159e4ee0f'
+              echo -e '## Validate\n'
+              if test -n "${result}"; then
+                echo '```text'
+                echo "${result}"
+                echo -e '```\n'
+              fi
+              if test -n "${json_object}"; then
+                echo -e '<details><summary>Click to expand details</summary>\n'
+                echo '```json'
+                echo "${json_object}"
+                echo -e '```\n\n</details>'
+              fi
+              echo '7444dac159e4ee0f'
+            } >> "$GITHUB_OUTPUT"
+          }
+          if [[ $TEMPLATE_PARAMS == http* ]]; then
+            file="${TEMPLATE_PARAMS%% *}"
+            curl -o ${file##*/} -sSL $file 1> >(tee -a $log) 2> >(tee -a $log >&2)
+            TEMPLATE_PARAMS="${TEMPLATE_PARAMS/${file}/${file##*/}}"
+          fi
+          cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
+          if [[ $TEMPLATE == http* ]]; then
+            cmd+=" --template-uri ${TEMPLATE}"
+          elif [[ $TEMPLATE == /subscriptions/* ]]; then
+            cmd+=" --template-spec ${TEMPLATE}"
+          else
+            cmd+=" --template-file ${TEMPLATE}"
+          fi
+          if test -n "${TEMPLATE_PARAMS}"; then
+            cmd+=" --parameters ${TEMPLATE_PARAMS}"
+          fi
+          if ! [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --location ${LOCATION}"
+          fi
+          if [ "${SCOPE}" = 'mg' ]; then
+            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+          fi
+          if [ "${SCOPE}" = 'group' ]; then
+            cmd+=" --resource-group ${RESOURCE_GROUP}"
+          fi
+          case "${SEVERITY}" in
+            ERROR)   cmd+=' --only-show-errors';;
+            VERBOSE) cmd+=' --verbose';;
+            DEBUG)   cmd+=' --debug';;
+          esac
+          cmd+=' --no-prompt true -o json'
+          echo "Run: ${cmd}"
+          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+          if test -f $log; then
+            json_object=$(
+              cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                -e '/^[[:space:]]*$/d'
+            )
+            from_code=''
+            if [[ "${json_object}" == {* ]]; then
+              from_code=$(
+                echo "${json_object}" | \
+                  jq '.properties.providers | map(.namespace) | join(" ")'
+              )
+            fi
+            providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
+            echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+            log_output $log
+          fi
+
       - name: Deployment what-if
         id: what_if
         env:
@@ -644,79 +616,60 @@ jobs:
           PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
-          if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
-            file=$TEMPLATE_PARAMS
-            t=$(basename "${TEMPLATE}")
-            p=$(basename "${file}")
-            if [ "${t/.json/}" != "${p/.parameters.json/}" ]; then
-              meta=$(
-                jq -r '.metadata | select (.!=null)' $file
-              )
-              if test -z "${meta}"; then
-                json=$(
-                  jq --arg t $t '. += {metadata:{template:$t}}' $file
+          psrule_path=$(dirname "${TEMPLATE}")
+          psrule_file="${psrule_path}/ps-rule.yaml"
+          if test -f "${psrule_file}"; then
+            echo "Use PSRule config at ${psrule_file}"
+            echo "path=${psrule_file}" >> "$GITHUB_OUTPUT"
+            if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
+              file=$TEMPLATE_PARAMS
+              t=$(basename "${TEMPLATE}")
+              p=$(basename "${file}")
+              if [ "${t/.json/}" != "${p/.parameters.json/}" ]; then
+                meta=$(
+                  jq -r '.metadata | select (.!=null)' $file
                 )
-                if test -n "${json}"; then
-                  printf '%s\n' "${json}" >$file
-                fi
-              else
-                json=$(
-                  jq --arg t $t '.metadata += {template:$t}' $file
-                )
-                if test -n "${json}"; then
-                  printf '%s\n' "${json}" >$file
+                if test -z "${meta}"; then
+                  json=$(
+                    jq --arg t $t '. += {metadata:{template:$t}}' $file
+                  )
+                  if test -n "${json}"; then
+                    printf '%s\n' "${json}" >$file
+                  fi
+                else
+                  json=$(
+                    jq --arg t $t '.metadata += {template:$t}' $file
+                  )
+                  if test -n "${json}"; then
+                    printf '%s\n' "${json}" >$file
+                  fi
                 fi
               fi
             fi
-          fi
-          if test -f ps-rule.yaml; then
-            echo 'Use existing ps-rule.yaml'
-            exit
-          fi
-          cat > ps-rule.yaml << 81d174f4ee42ba3f
-          binding:
-            preferTargetInfo: true
-            targetType:
-              - type
-              - resourceType
-          configuration:
-            AZURE_PARAMETER_FILE_EXPANSION: true
-          execution:
-            unprocessedObject: Ignore
-          include:
-            module: [${PSRULE_MODULES}]
-          input:
-            pathIgnore: [${PSRULE_IGNORE}]
-          output:
-            culture:
-              - en-US
-            footer: RuleCount
-            format: Markdown
-            jobSummaryPath: ${LOG_PATH}/ps_rule_summary.md
-            outcome: Processed
-            style: Detect
-          rule:
-            exclude: [${PSRULE_RULE_EXCLUDE}]
-          81d174f4ee42ba3f
-          if test -f ps-rule.yaml; then
-            cp ps-rule.yaml ${LOG_PATH}/
-            echo 'Created ps-rule.yaml'
+          else
+            echo "Skip PSRule steps, ${psrule_file} don't exist!"
           fi
 
       - name: PSRule analysis
         id: ps_rule
+        if: steps.ps_rule_config.outputs.path != ''
         uses: microsoft/ps-rule@46451b8f5258c41beb5ae69ed7190ccbba84112c # v2.9.0
         with:
           inputType: repository
           modules: ${{ inputs.psrule_modules }}
           baseline: ${{ inputs.psrule_baseline }}
+          option: ${{ steps.ps_rule_config.outputs.path }}
           outputFormat: Markdown
           outputPath: ${{ runner.workspace }}/logs/ps_rule.md
           summary: false
 
       - name: PSRule report
         id: ps_rule_report
-        if: failure() || success()
+        if: >
+          steps.ps_rule_config.outputs.path != '' &&
+          (
+            failure() || success()
+          )
         env:
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
@@ -888,11 +841,12 @@ jobs:
           BICEP_BUILD: ${{ steps.bicep_build.outputs.result }}
           BICEP_BUILD_PARAM: ${{ steps.bicep_build_params.outputs.result }}
           PS_RULE_REPORT: ${{ steps.ps_rule_report.outputs.result }}
+          VALIDATE: ${{ steps.validate.outputs.result }}
           WHAT_IF: ${{ steps.what_if.outputs.result }}
           COST: ${{ steps.cost.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
-          title=$(echo -e "# Plan ${GITHUB_WORKFLOW}\n\nJob")
+          title=$(echo -e "# ${GITHUB_WORKFLOW}\n\nJob")
           case "${JOB_STATUS}" in
             cancelled) title+=$(echo -e ' cancelled ❌\n\nJob');;
             failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
@@ -903,6 +857,7 @@ jobs:
           all_results+=$(echo -e "\n\n${AZURE_LOGIN}")
           all_results+=$(echo -e "\n\n${BICEP_BUILD}")
           all_results+=$(echo -e "\n\n${BICEP_BUILD_PARAM}")
+          all_results+=$(echo -e "\n\n${VALIDATE}")
           all_results+=$(echo -e "\n\n${PS_RULE_REPORT}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
@@ -1014,33 +969,26 @@ jobs:
             success() &&
             inputs.log_severity != 'ERROR'
           )
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
         env:
-          GH_CONTEXT: ${{ toJson(github) }}
           STEPS_CONTEXT: ${{ toJson(steps) }}
-        run: |
-          RESUME_TOKEN=$(uuidgen)
-          echo "::add-mask::${RESUME_TOKEN}"
-          echo '::group::environment variables'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          list=($(compgen -e))
-          skip='GH_CONTEXT STEPS_CONTEXT'
-          for key in "${list[@]}"; do
-            if [[ ! " ${skip} " =~ ${key} ]]; then
-              echo "${key}=$(printenv $key)"
-            fi
-          done
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-          echo '::group::github context'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          echo "${GH_CONTEXT}"
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-          echo '::group::steps context'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          echo "${STEPS_CONTEXT}"
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env['GITHUB_EVENT_PATH']));
+            console.log('::group::environment variables');
+            console.log('::stop-commands::77e6a57ef9854574');
+            for (const [key, value] of Object.entries(process.env).sort()) {
+              console.log(`${key}=${value}`);
+            }
+            console.log('::77e6a57ef9854574::');
+            console.log('::endgroup::');
+            console.log('::group::github event');
+            console.log('::stop-commands::77e6a57ef9854574');
+            console.log(JSON.stringify(event, null, 2));
+            console.log('::77e6a57ef9854574::');
+            console.log('::endgroup::');
 
       - name: Upload logs
         id: upload_logs
@@ -1053,28 +1001,8 @@ jobs:
 
   deploy:
     name: "🏃 Deploy"
-    needs: check
-    if: >
-      needs.check.outputs.skip_reason == '' &&
-      (
-        (
-          github.event_name == 'workflow_dispatch' &&
-          inputs.workflow_dispatch_job == 'Deploy'
-        ) ||
-        (
-          github.event_name == 'pull_request_review' &&
-          (
-            github.event.review.state == 'approved' ||
-            (
-              inputs.deploy_on_review_comment &&
-              github.event.review.state == 'commented'
-            )
-          )
-        )
-      )
+    needs: plan
     environment: ${{ inputs.environment }}
-    concurrency:
-      group: ${{ inputs.environment }}
     permissions:
       id-token: write # for login_open_id
       contents: write # for auto_merge
@@ -1206,107 +1134,11 @@ jobs:
           az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
           log_output $log
 
-      - name: Deployment validate
-        id: validate
-        env:
-          SCOPE: ${{ inputs.scope }}
-          TEMPLATE: ${{ inputs.code_template }}
-          TEMPLATE_PARAMS: ${{ inputs.parameters }}
-          MANAGEMENT_GROUP: ${{ inputs.management_group }}
-          RESOURCE_GROUP: ${{ inputs.resource_group }}
-          LOCATION: ${{ inputs.location }}
-          SEVERITY: ${{ inputs.log_severity }}
-          PROVIDERS: ${{ inputs.azure_providers }}
-          LOG_PATH: ${{ runner.workspace }}/logs
-        run: |
-          set -e
-          log="${LOG_PATH}/${GITHUB_ACTION}.log"
-          trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
-          error() {
-            msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-            msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
-            log_output "$4"
-            exit $1
-          }
-          json_object=''
-          log_output() {
-            {
-              result=$(
-                cat $1 | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
-              )
-              echo 'result<<7444dac159e4ee0f'
-              echo -e '## Validate\n'
-              if test -n "${result}"; then
-                echo '```text'
-                echo "${result}"
-                echo -e '```\n'
-              fi
-              if test -n "${json_object}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```json'
-                echo "${json_object}"
-                echo -e '```\n\n</details>'
-              fi
-              echo '7444dac159e4ee0f'
-            } >> "$GITHUB_OUTPUT"
-          }
-          if [[ $TEMPLATE_PARAMS == http* ]]; then
-            file="${TEMPLATE_PARAMS%% *}"
-            curl -o ${file##*/} -sSL $file 1> >(tee -a $log) 2> >(tee -a $log >&2)
-            TEMPLATE_PARAMS="${TEMPLATE_PARAMS/${file}/${file##*/}}"
-          fi
-          cmd="az deployment ${SCOPE} validate --name val-${GITHUB_RUN_ID}"
-          if [[ $TEMPLATE == http* ]]; then
-            cmd+=" --template-uri ${TEMPLATE}"
-          elif [[ $TEMPLATE == /subscriptions/* ]]; then
-            cmd+=" --template-spec ${TEMPLATE}"
-          else
-            cmd+=" --template-file ${TEMPLATE}"
-          fi
-          if test -n "${TEMPLATE_PARAMS}"; then
-            cmd+=" --parameters ${TEMPLATE_PARAMS}"
-          fi
-          if ! [ "${SCOPE}" = 'group' ]; then
-            cmd+=" --location ${LOCATION}"
-          fi
-          if [ "${SCOPE}" = 'mg' ]; then
-            cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
-          fi
-          if [ "${SCOPE}" = 'group' ]; then
-            cmd+=" --resource-group ${RESOURCE_GROUP}"
-          fi
-          case "${SEVERITY}" in
-            ERROR)   cmd+=' --only-show-errors';;
-            VERBOSE) cmd+=' --verbose';;
-            DEBUG)   cmd+=' --debug';;
-          esac
-          cmd+=' --no-prompt true -o json'
-          echo "Run: ${cmd}"
-          eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          if test -f $log; then
-            json_object=$(
-              cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
-                -e '/^[[:space:]]*$/d'
-            )
-            from_code=''
-            if [[ "${json_object}" == {* ]]; then
-              from_code=$(
-                echo "${json_object}" | \
-                  jq '.properties.providers | map(.namespace) | join(" ")'
-              )
-            fi
-            providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
-            echo "providers=${providers}" >> "$GITHUB_OUTPUT"
-            log_output $log
-          fi
-
       - name: Check Azure providers
         id: azure_providers
-        if: steps.validate.outputs.providers != ''
+        if: needs.plan.outputs.providers != ''
         env:
-          PROVIDERS: ${{ steps.validate.outputs.providers }}
+          PROVIDERS: ${{ needs.plan.outputs.providers }}
           WAIT_SECONDS: ${{ inputs.azure_provider_wait_seconds }}
           WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
           SEVERITY: ${{ inputs.log_severity }}
@@ -1488,7 +1320,10 @@ jobs:
       - name: Auto merge
         id: auto_merge
         if: >
-          github.event_name == 'pull_request_review' &&
+          (
+            github.event_name == 'pull_request' ||
+            github.event_name == 'pull_request_target'
+          ) &&
           contains(
             fromJSON('["merge", "squash", "rebase"]'), inputs.auto_merge
           )
@@ -1536,7 +1371,6 @@ jobs:
         if: always()
         env:
           INSTALL_TOOLS: ${{ steps.install_tools.outputs.result }}
-          VALIDATE: ${{ steps.validate.outputs.result }}
           AZURE_PROVIDERS: ${{ steps.azure_providers.outputs.result }}
           DEPLOY: ${{ steps.deploy.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
@@ -1548,7 +1382,6 @@ jobs:
           esac
           all_results="${DEPLOY}"
           all_results+=$(echo -e "\n\n${INSTALL_TOOLS}")
-          all_results+=$(echo -e "\n\n${VALIDATE}")
           all_results+=$(echo -e "\n\n${AZURE_PROVIDERS}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
@@ -1578,7 +1411,10 @@ jobs:
         id: comment_when_done
         if: >
           always() &&
-          github.event_name == 'pull_request_review'
+          (
+            github.event_name == 'pull_request' ||
+            github.event_name == 'pull_request_target'
+          )
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
         env:
           ALL_RESULTS: ${{ steps.get_results.outputs.result }}
@@ -1627,33 +1463,26 @@ jobs:
             success() &&
             inputs.log_severity != 'ERROR'
           )
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
         env:
-          GH_CONTEXT: ${{ toJson(github) }}
           STEPS_CONTEXT: ${{ toJson(steps) }}
-        run: |
-          RESUME_TOKEN=$(uuidgen)
-          echo "::add-mask::${RESUME_TOKEN}"
-          echo '::group::environment variables'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          list=($(compgen -e))
-          skip='GH_CONTEXT STEPS_CONTEXT'
-          for key in "${list[@]}"; do
-            if [[ ! " ${skip} " =~ ${key} ]]; then
-              echo "${key}=$(printenv $key)"
-            fi
-          done
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-          echo '::group::github context'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          echo "${GH_CONTEXT}"
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
-          echo '::group::steps context'
-          echo "::stop-commands::${RESUME_TOKEN}"
-          echo "${STEPS_CONTEXT}"
-          echo "::${RESUME_TOKEN}::"
-          echo "::endgroup::"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env['GITHUB_EVENT_PATH']));
+            console.log('::group::environment variables');
+            console.log('::stop-commands::43c486fb879274c0');
+            for (const [key, value] of Object.entries(process.env).sort()) {
+              console.log(`${key}=${value}`);
+            }
+            console.log('::43c486fb879274c0::');
+            console.log('::endgroup::');
+            console.log('::group::github event');
+            console.log('::stop-commands::43c486fb879274c0');
+            console.log(JSON.stringify(event, null, 2));
+            console.log('::43c486fb879274c0::');
+            console.log('::endgroup::');
 
       - name: Upload logs
         id: upload_logs

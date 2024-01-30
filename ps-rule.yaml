@@ -1,0 +1,32 @@
+binding:
+  preferTargetInfo: true
+  targetType:
+    - type
+    - resourceType
+configuration:
+  AZURE_PARAMETER_FILE_EXPANSION: true
+execution:
+  unprocessedObject: Ignore
+include:
+  module:
+    - Az.Resources
+    - PSRule.Rules.Azure
+input:
+  pathIgnore:
+    - bicepconfig.json
+    - modules/**/*.bicep
+output:
+  culture:
+    - en-US
+  footer: RuleCount
+  format: Markdown
+  jobSummaryPath: logs/ps_rule_summary.md
+  outcome: Processed
+  style: Detect
+rule:
+  exclude:
+    - Azure.Template.UseDescriptions
+    - Azure.Resource.UseTags
+    - Azure.Storage.SoftDelete
+    - Azure.Storage.ContainerSoftDelete
+    - Azure.Storage.Firewall
