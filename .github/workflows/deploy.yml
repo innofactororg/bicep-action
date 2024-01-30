@@ -618,6 +618,9 @@ jobs:
         run: |
           psrule_path=$(dirname "${TEMPLATE}")
           psrule_file="${psrule_path}/ps-rule.yaml"
+          if ! test -f "${psrule_file}"; then
+            psrule_file='ps-rule.yaml'
+          fi
           if test -f "${psrule_file}"; then
             echo "Use PSRule config at ${psrule_file}"
             echo "path=${psrule_file}" >> "$GITHUB_OUTPUT"
