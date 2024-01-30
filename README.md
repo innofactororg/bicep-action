@@ -65,7 +65,6 @@ Recommended branch protection for production use:
 - Require status checks to pass before merging
   - Require branches to be up to date before merging
   - Add the following status checks:
-    - 🔧 Deploy / 🗓️ Plan
     - 🔧 Deploy / 🏃 Create
 - Require conversation resolution before merging
 - Require linear history
