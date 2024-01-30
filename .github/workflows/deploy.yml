@@ -522,6 +522,7 @@ jobs:
             fi
             providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
             echo "providers=${providers}" >> "$GITHUB_OUTPUT"
+            echo -e "Discovered Azure resource providers:\n${providers}"
             log_output $log
           fi
 
@@ -1320,7 +1321,7 @@ jobs:
           eval "${cmd}" 1> >(tee -a ${log}.json) 2> >(tee -a $log >&2)
           log_output $log
 
-      - name: Auto merge
+      - name: Enable auto merge
         id: auto_merge
         if: >
           (

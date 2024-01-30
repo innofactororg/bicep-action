@@ -91,7 +91,7 @@ The plan job use the following tools:
 - [microsoft/ps-rule@v2](https://github.com/microsoft/ps-rule)
 - [azure-cost-estimator](https://github.com/TheCloudTheory/arm-estimator)
 
-The PSRule step will only run if the repository has a **"ps-rule.yaml"** file in the root.
+The PSRule steps will only run if the repository has a **"ps-rule.yaml"** file. This file must be in the same folder as the main bicep/template file or in the repository root.
 
 For more information about PSRule configuration, see:
 

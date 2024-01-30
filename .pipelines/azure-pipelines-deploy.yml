@@ -1,0 +1,588 @@
+trigger: none
+
+name: Azure Deploy
+
+variables:
+  vmImageName: ubuntu-latest
+  azureServiceConnection: ifsandboxvdc01_arm_connection
+  environment: production
+  azure_subscription_id: ceac59a3-67af-474b-ac4a-67ee18414df1
+  location: westeurope
+  scope: sub
+  management_group:
+  resource_group:
+  code_template: main.bicep
+  parameters: main.bicepparam
+  azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
+  azure_provider_wait_seconds: 10
+  azure_provider_wait_count: 30
+  psrule_baseline: Azure.Default
+  psrule_modules: Az.Resources,PSRule.Rules.Azure
+  ACE_VERSION: 1.4-beta2
+  ACE_CURRENCY: EUR
+  ACE_THRESHOLD: -1
+  log_severity: ERROR
+
+pool:
+  vmImage: $(vmImageName)
+
+stages:
+  - stage: QA
+    jobs:
+      - job: plan
+        displayName: Plan deployment
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            name: bicep_build
+            displayName: Bicep build
+            condition: and(succeeded(), not(startsWith(variables.code_template, '/subscriptions/')))
+            env:
+              TEMPLATE: $(code_template)
+              SEVERITY: $(log_severity)
+              LOG_PATH: $(Pipeline.Workspace)
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                log="${LOG_PATH}/bicep_build.txt"
+                trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+                error() {
+                  msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                  msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                  echo "##[error]$msg"
+                  echo "$msg" >> "$4"
+                  exit $1
+                }
+                if [[ $TEMPLATE == http* ]]; then
+                  echo "Download ${TEMPLATE}"
+                  curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                  TEMPLATE="${TEMPLATE##*/}"
+                fi
+                out_file=$(readlink -f "${TEMPLATE/.bicep/.json}")
+                if [[ $TEMPLATE == *.bicep ]]; then
+                  cmd="az bicep build --file ${TEMPLATE} --outfile ${out_file}"
+                  case "${SEVERITY}" in
+                    ERROR)   cmd+=' --only-show-errors';;
+                    VERBOSE) cmd+=' --verbose';;
+                    DEBUG)   cmd+=' --debug';;
+                  esac
+                  echo "Run: ${cmd}" | tee -a $log
+                  eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                  if test -f "${out_file}"; then
+                    cp ${out_file} ${LOG_PATH}/
+                  fi
+                else
+                  echo "Skip bicep build, not a bicep file: ${TEMPLATE}"
+                fi
+                echo "##vso[task.setvariable variable=bicep_build_file]${out_file}"
+
+          - task: AzureCLI@2
+            name: bicep_build_params
+            displayName: Bicep param build
+            condition: and(succeeded(), not(eq(variables.parameters, '')))
+            env:
+              TEMPLATE: $(parameters)
+              SEVERITY: $(log_severity)
+              LOG_PATH: $(Pipeline.Workspace)
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                log="${LOG_PATH}/bicep_build_params.txt"
+                trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+                error() {
+                  msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                  msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                  echo "##[error]$msg"
+                  echo "$msg" >> "$4"
+                  exit $1
+                }
+                TEMPLATE="${TEMPLATE%% *}"
+                if [[ $TEMPLATE == http* ]]; then
+                  echo "Download ${TEMPLATE}"
+                  curl -o ${TEMPLATE##*/} -sSL $TEMPLATE 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                  TEMPLATE="${TEMPLATE##*/}"
+                fi
+                out_file=$(readlink -f "${TEMPLATE/.bicepparam/.parameters.json}")
+                if [[ $TEMPLATE == *.bicepparam ]]; then
+                  cmd="az bicep build-params --file ${TEMPLATE} --outfile ${out_file}"
+                  case "${SEVERITY}" in
+                    ERROR)   cmd+=' --only-show-errors';;
+                    VERBOSE) cmd+=' --verbose';;
+                    DEBUG)   cmd+=' --debug';;
+                  esac
+                  echo "Run: ${cmd}" | tee -a $log
+                  eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                  if test -f "${out_file}"; then
+                    cp ${out_file} ${LOG_PATH}/
+                  fi
+                else
+                  echo "Skip bicep build-params, not a bicepparam file: ${TEMPLATE}"
+                fi
+                echo "##vso[task.setvariable variable=bicep_build_params_file]${out_file}"
+
+          - task: AzureCLI@2
+            name: validate
+            displayName: Deployment validate
+            env:
+              SCOPE: $(scope)
+              TEMPLATE: $(code_template)
+              TEMPLATE_PARAMS: $(parameters)
+              MANAGEMENT_GROUP: $(management_group)
+              SUBSCRIPTION_ID: $(azure_subscription_id)
+              RESOURCE_GROUP: $(resource_group)
+              LOCATION: $(location)
+              SEVERITY: $(log_severity)
+              PROVIDERS: $(azure_providers)
+              LOG_PATH: $(Pipeline.Workspace)
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                log="${LOG_PATH}/validate.txt"
+                trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+                error() {
+                  msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                  msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                  echo "##[error]$msg"
+                  echo "$msg" >> "$4"
+                  exit $1
+                }
+                json_object=''
+                if [[ $TEMPLATE_PARAMS == http* ]]; then
+                  file="${TEMPLATE_PARAMS%% *}"
+                  curl -o ${file##*/} -sSL $file 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                  TEMPLATE_PARAMS="${TEMPLATE_PARAMS/${file}/${file##*/}}"
+                fi
+                cmd="az deployment ${SCOPE} validate --name val-${BUILD_BUILDID}"
+                if [[ $TEMPLATE == http* ]]; then
+                  cmd+=" --template-uri ${TEMPLATE}"
+                elif [[ $TEMPLATE == /subscriptions/* ]]; then
+                  cmd+=" --template-spec ${TEMPLATE}"
+                else
+                  cmd+=" --template-file ${TEMPLATE}"
+                fi
+                if test -n "${TEMPLATE_PARAMS}"; then
+                  cmd+=" --parameters ${TEMPLATE_PARAMS}"
+                fi
+                if ! [ "${SCOPE}" = 'group' ]; then
+                  cmd+=" --location ${LOCATION}"
+                fi
+                if [ "${SCOPE}" = 'mg' ]; then
+                  cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+                fi
+                if [ "${SCOPE}" = 'group' ]; then
+                  cmd+=" --resource-group ${RESOURCE_GROUP}"
+                fi
+                case "${SEVERITY}" in
+                  ERROR)   cmd+=' --only-show-errors';;
+                  VERBOSE) cmd+=' --verbose';;
+                  DEBUG)   cmd+=' --debug';;
+                esac
+                cmd+=' --no-prompt true -o json'
+                az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                echo "Run: ${cmd}"
+                eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                if test -f $log; then
+                  json_object=$(
+                    cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                      -e '/^[[:space:]]*$/d'
+                  )
+                  from_code=''
+                  if [[ "${json_object}" == {* ]]; then
+                    from_code=$(
+                      echo "${json_object}" | \
+                        jq '.properties.providers | map(.namespace) | join(" ")'
+                    )
+                  fi
+                  providers=$(echo "${PROVIDERS} ${from_code}" | xargs | sed 's/,/ /g')
+                  echo "##vso[task.setvariable variable=providers;isOutput=true]${providers}"
+                  echo -e "Discovered Azure resource providers:\n${providers}"
+                fi
+
+          - task: AzureCLI@2
+            name: what_if
+            displayName: Deployment what-if
+            env:
+              SCOPE: $(scope)
+              TEMPLATE: $(code_template)
+              TEMPLATE_PARAMS: $(parameters)
+              MANAGEMENT_GROUP: $(management_group)
+              SUBSCRIPTION_ID: $(azure_subscription_id)
+              RESOURCE_GROUP: $(resource_group)
+              LOCATION: $(location)
+              SEVERITY: $(log_severity)
+              LOG_PATH: $(Pipeline.Workspace)
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                log="${LOG_PATH}/what_if.txt"
+                trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+                error() {
+                  msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                  msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                  echo "##[error]$msg"
+                  echo "$msg" >> "$4"
+                  exit $1
+                }
+                if [[ $TEMPLATE == http* ]]; then
+                  TEMPLATE="${TEMPLATE##*/}"
+                fi
+                if [[ $TEMPLATE_PARAMS == http* ]]; then
+                  file="${TEMPLATE_PARAMS%% *}"
+                  TEMPLATE_PARAMS="${TEMPLATE_PARAMS/${file}/${file##*/}}"
+                fi
+                cmd="az deployment ${SCOPE} what-if --name whatif-${BUILD_BUILDID}"
+                if [[ $TEMPLATE == http* ]]; then
+                  cmd+=" --template-uri ${TEMPLATE}"
+                elif [[ $TEMPLATE == /subscriptions/* ]]; then
+                  cmd+=" --template-spec ${TEMPLATE}"
+                else
+                  cmd+=" --template-file ${TEMPLATE}"
+                fi
+                if test -n "${TEMPLATE_PARAMS}"; then
+                  cmd+=" --parameters ${TEMPLATE_PARAMS}"
+                fi
+                if ! [ "${SCOPE}" = 'group' ]; then
+                  cmd+=" --location ${LOCATION}"
+                fi
+                if [ "${SCOPE}" = 'mg' ]; then
+                  cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+                fi
+                if [ "${SCOPE}" = 'group' ]; then
+                  cmd+=" --resource-group ${RESOURCE_GROUP}"
+                fi
+                case "${SEVERITY}" in
+                  ERROR)   cmd+=' --only-show-errors';;
+                  VERBOSE) cmd+=' --verbose';;
+                  DEBUG)   cmd+=' --debug';;
+                esac
+                cmd+=' --exclude-change-types Ignore NoChange --no-prompt true'
+                az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                echo "Run: ${cmd}" | tee -a $log
+                eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
+
+          - task: Bash@3
+            name: ps_rule_config
+            displayName: PSRule configuration
+            condition: and(succeeded(), not(eq(variables['bicep_build_file'], '')))
+            env:
+              TEMPLATE: $(bicep_build_file)
+              TEMPLATE_PARAMS: $(bicep_build_params_file)
+              PSRULE_IGNORE: $(psrule_path_ignore)
+              PSRULE_MODULES: $(psrule_modules)
+              PSRULE_RULE_EXCLUDE: $(psrule_exclude)
+              LOG_PATH: $(Pipeline.Workspace)
+            inputs:
+              targetType: inline
+              script: |
+                psrule_path=$(dirname "${TEMPLATE}")
+                psrule_file="${psrule_path}/ps-rule.yaml"
+                if ! test -f "${psrule_file}"; then
+                  psrule_file='ps-rule.yaml'
+                fi
+                if test -f "${psrule_file}"; then
+                  echo "Use PSRule config at ${psrule_file}"
+                  echo "##vso[task.setvariable variable=ps_rule_config_path]${psrule_file}"
+                  if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
+                    file=$TEMPLATE_PARAMS
+                    t=$(basename "${TEMPLATE}")
+                    p=$(basename "${file}")
+                    if [ "${t/.json/}" != "${p/.parameters.json/}" ]; then
+                      meta=$(
+                        jq -r '.metadata | select (.!=null)' $file
+                      )
+                      if test -z "${meta}"; then
+                        json=$(
+                          jq --arg t $t '. += {metadata:{template:$t}}' $file
+                        )
+                        if test -n "${json}"; then
+                          printf '%s\n' "${json}" >$file
+                        fi
+                      else
+                        json=$(
+                          jq --arg t $t '.metadata += {template:$t}' $file
+                        )
+                        if test -n "${json}"; then
+                          printf '%s\n' "${json}" >$file
+                        fi
+                      fi
+                    fi
+                  fi
+                else
+                  echo "Skip PSRule steps, ${psrule_file} don't exist!"
+                fi
+
+          - task: ps-rule-assert@2
+            name: ps_rule
+            displayName: PSRule analysis
+            condition: and(succeeded(), not(eq(variables['ps_rule_config_path'], '')))
+            inputs:
+              inputType: repository
+              inputPath: $(Build.SourcesDirectory)
+              modules: $(psrule_modules)
+              baseline: $(psrule_baseline)
+              option: $(ps_rule_config_path)
+              outputFormat: Markdown
+              outputPath: $(Pipeline.Workspace)/logs/ps_rule.md
+              summary: false
+
+          - task: AzureCLI@2
+            name: cost
+            displayName: Estimate cost
+            condition: and(succeeded(), not(eq(variables['bicep_build_file'], '')))
+            env:
+              SCOPE: $(scope)
+              TEMPLATE: $(bicep_build_file)
+              TEMPLATE_PARAMS: $(bicep_build_params_file)
+              IN_PARAMS: $(parameters)
+              MANAGEMENT_GROUP: $(management_group)
+              SUBSCRIPTION_ID: $(azure_subscription_id)
+              RESOURCE_GROUP: $(resource_group)
+              LOCATION: $(location)
+              ACE_VERSION: $(ace_version)
+              ACE_CURRENCY: $(ace_currency)
+              ACE_THRESHOLD: $(ace_threshold)
+              LOG_PATH: $(Pipeline.Workspace)
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                log="${LOG_PATH}/cost.txt"
+                trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+                error() {
+                  msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                  msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                  echo "##[error]$msg"
+                  echo "$msg" >> "$4"
+                  exit $1
+                }
+                if ! test -f ${TEMPLATE}; then
+                  echo "Skip: Unable to find ${TEMPLATE}."
+                  exit
+                fi
+                cmd="./azure-cost-estimator"
+                server='https://github.com'
+                org='TheCloudTheory'
+                repo='arm-estimator'
+                file='linux-x64.zip'
+                url="${server}/${org}/${repo}/releases/download/${ACE_VERSION}/${file}"
+                echo "Run: curl -o ${file} -sSL ${url}" | tee -a $log
+                curl -o ${file} -sSL ${url}
+                unzip -q ${file}
+                chmod +x ./azure-cost-estimator
+                case "${SCOPE}" in
+                  tenant) cmd+=" ${SCOPE} ${TEMPLATE} ${LOCATION}";;
+                  mg)     cmd+=" ${SCOPE} ${TEMPLATE} ${MANAGEMENT_GROUP} ${LOCATION}";;
+                  sub)    cmd+=" ${SCOPE} ${TEMPLATE} ${SUBSCRIPTION_ID} ${LOCATION}";;
+                  group)  cmd+=" ${TEMPLATE} ${SUBSCRIPTION_ID} ${RESOURCE_GROUP}";;
+                esac
+                if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
+                  cmd+=" --parameters ${TEMPLATE_PARAMS}"
+                fi
+                if [[ $IN_PARAMS == *=* ]]; then
+                  param_list=($IN_PARAMS)
+                  for pair in "${param_list[@]}"; do
+                    if test -n "${pair%=*}" && [[ "${pair}" == *=* ]]; then
+                      cmd+=" --inline ${pair%=*}=${pair#*=}"
+                    fi
+                  done
+                fi
+                cmd+=" --currency ${ACE_CURRENCY}"
+                cmd+=' --disable-cache --generateJsonOutput'
+                cmd+=' --jsonOutputFilename cost_output'
+                echo "Run: ${cmd}" | tee -a $log
+                eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2) || true
+                if test -f cost_output.json; then
+                  cp cost_output.json ${LOG_PATH}/
+                fi
+
+          - task: PublishPipelineArtifact@1
+            name: upload_logs
+            displayName: Upload logs
+            condition: always()
+            inputs:
+              targetPath: $(Pipeline.Workspace)
+              artifact: plan_logs
+              publishLocation: pipeline
+
+  - stage: Create
+    dependsOn: QA
+    jobs:
+      - deployment: create
+        displayName: Create deployment
+        environment: $(environment)
+        variables:
+          plan_providers: $[ stageDependencies.QA.plan.outputs['validate.providers'] ]
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  fetchDepth: 1
+
+                - task: AzureCLI@2
+                  name: azure_providers
+                  displayName: Check Azure providers
+                  condition: and(succeeded(), not(eq(variables['plan_providers'], '')))
+                  env:
+                    PROVIDERS: $(plan_providers)
+                    WAIT_SECONDS: $(azure_provider_wait_seconds)
+                    WAIT_COUNT: $(azure_provider_wait_count)
+                    SUBSCRIPTION_ID: $(azure_subscription_id)
+                    SEVERITY: $(log_severity)
+                    LOG_PATH: $(Pipeline.Workspace)
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      log="${LOG_PATH}/azure_providers.txt"
+                      trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
+                      error_handler() {
+                        msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                        msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                        echo "##[error]$msg"
+                        echo "$msg" >> "$4"
+                        exit $1
+                      }
+                      providers=($(echo "${PROVIDERS}" | tr ' ' '\n' | sort -u))
+                      declare -a registeringProviders=()
+                      case "${SEVERITY}" in
+                        ERROR)   log_severity=' --only-show-errors';;
+                        VERBOSE) log_severity=' --verbose';;
+                        DEBUG)   log_severity=' --debug';;
+                        *)       log_severity='';;
+                      esac
+                      az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                      echo "Check resource providers for subscription ${SUBSCRIPTION_ID}..." | tee -a $log
+                      registered=($(
+                        az provider list \
+                          --query "[?registrationState=='Registered'].namespace" \
+                          -o tsv $log_severity
+                      ))
+                      echo 'Currently registered:' | tee -a $log
+                      echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')\n" | tee -a $log
+                      registered=$(echo "${registered[*]}" | tr '[:upper:]' '[:lower:]')
+                      for provider in "${providers[@]}"; do
+                        value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
+                        if [[ ! " ${registered} " =~ ${value} ]]; then
+                          echo "Register ${provider}" | tee -a $log
+                          az provider register \
+                            --consent-to-permissions --namespace $provider \
+                            ${log_severity} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                          registeringProviders+=($provider)
+                        fi
+                      done
+                      if [ ${#registeringProviders} -eq 0 ]; then
+                        echo 'All providers registered' | tee -a $log
+                      else
+                        for provider in "${registeringProviders[@]}"; do
+                          state='Registering'
+                          timesTried=0
+                          while [ "${state}" != 'Registered' ] || \
+                                [ $timesTried -gt $WAIT_COUNT ]
+                          do
+                            echo "Waiting for ${provider} to register..."
+                            state=$(
+                              az provider show --namespace $provider \
+                                --query 'registrationState' -o tsv \
+                                $log_severity 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                            )
+                            timesTried=$((timesTried+1))
+                            sleep $WAIT_SECONDS
+                          done
+                          if ! [ "${state}" = 'Registered' ]; then
+                            echo "Timeout: ${provider} in ${state} state..." | tee -a $log
+                          else
+                            echo 'Providers successfully registered' | tee -a $log
+                          fi
+                        done
+                      fi
+
+                - task: AzureCLI@2
+                  name: deploy
+                  displayName: Deploy
+                  env:
+                    SCOPE: $(scope)
+                    TEMPLATE: $(code_template)
+                    TEMPLATE_PARAMS: $(parameters)
+                    MANAGEMENT_GROUP: $(management_group)
+                    SUBSCRIPTION_ID: $(azure_subscription_id)
+                    RESOURCE_GROUP: $(resource_group)
+                    LOCATION: $(location)
+                    SEVERITY: $(log_severity)
+                    LOG_PATH: $(Pipeline.Workspace)
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -e
+                      log="${LOG_PATH}/deploy.txt"
+                      trap 'error_handler $? $LINENO "$BASH_COMMAND" $log' ERR
+                      error_handler() {
+                        msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+                        msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
+                        echo "##[error]$msg"
+                        echo "$msg" >> "$4"
+                        exit $1
+                      }
+                      if [[ $TEMPLATE_PARAMS == http* ]]; then
+                        file="${TEMPLATE_PARAMS%% *}"
+                        curl -o ${file##*/} -sSL $file 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                        TEMPLATE_PARAMS="${TEMPLATE_PARAMS/${file}/${file##*/}}"
+                      fi
+                      cmd="az deployment ${SCOPE} create --name deploy-${BUILD_BUILDID}"
+                      if [[ $TEMPLATE == http* ]]; then
+                        cmd+=" --template-uri ${TEMPLATE}"
+                      elif [[ $TEMPLATE == /subscriptions/* ]]; then
+                        cmd+=" --template-spec ${TEMPLATE}"
+                      else
+                        cmd+=" --template-file ${TEMPLATE}"
+                      fi
+                      if test -n "${TEMPLATE_PARAMS}"; then
+                        cmd+=" --parameters ${TEMPLATE_PARAMS}"
+                      fi
+                      if ! [ "${SCOPE}" = 'group' ]; then
+                        cmd+=" --location ${LOCATION}"
+                      fi
+                      if [ "${SCOPE}" = 'mg' ]; then
+                        cmd+=" --management-group-id ${MANAGEMENT_GROUP}"
+                      fi
+                      if [ "${SCOPE}" = 'group' ]; then
+                        cmd+=" --resource-group ${RESOURCE_GROUP}"
+                      fi
+                      case "${SEVERITY}" in
+                        ERROR)   cmd+=' --only-show-errors';;
+                        VERBOSE) cmd+=' --verbose';;
+                        DEBUG)   cmd+=' --debug';;
+                      esac
+                      cmd+=' --no-prompt true'
+                      az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
+                      echo "Run: ${cmd}" | tee -a $log
+                      eval "${cmd}" 1> >(tee -a ${log}.json) 2> >(tee -a $log >&2)
+
+                - task: PublishPipelineArtifact@1
+                  name: upload_logs
+                  displayName: Upload logs
+                  condition: always()
+                  inputs:
+                    targetPath: $(Pipeline.Workspace)
+                    artifact: deploy_logs
+                    publishLocation: pipeline
