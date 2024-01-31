@@ -4,31 +4,29 @@ Reusable workflow to plan and deploy Azure infrastructure.
 
 ## Overview
 
-![Deploy workflow](images/deployment-action-flow.jpg)
+![Deploy workflow](images/deploy-flow.drawio.png)
 
-1. A user creates a new branch, then commits and push the code.
-1. A user creates a pull request.
-1. The plan job is automatically triggered.
-1. If the plan job was successful, the workflow will wait for a required reviewer (if configured) to approve the deployment.
-1. When a reviewer has approved, the workflow deploys the code.
+1. The user creates a new branch, then commits and push the code.
+1. The user creates a pull request.
+1. The workflow is automatically triggered and starts the [plan job](#plan-job).
+1. If the plan job was successful, the workflow will wait for a [required reviewer](#get-started) to approve the [create job](#create-job).
+1. When a reviewer has approved, the workflow starts the [create job](#create-job) to deploy the code.
 
 ## Get started
 
 To use the workflow, several prerequisite steps are required:
 
-1. [Create an environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
+1. Create an [environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
 
-   To prevent unapproved deployments, make sure to add **"Required reviewers"**.
+1. To prevent unapproved deployments, add **"Required reviewers"**. Remember to save the protection rules after making changes.
 
-   Remember to save the protection rules after making changes.
+1. Register an application with the [Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
 
-1. [Register an application with the Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
-
-1. [Assign appropriate Azure roles to the application](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps).
+1. Assign appropriate [Azure roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to the application.
 
 1. Give the workflow Azure login permission:
 
-   - **Option 1**: [Add federated credentials (recommended)](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect)
+   - **Option 1**: Add [federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) (recommended)
 
      - Use the scenario **"GitHub Actions deploying Azure resources"**.
      - Select entity type **"Pull request"** (needed for the [plan job](#plan-job)).
@@ -40,7 +38,7 @@ To use the workflow, several prerequisite steps are required:
 
      Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
 
-   - **Option 2**: [Add client secret](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-a-client-secret)
+   - **Option 2**: Add [client secret](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-a-client-secret)
 
      - Use this option instead of federated credentials.
      - Create a secret for the app. Remember that the secret must be replaced when it expires.
@@ -97,12 +95,13 @@ For more information about PSRule configuration, see:
 
 - [Sample ps-rule.yaml](ps-rule.yaml)
 - [Configuring options](https://azure.github.io/PSRule.Rules.Azure/setup/configuring-options/)
-- [Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
-- [Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
+- [Configuring rule defaults](https://azure.github.io/PSRule.Rules.Azure/setup/configuring-rules/)
+- [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
+- [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
 ### Create job
 
-The create job requires that the plan job was successfully completed and targets a specific [environment](#get-started). If the environment is configured with **required reviewers**, the job will require manual approval.
+The create job will only run when the plan job was successful. It targets a specific [environment](#get-started). If the environment is configured with **required reviewers**, the job will require manual approval.
 
 The create job use the following tools:
 
@@ -198,7 +197,7 @@ jobs:
       # Optional: only needed as an alternative to federated credentials.
       AZURE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
     with:
-      # The GitHub environment name for the Azure deploy job.
+      # The GitHub environment name to use for the create job.
       #
       # Default: production
       environment: production
@@ -243,7 +242,7 @@ jobs:
 
       # The template address.
       #
-      # A path or URI to the a file or a template spec resource id.
+      # A path or URI to a file or a template spec resource id.
       #
       # Default: main.bicep
       code_template: main.bicep

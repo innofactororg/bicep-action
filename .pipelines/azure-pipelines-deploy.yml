@@ -1,4 +1,14 @@
+# pipeline version: beta5
 trigger: none
+pr:
+  autoCancel: true
+  drafts: false
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - "**.bicep*"
 
 name: Azure Deploy
 
@@ -16,11 +26,11 @@ variables:
   azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
   azure_provider_wait_seconds: 10
   azure_provider_wait_count: 30
+  ace_version: 1.4-beta2
+  ace_currency: EUR
+  ace_threshold: -1
   psrule_baseline: Azure.Default
   psrule_modules: Az.Resources,PSRule.Rules.Azure
-  ACE_VERSION: 1.4-beta2
-  ACE_CURRENCY: EUR
-  ACE_THRESHOLD: -1
   log_severity: ERROR
 
 pool:

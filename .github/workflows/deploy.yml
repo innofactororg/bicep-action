@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: "The GitHub environment name for the Azure deploy job."
+        description: "The GitHub environment name to use for the create job."
         required: false
         default: "production"
         type: string
