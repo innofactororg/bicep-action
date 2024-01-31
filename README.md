@@ -18,7 +18,7 @@ To use the workflow, several prerequisite steps are required:
 
 1. Create an [environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
 
-1. To prevent unapproved deployments, add **"Required reviewers"**. Remember to save the protection rules after making changes.
+1. To prevent unapproved deployments, add **"Required reviewers"** to the environment. Remember to save the protection rules after making changes.
 
 1. Register an application with the [Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
 
