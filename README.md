@@ -20,7 +20,7 @@ To use the workflow, several prerequisite steps are required:
 
 1. To prevent unapproved deployments, add **"Required reviewers"** to the environment. Remember to save the protection rules after making changes.
 
-1. Register an application with the [Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
+1. Register a [Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) application for use with the workflow.
 
 1. Assign appropriate [Azure roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to the application.
 
