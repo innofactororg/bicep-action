@@ -67,7 +67,7 @@ The PSRule steps will only run if the repository has a **"ps-rule.yaml"** file. 
 
 For more information about PSRule configuration, see:
 
-- [Sample ps-rule.yaml](ps-rule.yaml)
+- [Sample ps-rule.yaml](../ps-rule.yaml)
 - [Configuring options](https://azure.github.io/PSRule.Rules.Azure/setup/configuring-options/)
 - [Configuring rule defaults](https://azure.github.io/PSRule.Rules.Azure/setup/configuring-rules/)
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
@@ -133,4 +133,4 @@ The create job use the following tools:
 
 ## License
 
-The code and documentation in this project are released under the [MIT License](LICENSE).
+The code and documentation in this project are released under the [MIT License](../LICENSE).
