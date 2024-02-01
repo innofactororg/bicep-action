@@ -133,7 +133,7 @@ jobs:
     permissions:
       id-token: write # for login_open_id
       contents: read # for checkout_src
-      pull-requests: write # for add_comment / comment_when_done
+      pull-requests: write # for comment
     outputs:
       providers: ${{ steps.validate.outputs.providers }}
     runs-on: ubuntu-latest
@@ -240,7 +240,6 @@ jobs:
             echo "Run: ${cmd}" | tee -a $log
             eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           fi
-          log_output $log
 
       - name: Log in to Azure
         id: azure_login
@@ -307,7 +306,6 @@ jobs:
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
 
       - name: Bicep build
         id: bicep_build
@@ -332,10 +330,16 @@ jobs:
           log_output() {
             if test -f $1; then
               result=$(cat $1)
-              if test -n "${result}"; then
+              summary=''
+              if [[ "$(echo $result)" ==  *ERROR:* ]]; then
+                summary="The build failed ❗"
+              elif [[ "$(echo $result)" ==  *WARNING:* ]]; then
+                summary="The build completed with a warning status ✋"
+              fi
+              if test -n "${summary}"; then
                 {
                   echo 'result<<0047393e7aacb9de'
-                  echo -e '## Bicep build\n'
+                  echo -e "## Bicep build\n\n${summary}\n"
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
                   echo "${result}"
@@ -391,10 +395,16 @@ jobs:
           log_output() {
             if test -f $1; then
               result=$(cat $1)
-              if test -n "${result}"; then
+              summary=''
+              if [[ "$(echo $result)" ==  *ERROR:* ]]; then
+                summary="The build-params failed ❗"
+              elif [[ "$(echo $result)" ==  *WARNING:* ]]; then
+                summary="The build-params completed with a warning status ✋"
+              fi
+              if test -n "${summary}"; then
                 {
                   echo 'result<<5a82231c8acf1cbd'
-                  echo -e '## Bicep build-params\n'
+                  echo -e "## Bicep build-params\n\n${summary}\n"
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
                   echo "${result}"
@@ -444,6 +454,7 @@ jobs:
         run: |
           set -e
           log="${LOG_PATH}/${GITHUB_ACTION}.log"
+          json_object=''
           trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
@@ -453,7 +464,6 @@ jobs:
             log_output "$4"
             exit $1
           }
-          json_object=''
           log_output() {
             {
               result=$(
@@ -739,7 +749,7 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<e3599a2c6b8bc912'
-                  echo -e '## Cost estimate (month)\n'
+                  echo -e '## Cost estimate\n'
                   if test -f $2; then
                     total=$(jq -r '.TotalCost.Value | select (.!=null)' $2)
                     delta=$(jq -r '.Delta.Value | select (.!=null)' $2)
@@ -836,48 +846,69 @@ jobs:
         if: failure()
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
-      - name: Get results
-        id: get_results
+      - name: Build comment
+        id: build_comment
         if: always()
         env:
           INSTALL_TOOLS: ${{ steps.install_tools.outputs.result }}
           AZURE_LOGIN: ${{ steps.azure_login.outputs.result }}
           BICEP_BUILD: ${{ steps.bicep_build.outputs.result }}
           BICEP_BUILD_PARAM: ${{ steps.bicep_build_params.outputs.result }}
-          PS_RULE_REPORT: ${{ steps.ps_rule_report.outputs.result }}
+          PS_RULE: ${{ steps.ps_rule_report.outputs.result }}
           VALIDATE: ${{ steps.validate.outputs.result }}
           WHAT_IF: ${{ steps.what_if.outputs.result }}
           COST: ${{ steps.cost.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
+          add_result() {
+            local data
+            local add=0
+            if test -z "${1}"; then
+              echo "    0 characters in $(printf '%18s' "'${2}'") output."
+              return
+            elif test -n "${result}"; then
+              data=$(echo -e "${result}\n\n${1}")
+              add=2
+            else
+              data="${1}"
+            fi
+            if [ ${#data} -gt 63900 ]; then
+              echo "$(printf '%5d' ${#1}) characters in $(printf '%18s' "'${2}'") output. To much. Skipping it."
+              data=$(echo -e "${result}\n\n## ${2} \n\nThe ${2} output is too long ❗\n\n${3}")
+              if [ ${#data} -le 63900 ]; then
+                result=$data
+              fi
+            else
+              echo "$(printf '%5d' $((${#1} + ${add}))) characters in $(printf '%18s' "'${2}'") output. Adding it."
+              result=$data
+            fi
+          }
+          echo 'Building comment from results:'
           title=$(echo -e "# ${GITHUB_WORKFLOW}\n\nJob")
-          case "${JOB_STATUS}" in
-            cancelled) title+=$(echo -e ' cancelled ❌\n\nJob');;
-            failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
-          esac
-          all_results="${WHAT_IF}"
-          all_results+=$(echo -e "\n\n${COST}")
-          all_results+=$(echo -e "\n\n${INSTALL_TOOLS}")
-          all_results+=$(echo -e "\n\n${AZURE_LOGIN}")
-          all_results+=$(echo -e "\n\n${BICEP_BUILD}")
-          all_results+=$(echo -e "\n\n${BICEP_BUILD_PARAM}")
-          all_results+=$(echo -e "\n\n${VALIDATE}")
-          all_results+=$(echo -e "\n\n${PS_RULE_REPORT}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
-          if [ ${#all_results} -gt 64000 ]; then
-            echo "Combined step results is ${#all_results} characters long."
-            echo 'This is too large for use in comment.'
-            result=$(echo -e "${title} output is too large ❗\n\n${job}")
-          elif test -z "${all_results}"; then
-            echo 'No output found in any step result.'
-            result=$(echo -e "${title} output is missing ❓\n\n${job}")
+          result=''
+          case "${JOB_STATUS}" in
+            cancelled) title+=$(echo -e ' cancelled ❎\n\nJob');;
+            failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
+          esac
+          add_result "${WHAT_IF}" 'What-if' "${job}"
+          add_result "${COST}" 'Cost estimate' "${job}"
+          add_result "${INSTALL_TOOLS}" 'Install tools' "${job}"
+          add_result "${AZURE_LOGIN}" 'Azure login' "${job}"
+          add_result "${BICEP_BUILD}" 'Bicep build' "${job}"
+          add_result "${BICEP_BUILD_PARAM}" 'Bicep build-param' "${job}"
+          add_result "${VALIDATE}" 'Validate' "${job}"
+          add_result "${PS_RULE}" 'PSRule' "${job}"
+          if test -z "${all_results}"; then
+            echo 'No output found in any steps.'
+            result=$(echo -e "${title} output is missing ⭕\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
-            echo 'Step results merged for use in comment.'
+            echo 'Outputs from steps merged for use in comment.'
             result=$(echo -e "${title} completed ✅\n\n${all_results}")
           else
-            echo "Job ${JOB_STATUS}. Step results merged for use in comment."
+            echo "Job ${JOB_STATUS}. Outputs from steps merged for use in comment."
             result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
@@ -887,8 +918,8 @@ jobs:
             echo '6f3a17c3a625f201'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Comment when done
-        id: comment_when_done
+      - name: Update comment
+        id: update_comment
         if: >
           always() &&
           (
@@ -1010,7 +1041,7 @@ jobs:
     permissions:
       id-token: write # for login_open_id
       contents: write # for auto_merge
-      pull-requests: write # for comment_when_done
+      pull-requests: write # for comment
     runs-on: ubuntu-latest
     steps:
       - name: Checkout head ref (src)
@@ -1069,7 +1100,6 @@ jobs:
             echo "Run: ${cmd}" | tee -a $log
             eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           fi
-          log_output $log
 
       - name: Log in to Azure
         id: azure_login
@@ -1136,9 +1166,8 @@ jobs:
           echo "Run: ${cmd}" | tee -a $log
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a $log) 2> >(tee -a $log >&2)
-          log_output $log
 
-      - name: Check Azure providers
+      - name: Check resource providers
         id: azure_providers
         if: needs.plan.outputs.providers != ''
         env:
@@ -1165,7 +1194,7 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<c6502444035f7f53'
-                  echo -e '## Azure resource providers\n'
+                  echo -e '## Resource providers\n'
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
                   echo "${result}"
@@ -1370,8 +1399,8 @@ jobs:
         if: failure()
         run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
-      - name: Get results
-        id: get_results
+      - name: Build comment
+        id: build_comment
         if: always()
         env:
           INSTALL_TOOLS: ${{ steps.install_tools.outputs.result }}
@@ -1379,29 +1408,50 @@ jobs:
           DEPLOY: ${{ steps.deploy.outputs.result }}
           JOB_STATUS: ${{ env.JOB_STATUS }}
         run: |
+          add_result() {
+            local data
+            local add=0
+            if test -z "${1}"; then
+              echo "    0 characters in $(printf '%18s' "'${2}'") output."
+              return
+            elif test -n "${result}"; then
+              data=$(echo -e "${result}\n\n${1}")
+              add=2
+            else
+              data="${1}"
+            fi
+            if [ ${#data} -gt 63900 ]; then
+              echo "$(printf '%5d' ${#1}) characters in $(printf '%18s' "'${2}'") output. To much. Skipping it."
+              data=$(echo -e "${result}\n\n## ${2} \n\nThe ${2} output is too long ❗\n\n${3}")
+              if [ ${#data} -le 63900 ]; then
+                result=$data
+              fi
+            else
+              echo "$(printf '%5d' $((${#1} + ${add}))) characters in $(printf '%18s' "'${2}'") output. Adding it."
+              result=$data
+            fi
+          }
+          echo 'Building comment from results:'
           title=$(echo -e "# ${GITHUB_WORKFLOW}\n\nJob")
-          case "${JOB_STATUS}" in
-            cancelled) title+=$(echo -e ' cancelled ❌\n\nJob');;
-            failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
-          esac
-          all_results="${DEPLOY}"
-          all_results+=$(echo -e "\n\n${INSTALL_TOOLS}")
-          all_results+=$(echo -e "\n\n${AZURE_PROVIDERS}")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
-          if [ ${#all_results} -gt 64000 ]; then
-            echo "Combined step results is ${#all_results} characters long."
-            echo 'This is too large for use in comment.'
-            result=$(echo -e "${title} output is too large ❗\n\n${job}")
-          elif test -z "${all_results}"; then
-            echo 'No output found in any step result.'
-            result=$(echo -e "${title} output is missing ❓\n\n${job}")
+          result=''
+          case "${JOB_STATUS}" in
+            cancelled) title+=$(echo -e ' cancelled ❎\n\nJob');;
+            failed)    title+=$(echo -e ' failed ⛔\n\nJob');;
+          esac
+          add_result "${DEPLOY}" 'Deploy' "${job}"
+          add_result "${INSTALL_TOOLS}" 'Install tools' "${job}"
+          add_result "${AZURE_PROVIDERS}" 'Azure providers' "${job}"
+          if test -z "${all_results}"; then
+            echo 'No output found in any steps.'
+            result=$(echo -e "${title} output is missing ⭕\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
-            echo 'Step results merged for use in comment.'
+            echo 'Outputs from steps merged for use in comment.'
             result=$(echo -e "${title} completed ✅\n\n${all_results}")
           else
-            echo "Job ${JOB_STATUS}. Step results merged for use in comment."
+            echo "Job ${JOB_STATUS}. Outputs from steps merged for use in comment."
             result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
@@ -1411,8 +1461,8 @@ jobs:
             echo 'c9f1e037a6f46a12'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Comment when done
-        id: comment_when_done
+      - name: Add comment
+        id: add_comment
         if: >
           always() &&
           (
