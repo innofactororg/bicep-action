@@ -926,11 +926,11 @@ jobs:
             echo 'No output found in any steps.'
             result=$(echo -e "${title} output is missing ⭕\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
-            echo 'Outputs from steps merged for use in comment.'
             result=$(echo -e "${title} completed ✅\n\n${result}")
+            echo "Added ${#result} characters to comment."
           else
-            echo "Job ${JOB_STATUS}. Outputs from steps merged for use in comment."
             result=$(echo -e "${title} must be inspected ❗\n\n${result}")
+            echo "Job ${JOB_STATUS}. Added ${#result} characters to comment."
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
           {
@@ -1472,11 +1472,11 @@ jobs:
             echo 'No output found in any steps.'
             result=$(echo -e "${title} output is missing ⭕\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
-            echo 'Outputs from steps merged for use in comment.'
             result=$(echo -e "${title} completed ✅\n\n${result}")
+            echo "Added ${#result} characters to comment."
           else
-            echo "Job ${JOB_STATUS}. Outputs from steps merged for use in comment."
             result=$(echo -e "${title} must be inspected ❗\n\n${result}")
+            echo "Job ${JOB_STATUS}. Added ${#result} characters to comment."
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
           {
