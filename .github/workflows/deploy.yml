@@ -148,20 +148,21 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
-            const REPOSITORY = process.env.GITHUB_REPOSITORY;
-            const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const HEAD_SHA = process.env.GITHUB_SHA;
+            const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const RUN_NUMBER = process.env.GITHUB_RUN_NUMBER;
+            const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
             const prNo = context.issue.number;
             const actor = `@${context.actor}`;
-            const body = `# Plan ${WORKFLOW}
+            const body = `# Plan for ${WORKFLOW} #${RUN_NUMBER}
 
-            Started to plan and validate deployment... ⌛
+            Job started to validate and plan deployment... ⌛
 
             | Job | Commit | Actor |
             | --- | --- | --- |
-            | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
+            | [${WORKFLOW} #${RUN_NUMBER}](${run_url}) | ${HEAD_SHA} | ${actor} |`;
             const repo = {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -205,8 +206,7 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -256,8 +256,7 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -322,18 +321,22 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
           log_output() {
             if test -f $1; then
               result=$(cat $1)
+              result=$(echo "${result//${GITHUB_WORKSPACE}/}")
+              warnings=$(echo "${result}" | sed -n -e '/) : Warning /p')
+              warnings=$(echo "${warnings//WARNING: /}")
+              errors=$(echo "${result}" | sed -n -e '/) : Error /p')
+              errors=$(echo "${errors//ERROR: /}")
               summary=''
-              if [[ "$(echo $result)" ==  *ERROR:* ]]; then
+              if test -n "${errors}"; then
                 summary="The build failed ❗"
-              elif [[ "$(echo $result)" ==  *WARNING:* ]]; then
+              elif test -n "${warnings}"; then
                 summary="The build completed with a warning status ✋"
               fi
               if test -n "${summary}"; then
@@ -342,7 +345,14 @@ jobs:
                   echo -e "## Bicep build\n\n${summary}\n"
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
-                  echo "${result}"
+                  if test -n "${warnings}"; then
+                    echo 'WARNINGS:'
+                    echo "${warnings}"
+                  fi
+                  if test -n "${errors}"; then
+                    echo -e '\nERRORS:'
+                    echo "${errors}"
+                  fi
                   echo -e '```\n\n</details>'
                   echo '0047393e7aacb9de'
                 } >> "$GITHUB_OUTPUT"
@@ -387,18 +397,22 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
           log_output() {
             if test -f $1; then
               result=$(cat $1)
+              result=$(echo "${result//${GITHUB_WORKSPACE}/}")
+              warnings=$(echo "${result}" | sed -n -e '/) : Warning /p')
+              warnings=$(echo "${warnings//WARNING: /}")
+              errors=$(echo "${result}" | sed -n -e '/) : Error /p')
+              errors=$(echo "${errors//ERROR: /}")
               summary=''
-              if [[ "$(echo $result)" ==  *ERROR:* ]]; then
+              if test -n "${errors}"; then
                 summary="The build-params failed ❗"
-              elif [[ "$(echo $result)" ==  *WARNING:* ]]; then
+              elif test -n "${warnings}"; then
                 summary="The build-params completed with a warning status ✋"
               fi
               if test -n "${summary}"; then
@@ -407,7 +421,14 @@ jobs:
                   echo -e "## Bicep build-params\n\n${summary}\n"
                   echo -e '<details><summary>Click to expand details</summary>\n'
                   echo '```text'
-                  echo "${result}"
+                  if test -n "${warnings}"; then
+                    echo 'WARNINGS:'
+                    echo "${warnings}"
+                  fi
+                  if test -n "${errors}"; then
+                    echo -e '\nERRORS:'
+                    echo "${errors}"
+                  fi
                   echo -e '```\n\n</details>'
                   echo '5a82231c8acf1cbd'
                 } >> "$GITHUB_OUTPUT"
@@ -459,16 +480,18 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
           log_output() {
             {
               result=$(
-                cat $1 | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+                cat $1 | sed -n -e '/) : Error /p' -e '/) : Warning /p' -e '/) : Information /p'
               )
+              result=$(echo "${result//ERROR: /}")
+              result=$(echo "${result//WARNING: /}")
+              result=$(echo "${result//INFO: /}")
               echo 'result<<7444dac159e4ee0f'
               echo -e '## Validate\n'
               if test -n "${result}"; then
@@ -520,7 +543,7 @@ jobs:
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           if test -f $log; then
             json_object=$(
-              cat $log | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+              cat $log | sed -e '/) : Error /d' -e '/) : Warning /d' -e '/) : Information /d' \
                 -e '/^[[:space:]]*$/d'
             )
             from_code=''
@@ -554,8 +577,7 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -737,8 +759,7 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -884,7 +905,7 @@ jobs:
             fi
           }
           echo 'Building comment from results:'
-          title=$(echo -e "# ${GITHUB_WORKFLOW}\n\nJob")
+          title=$(echo -e "# Plan for ${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}\n\nJob")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
@@ -931,15 +952,18 @@ jobs:
           ALL_RESULTS: ${{ steps.build_comment.outputs.result }}
           EVENT_COMMENT_ID: ${{ steps.add_comment.outputs.result }}
           SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id || secrets.AZURE_SUBSCRIPTION_ID  }}
+          JOB_STATUS: ${{ env.JOB_STATUS }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const {ALL_RESULTS} = process.env;
             const {EVENT_COMMENT_ID} = process.env ?? 0;
             const {SUBSCRIPTION_ID} = process.env;
+            const {JOB_STATUS} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const HEAD_REF = process.env.GITHUB_REF;
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const RUN_NUMBER = process.env.GITHUB_RUN_NUMBER;
             const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
@@ -949,18 +973,18 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             };
-            const body = `${ALL_RESULTS}
-
-            ### Actions
-
-            - Review and approve the plan.
-            - Update if needed. Push updates to the [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.
-
-            The deployment will start when the pull request is reviewed and approved.
+            let action_info = '';
+            if (JOB_STATUS == '') {
+              action_info = `\n\n## Actions\n\n- Review and approve the plan.\n`
+              action_info += '- Update if needed. Push updates to the'
+              action_info += ` [${HEAD_REF}](${repo_url}/tree/${HEAD_REF}) branch.\n\n`
+              action_info += 'The deployment will start when the deployment is approved.'
+            }
+            const body = `${ALL_RESULTS}${action_info}
 
             | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
-            | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
+            | [${WORKFLOW} #${RUN_NUMBER}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             const comment_id = parseInt(EVENT_COMMENT_ID);
             if (isNaN(comment_id) || comment_id == 0) {
               try {
@@ -1015,7 +1039,9 @@ jobs:
             console.log('::group::environment variables');
             console.log('::stop-commands::77e6a57ef9854574');
             for (const [key, value] of Object.entries(process.env).sort()) {
-              console.log(`${key}=${value}`);
+              if (key != 'INPUT_SCRIPT') {
+                console.log(`${key}=${value}`);
+              }
             }
             console.log('::77e6a57ef9854574::');
             console.log('::endgroup::');
@@ -1065,8 +1091,7 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -1116,8 +1141,7 @@ jobs:
           error() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -1183,8 +1207,7 @@ jobs:
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -1276,8 +1299,7 @@ jobs:
           error_handler() {
             msg="Error on or near line $(expr $2 + 1) (exit code $1)"
             msg+=" occurred at $(date '+%Y-%m-%d %H:%M:%S'): $3"
-            echo "::error line=$(expr $2 + 1)::$msg"
-            echo "$msg" >> "$4"
+            echo "$(echo "${msg}"; cat "${4}")" > "$4"
             log_output "$4"
             exit $1
           }
@@ -1294,12 +1316,15 @@ jobs:
               fi
               if test -f ${1}.json; then
                 json_object=$(
-                  cat ${1}.json | sed -e '/^ERROR/d' -e '/^WARNING/d' -e '/^INFO/d' \
+                  cat ${1}.json | sed -e '/) : Error /d' -e '/) : Warning /d' -e '/) : Information /d' \
                     -e '/^[[:space:]]*$/d'
                 )
                 result2=$(
-                  cat ${1}.json | sed -n -e '/^ERROR/p' -e '/^WARNING/p' -e '/^INFO/p'
+                  cat ${1}.json | sed -n -e '/) : Error /p' -e '/) : Warning /p' -e '/) : Information /p'
                 )
+                result2=$(echo "${result2//ERROR: /}")
+                result2=$(echo "${result2//WARNING: /}")
+                result2=$(echo "${result2//INFO: /}")
                 if test -n "${result2}"; then
                   echo '```text'
                   echo "${result2}"
@@ -1432,7 +1457,7 @@ jobs:
             fi
           }
           echo 'Building comment from results:'
-          title=$(echo -e "# ${GITHUB_WORKFLOW}\n\nJob")
+          title=$(echo -e "# ${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}\n\nJob")
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           run_url="${repo_url}/actions/runs/${GITHUB_RUN_ID}"
           job="Please see job [#${GITHUB_RUN_NUMBER}](${run_url}) for details!"
@@ -1480,6 +1505,7 @@ jobs:
             const {SUBSCRIPTION_ID} = process.env;
             const HEAD_SHA = process.env.GITHUB_SHA;
             const REPOSITORY = process.env.GITHUB_REPOSITORY;
+            const RUN_NUMBER = process.env.GITHUB_RUN_NUMBER;
             const WORKFLOW = process.env.GITHUB_WORKFLOW;
             const repo_url = `${context.serverUrl}/${REPOSITORY}`;
             const run_url = `${repo_url}/actions/runs/${context.runId}`;
@@ -1493,7 +1519,7 @@ jobs:
 
             | Job | Commit | Actor | Subscription |
             | --- | --- | --- | --- |
-            | [${WORKFLOW}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
+            | [${WORKFLOW} #${RUN_NUMBER}](${run_url}) | ${HEAD_SHA} | ${actor} | ${SUBSCRIPTION_ID} |`;
             try {
               const response_cc = await github.rest.issues.createComment({
                 ...repo,
@@ -1528,7 +1554,9 @@ jobs:
             console.log('::group::environment variables');
             console.log('::stop-commands::43c486fb879274c0');
             for (const [key, value] of Object.entries(process.env).sort()) {
-              console.log(`${key}=${value}`);
+              if (key != 'INPUT_SCRIPT') {
+                console.log(`${key}=${value}`);
+              }
             }
             console.log('::43c486fb879274c0::');
             console.log('::endgroup::');
