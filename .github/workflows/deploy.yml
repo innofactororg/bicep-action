@@ -901,15 +901,15 @@ jobs:
           add_result "${BICEP_BUILD_PARAM}" 'Bicep build-param' "${job}"
           add_result "${VALIDATE}" 'Validate' "${job}"
           add_result "${PS_RULE}" 'PSRule' "${job}"
-          if test -z "${all_results}"; then
+          if test -z "${result}"; then
             echo 'No output found in any steps.'
             result=$(echo -e "${title} output is missing ⭕\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
             echo 'Outputs from steps merged for use in comment.'
-            result=$(echo -e "${title} completed ✅\n\n${all_results}")
+            result=$(echo -e "${title} completed ✅\n\n${result}")
           else
             echo "Job ${JOB_STATUS}. Outputs from steps merged for use in comment."
-            result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
+            result=$(echo -e "${title} must be inspected ❗\n\n${result}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
           {
@@ -1444,15 +1444,15 @@ jobs:
           add_result "${DEPLOY}" 'Deploy' "${job}"
           add_result "${INSTALL_TOOLS}" 'Install tools' "${job}"
           add_result "${AZURE_PROVIDERS}" 'Azure providers' "${job}"
-          if test -z "${all_results}"; then
+          if test -z "${result}"; then
             echo 'No output found in any steps.'
             result=$(echo -e "${title} output is missing ⭕\n\n${job}")
           elif test -z "${JOB_STATUS}"; then
             echo 'Outputs from steps merged for use in comment.'
-            result=$(echo -e "${title} completed ✅\n\n${all_results}")
+            result=$(echo -e "${title} completed ✅\n\n${result}")
           else
             echo "Job ${JOB_STATUS}. Outputs from steps merged for use in comment."
-            result=$(echo -e "${title} must be inspected ❗\n\n${all_results}")
+            result=$(echo -e "${title} must be inspected ❗\n\n${result}")
           fi
           echo "${result}" >> "$GITHUB_STEP_SUMMARY"
           {
