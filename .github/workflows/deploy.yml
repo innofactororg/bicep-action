@@ -263,8 +263,7 @@ jobs:
           log_output() {
             if test -f $1; then
               result=$(
-                cat $1 | \
-                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | \
+                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' $1 | \
                 sed -e 's/^~/!/g'
               )
               if test -n "${result}"; then
@@ -420,15 +419,19 @@ jobs:
                   echo 'result<<5a82231c8acf1cbd'
                   echo -e "## Bicep build-params\n\n${summary}\n"
                   echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```text'
                   if test -n "${warnings}"; then
-                    echo 'WARNINGS:'
+                    echo -e 'WARNINGS:\n'
+                    echo '```text'
                     echo "${warnings}"
+                    echo -e '```\n'
                   fi
                   if test -n "${errors}"; then
-                    echo -e '\nERRORS:'
+                    echo -e '\nERRORS:\n'
+                    echo '```text'
                     echo "${errors}"
+                    echo -e '```\n'
                   fi
+
                   echo -e '```\n\n</details>'
                   echo '5a82231c8acf1cbd'
                 } >> "$GITHUB_OUTPUT"
@@ -486,17 +489,30 @@ jobs:
           }
           log_output() {
             {
-              result=$(
-                cat $1 | sed -n -e '/) : Error /p' -e '/) : Warning /p' -e '/) : Information /p'
-              )
-              result=$(echo "${result//ERROR: /}")
-              result=$(echo "${result//WARNING: /}")
-              result=$(echo "${result//INFO: /}")
+              result=$(sed -n -e '/) : Error /p' -e '/) : Warning /p' $1)
+              result=$(echo "${result//${GITHUB_WORKSPACE}/}")
+              warnings=$(echo "${result}" | sed -n -e '/) : Warning /p')
+              warnings=$(echo "${warnings//WARNING: /}")
+              errors=$(echo "${result}" | sed -n -e '/) : Error /p')
+              errors=$(echo "${errors//ERROR: /}")
+              summary=''
+              if test -n "${errors}"; then
+                summary="The validation failed ❗"
+              elif test -n "${warnings}"; then
+                summary="The validation completed with a warning status ✋"
+              fi
               echo 'result<<7444dac159e4ee0f'
-              echo -e '## Validate\n'
-              if test -n "${result}"; then
+              echo -e "## Validate\n\n${summary}\n"
+              if test -n "${warnings}"; then
+                echo -e 'WARNINGS:\n'
                 echo '```text'
-                echo "${result}"
+                echo "${warnings}"
+                echo -e '```\n'
+              fi
+              if test -n "${errors}"; then
+                echo -e '\nERRORS:\n'
+                echo '```text'
+                echo "${errors}"
                 echo -e '```\n'
               fi
               if test -n "${json_object}"; then
@@ -542,10 +558,7 @@ jobs:
           echo "Run: ${cmd}"
           eval "${cmd}" 1> >(tee -a $log) 2> >(tee -a $log >&2)
           if test -f $log; then
-            json_object=$(
-              cat $log | sed -e '/) : Error /d' -e '/) : Warning /d' -e '/) : Information /d' \
-                -e '/^[[:space:]]*$/d'
-            )
+            json_object=$(sed -n '/^{$/,$p' $log)
             from_code=''
             if [[ "${json_object}" == {* ]]; then
               from_code=$(
@@ -584,8 +597,7 @@ jobs:
           log_output() {
             if test -f $1; then
               result=$(
-                cat $1 | \
-                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | \
+                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' $1 | \
                 sed -e 's/^~/!/g'
               )
               if test -n "${result}"; then
@@ -1147,8 +1159,7 @@ jobs:
           log_output() {
             if test -f $1; then
               result=$(
-                cat $1 | \
-                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | \
+                sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' $1 | \
                 sed -e 's/^~/!/g'
               )
               if test -n "${result}"; then
@@ -1314,12 +1325,9 @@ jobs:
                 fi
               fi
               if test -f ${1}.json; then
-                json_object=$(
-                  cat ${1}.json | sed -e '/) : Error /d' -e '/) : Warning /d' -e '/) : Information /d' \
-                    -e '/^[[:space:]]*$/d'
-                )
+                json_object=$(sed -n '/^{$/,$p' $log)
                 result2=$(
-                  cat ${1}.json | sed -n -e '/) : Error /p' -e '/) : Warning /p' -e '/) : Information /p'
+                  sed -n -e '/) : Error /p' -e '/) : Warning /p' ${1}.json
                 )
                 result2=$(echo "${result2//ERROR: /}")
                 result2=$(echo "${result2//WARNING: /}")
