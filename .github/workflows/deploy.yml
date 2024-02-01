@@ -1003,7 +1003,6 @@ jobs:
                 core.setFailed(`Failed to comment when done: ${e}`);
               }
             } else {
-              core.info(`Update comment ${comment_id}:\n${body}`);
               try {
                 const response = await github.rest.issues.updateComment({
                   ...repo,
