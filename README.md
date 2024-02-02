@@ -89,7 +89,7 @@ The plan job use the following tools:
 - [microsoft/ps-rule@v2](https://github.com/microsoft/ps-rule)
 - [azure-cost-estimator](https://github.com/TheCloudTheory/arm-estimator)
 
-The PSRule steps will only run if the repository has a **"ps-rule.yaml"** file. This file must be in the same folder as the main bicep/template file or in the repository root.
+The PSRule steps will only run if **"psrule_option"** is specified and points to a file that exist.
 
 For more information about PSRule configuration, see:
 
@@ -145,6 +145,7 @@ jobs:
       scope: sub
       code_template: main.bicep
       parameters: main.bicepparam
+      psrule_option: ps-rule.yaml
       log_severity: INFO
 ```
 
@@ -245,14 +246,14 @@ jobs:
       # A path or URI to a file or a template spec resource id.
       #
       # Default: main.bicep
-      code_template: main.bicep
+      code_template: bicep/pattern1/main.bicep
 
       # Deployment parameter values.
       #
       # Either a path, URI, JSON string, or <KEY=VALUE> pairs.
       #
       # Default: ''
-      parameters: main.bicepparam
+      parameters: bicep/pattern1/main.prod.bicepparam
 
       # A comma separated list of Azure resource providers.
       #
@@ -317,6 +318,11 @@ jobs:
       #
       # Default: Az.Resources,PSRule.Rules.Azure
       psrule_modules: Az.Resources,PSRule.Rules.CAF
+
+      # The path to an options file.
+      #
+      # Default: ''
+      psrule_option: bicep/pattern1/ps-rule.prod.yaml
 
       # The log verbosity. Can be one of:
       #

@@ -98,6 +98,11 @@ on:
         required: false
         default: "Az.Resources,PSRule.Rules.Azure"
         type: string
+      psrule_option:
+        description: "The path to an options file."
+        required: false
+        default: ""
+        type: string
       log_severity:
         description: "The log verbosity."
         required: false
@@ -640,23 +645,23 @@ jobs:
 
       - name: PSRule configuration
         id: ps_rule_config
-        if: steps.bicep_build.outputs.JSON_FILE != ''
+        if: >
+          inputs.psrule_option != '' &&
+          steps.bicep_build.outputs.JSON_FILE != ''
         env:
           TEMPLATE: ${{ steps.bicep_build.outputs.JSON_FILE }}
           TEMPLATE_PARAMS: ${{ steps.bicep_build_params.outputs.JSON_FILE }}
-          PSRULE_IGNORE: ${{ inputs.psrule_path_ignore }}
-          PSRULE_MODULES: ${{ inputs.psrule_modules }}
-          PSRULE_RULE_EXCLUDE: ${{ inputs.psrule_exclude }}
-          LOG_PATH: ${{ runner.workspace }}/logs
+          OPTION: ${{ inputs.psrule_option }}
         run: |
-          psrule_path=$(dirname "${TEMPLATE}")
-          psrule_file="${psrule_path}/ps-rule.yaml"
-          if ! test -f "${psrule_file}"; then
-            psrule_file='ps-rule.yaml'
-          fi
-          if test -f "${psrule_file}"; then
-            echo "Use PSRule config at ${psrule_file}"
-            echo "path=${psrule_file}" >> "$GITHUB_OUTPUT"
+          set -e
+          if ! test -f "${OPTION}"; then
+            msg="Unable to find psrule_option file ${OPTION}"
+            echo "${msg}"
+            echo "error=${msg}" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "Use PSRule config at ${OPTION}"
+            echo "path=${OPTION}" >> "$GITHUB_OUTPUT"
             if [[ $TEMPLATE_PARAMS == *.parameters.json ]]; then
               file=$TEMPLATE_PARAMS
               t=$(basename "${TEMPLATE}")
@@ -682,8 +687,6 @@ jobs:
                 fi
               fi
             fi
-          else
-            echo "Skip PSRule steps, ${psrule_file} don't exist!"
           fi
 
       - name: PSRule analysis
@@ -702,14 +705,22 @@ jobs:
       - name: PSRule report
         id: ps_rule_report
         if: >
-          steps.ps_rule_config.outputs.path != '' &&
+          inputs.psrule_option != '' &&
           (
             failure() || success()
           )
         env:
+          CONFIG_ERROR: ${{ steps.ps_rule_config.outputs.error }}
           LOG_PATH: ${{ runner.workspace }}/logs
         run: |
-          if test -f "${LOG_PATH}/ps_rule.md"; then
+          if test -n "${CONFIG_ERROR}"; then
+              {
+                echo 'result<<5ac7a7d6ce2f533c'
+                echo -e '## PSRule\n'
+                echo -e "${CONFIG_ERROR} ❗"
+                echo '5ac7a7d6ce2f533c'
+              } >> "$GITHUB_OUTPUT"
+          elif test -f "${LOG_PATH}/ps_rule.md"; then
             result=$(cat "${LOG_PATH}/ps_rule.md")
             if [ "${result}" = "# PSRule" ]; then
               echo 'PSRule report is empty'
