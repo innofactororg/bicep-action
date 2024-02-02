@@ -1027,8 +1027,6 @@ jobs:
             inputs.log_severity != 'ERROR'
           )
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
-        env:
-          STEPS_CONTEXT: ${{ toJson(steps) }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
