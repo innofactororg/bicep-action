@@ -489,11 +489,11 @@ jobs:
           }
           log_output() {
             {
-              result=$(sed -n -e '/) : Error /p' -e '/) : Warning /p' $1)
+              result=$(sed '/^{$/,$d' $1)
               result=$(echo "${result//${GITHUB_WORKSPACE}/}")
               warnings=$(echo "${result}" | sed -n -e '/) : Warning /p')
               warnings=$(echo "${warnings//WARNING: /}")
-              errors=$(echo "${result}" | sed -n -e '/) : Error /p')
+              errors=$(echo "${result}" | sed -n '/^ERROR: /,$p')
               errors=$(echo "${errors//ERROR: /}")
               summary=''
               if test -n "${errors}"; then
@@ -1325,10 +1325,9 @@ jobs:
                 fi
               fi
               if test -f ${1}.json; then
-                json_object=$(sed -n '/^{$/,$p' $log)
-                result2=$(
-                  sed -n -e '/) : Error /p' -e '/) : Warning /p' ${1}.json
-                )
+                json_object=$(sed -n '/^{$/,$p' ${1}.json)
+                result2=$(sed '/^{$/,$d' ${1}.json)
+                result2=$(echo "${result2//${GITHUB_WORKSPACE}/}")
                 result2=$(echo "${result2//ERROR: /}")
                 result2=$(echo "${result2//WARNING: /}")
                 result2=$(echo "${result2//INFO: /}")
