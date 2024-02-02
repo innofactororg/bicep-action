@@ -216,8 +216,7 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<e9febe842f46ddcd'
-                  echo -e '## Install tools\n'
-                  echo '```text'
+                  echo -e '## Install tools\n\n```text'
                   echo "${result}"
                   echo '```'
                   echo 'e9febe842f46ddcd'
@@ -269,9 +268,8 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<75cfa50190dc802c'
-                  echo -e '## Azure login\n'
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```text'
+                  echo '## Azure login'
+                  echo -e '\n<details><summary>Click to expand details</summary>\n\n```text'
                   echo "${result}"
                   echo -e '```\n\n</details>'
                   echo '75cfa50190dc802c'
@@ -342,8 +340,7 @@ jobs:
                 {
                   echo 'result<<0047393e7aacb9de'
                   echo -e "## Bicep build\n\n${summary}\n"
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```text'
+                  echo -e '<details><summary>Click to expand details</summary>\n\n```text'
                   if test -n "${warnings}"; then
                     echo 'WARNINGS:'
                     echo "${warnings}"
@@ -418,20 +415,15 @@ jobs:
                 {
                   echo 'result<<5a82231c8acf1cbd'
                   echo -e "## Bicep build-params\n\n${summary}\n"
-                  echo -e '<details><summary>Click to expand details</summary>\n'
+                  echo -e '<details><summary>Click to expand details</summary>\n\n```text'
                   if test -n "${warnings}"; then
-                    echo -e 'WARNINGS:\n'
-                    echo '```text'
+                    echo 'WARNINGS:'
                     echo "${warnings}"
-                    echo -e '```\n'
                   fi
                   if test -n "${errors}"; then
-                    echo -e '\nERRORS:\n'
-                    echo '```text'
+                    echo -e '\nERRORS:'
                     echo "${errors}"
-                    echo -e '```\n'
                   fi
-
                   echo -e '```\n\n</details>'
                   echo '5a82231c8acf1cbd'
                 } >> "$GITHUB_OUTPUT"
@@ -502,22 +494,19 @@ jobs:
                 summary="The validation completed with a warning status ✋"
               fi
               echo 'result<<7444dac159e4ee0f'
-              echo -e "## Validate\n\n${summary}\n"
+              echo -e "## Validate\n\n${summary}"
               if test -n "${warnings}"; then
-                echo -e 'WARNINGS:\n'
-                echo '```text'
+                echo -e '\nWARNINGS:\n\n```text'
                 echo "${warnings}"
-                echo -e '```\n'
+                echo '```'
               fi
               if test -n "${errors}"; then
-                echo -e '\nERRORS:\n'
-                echo '```text'
+                echo -e '\nERRORS:\n\n```text'
                 echo "${errors}"
-                echo -e '```\n'
+                echo '```'
               fi
               if test -n "${json_object}"; then
-                echo -e '<details><summary>Click to expand details</summary>\n'
-                echo '```json'
+                echo -e '\n<details><summary>Click to expand details</summary>\n\n```json'
                 echo "${json_object}"
                 echo -e '```\n\n</details>'
               fi
@@ -603,9 +592,8 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<7d9efa072f5be230'
-                  echo -e '## What-if\n'
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```diff'
+                  echo '## What-if'
+                  echo -e '\n<details><summary>Click to expand details</summary>\n\n```diff'
                   echo "${result}"
                   echo -e '```\n\n</details>'
                   echo '7d9efa072f5be230'
@@ -815,8 +803,7 @@ jobs:
                     fi
                     echo -e "${txt}\n"
                   fi
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```text'
+                  echo -e '<details><summary>Click to expand details</summary>\n\n```text'
                   echo "${result}"
                   echo -e '```\n\n</details>'
                   echo 'e3599a2c6b8bc912'
@@ -1112,8 +1099,7 @@ jobs:
               if test -n "${result}"; then
                 {
                   echo 'result<<8cfeacefe1900f1b'
-                  echo -e '## Install tools\n'
-                  echo '```text'
+                  echo -e '## Install tools\n\n```text'
                   echo "${result}"
                   echo '```'
                   echo '8cfeacefe1900f1b'
@@ -1166,8 +1152,7 @@ jobs:
                 {
                   echo 'result<<283472273471e6aa'
                   echo -e '## Azure login\n'
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```text'
+                  echo -e '<details><summary>Click to expand details</summary>\n\n```text'
                   echo "${result}"
                   echo -e '```\n\n</details>'
                   echo '283472273471e6aa'
@@ -1228,8 +1213,7 @@ jobs:
                 {
                   echo 'result<<c6502444035f7f53'
                   echo -e '## Resource providers\n'
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```text'
+                  echo -e '<details><summary>Click to expand details</summary>\n\n```text'
                   echo "${result}"
                   echo -e '```\n\n</details>'
                   echo 'c6502444035f7f53'
@@ -1321,7 +1305,7 @@ jobs:
                 if test -n "${result}"; then
                   echo '```text'
                   echo "${result}"
-                  echo -e '```\n\n'
+                  echo '```'
                 fi
               fi
               if test -f ${1}.json; then
@@ -1332,13 +1316,12 @@ jobs:
                 result2=$(echo "${result2//WARNING: /}")
                 result2=$(echo "${result2//INFO: /}")
                 if test -n "${result2}"; then
-                  echo '```text'
+                  echo -e '\n\n```text'
                   echo "${result2}"
-                  echo -e '```\n\n'
+                  echo '```'
                 fi
                 if test -n "${json_object}"; then
-                  echo -e '<details><summary>Click to expand details</summary>\n'
-                  echo '```json'
+                  echo -e '\n\n<details><summary>Click to expand details</summary>\n\n```json'
                   echo "${json_object}"
                   echo -e '```\n\n</details>'
                 fi
