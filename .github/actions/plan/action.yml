@@ -109,9 +109,15 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: List actions dir
+    - name: Add scripts to system path
       shell: bash
-      run: ls -la /home/runner/work/_actions/innofactororg/bicep-action/beta6
+      run: |
+        scriptFolder=$(readlink -f ${GITHUB_ACTION_PATH}/../../../scripts)
+        echo 'Script folder:'
+        echo "${scriptFolder}"
+        echo "${scriptFolder}" >> "${GITHUB_PATH}"
+        echo 'System path:'
+        echo "${PATH}"
 
     - name: Install tools
       id: install_tools
@@ -122,7 +128,7 @@ runs:
         LOG_ORDER: b1
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/install-tools.sh
+      run: install-tools.sh
 
     - name: Azure login
       id: azure_login
@@ -136,7 +142,7 @@ runs:
         SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
         TENANT_ID: ${{ inputs.azure_tenant_id }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-login.sh
+      run: az-login.sh
 
     - name: Bicep build
       id: bicep_build
@@ -150,7 +156,7 @@ runs:
         SCRIPT_ACTION: build
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-bicep.sh
+      run: az-bicep.sh
 
     - name: Bicep build-params
       id: bicep_build_params
@@ -164,7 +170,7 @@ runs:
         SCRIPT_ACTION: build-params
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-bicep.sh
+      run: az-bicep.sh
 
     - name: Validate
       id: validate
@@ -184,7 +190,7 @@ runs:
         SCRIPT_ACTION: ${{ github.action }}
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-deploy.sh
+      run: az-deploy.sh
 
     - name: What-if
       id: what-if
@@ -203,7 +209,7 @@ runs:
         RUN_ID: ${{ github.run_id }}
         SCRIPT_ACTION: ${{ github.action }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-deploy.sh
+      run: az-deploy.sh
 
     - name: PSRule config
       id: psrule_config
@@ -214,7 +220,7 @@ runs:
         TEMPLATE_FILE: ${{ steps.bicep_build.outputs.file }}
         TEMPLATE_PARAMS_FILE: ${{ steps.bicep_build_params.outputs.file }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/psrule-config.sh
+      run: psrule-config.sh
 
     - name: PSRule analysis
       id: psrule_analysis
@@ -238,7 +244,7 @@ runs:
         LOG_ORDER: b6
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/psrule-report.sh
+      run: psrule-report.sh
 
     - name: Cost estimate
       id: cost_estimate
@@ -259,7 +265,7 @@ runs:
         THRESHOLD: ${{ inputs.cost_threshold }}
         VERSION_ACE: ${{ inputs.version_ace_tool }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/azure-cost.sh
+      run: azure-cost.sh
 
     - name: Job cancelled
       if: cancelled()
@@ -291,7 +297,7 @@ runs:
         RUN_NUMBER: ${{ github.run_number }}
         TOKEN: ${{ inputs.token }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/pr-comment.sh
+      run: pr-comment.sh
 
     - name: Show debug info
       if: >

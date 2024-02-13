@@ -90,6 +90,16 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Add scripts to system path
+      shell: bash
+      run: |
+        scriptFolder=$(readlink -f ${GITHUB_ACTION_PATH}/../../../scripts)
+        echo 'Script folder:'
+        echo "${scriptFolder}"
+        echo "${scriptFolder}" >> "${GITHUB_PATH}"
+        echo 'System path:'
+        echo "${PATH}"
+
     - name: Install tools
       id: install_tools
       env:
@@ -99,7 +109,7 @@ runs:
         LOG_ORDER: b1
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/install-tools.sh
+      run: install-tools.sh
 
     - name: Azure login
       id: azure_login
@@ -113,7 +123,7 @@ runs:
         SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
         TENANT_ID: ${{ inputs.azure_tenant_id }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-login.sh
+      run: az-login.sh
 
     - name: Check resource providers
       id: check_providers
@@ -127,7 +137,7 @@ runs:
         WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
         WAIT_SECONDS: ${{ inputs.azure_provider_wait_seconds }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/azure-providers.sh
+      run: azure-providers.sh
 
     - name: Create deployment
       id: create
@@ -146,7 +156,7 @@ runs:
         RUN_ID: ${{ github.run_id }}
         SCRIPT_ACTION: ${{ github.action }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/az-deploy.sh
+      run: az-deploy.sh
 
     - name: Enable auto merge
       if: >
@@ -216,7 +226,7 @@ runs:
         RUN_NUMBER: ${{ github.run_number }}
         TOKEN: ${{ inputs.token }}
       shell: bash
-      run: $GITHUB_ACTION_PATH/scripts/pr-comment.sh
+      run: pr-comment.sh
 
     - name: Show debug info
       if: >
