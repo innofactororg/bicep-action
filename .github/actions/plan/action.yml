@@ -259,10 +259,12 @@ runs:
 
     - name: Job cancelled
       if: cancelled()
+      shell: bash
       run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
 
     - name: Job failed
       if: failure()
+      shell: bash
       run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
 
     - name: Add comment
