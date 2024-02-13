@@ -20,7 +20,7 @@ output:
     - en-US
   footer: RuleCount
   format: Markdown
-  jobSummaryPath: logs/ps_rule_summary.md
+  jobSummaryPath: psrule_summary.md
   outcome: Processed
   style: Detect
 rule:

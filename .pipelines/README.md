@@ -24,13 +24,19 @@ To use the pipeline, several prerequisite steps are required:
 
 1. Create a [Azure Resource Manager workload identity service connection](https://learn.microsoft.com/en-us/azure/devops/pipelines/release/configure-workload-identity?view=azure-devops).
 
-1. Assign appropriate [Azure roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to the application.
+1. Assign [Azure roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to the application so it can deploy Azure infrastructure. For example, give it the **"Owner"** role on the target Azure subscription.
 
 1. [If needed, create a repo](https://learn.microsoft.com/en-us/azure/devops/repos/git/create-new-repo?view=azure-devops#create-a-repo-using-the-web-portal).
 
-1. Add the [azure-pipelines-deploy.yml](azure-pipelines-deploy.yml) to a **".pipelines"** repo folder.
+1. In the [repo settings](https://learn.microsoft.com/en-us/azure/devops/repos/git/set-git-repository-permissions?view=azure-devops#open-security-for-a-repository), ensure the [build service](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/access-tokens?view=azure-devops&tabs=yaml#manage-build-service-account-permissions) has **"Contribute to pull requests"** permission.
+
+1. Add the [azure-pipelines-deploy.yml](azure-pipelines-deploy.yml) to a repo folder, e.g. **".pipelines"**.
 
 1. Customize the variable values in the **"azure-pipelines-deploy.yml"** file and commit the changes.
+
+1. If needed, add [bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/) code to the repo.
+
+1. Add a [ps-rule.yaml](../ps-rule.yaml) file to the same folder as the main bicep/template file or in the repository root.
 
 1. Go to the Azure DevOps **Pipelines** page. Then choose the action to create a **New pipeline**.
 
@@ -48,22 +54,39 @@ To use the pipeline, several prerequisite steps are required:
 
 ## Pipeline
 
+The pipeline is designed to run when a pull request is created or updated.
+
+The jobs in this pipeline has been tested on a [standard Microsoft-hosted agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted?view=azure-devops&tabs=yaml#software) with YAML VM Image Label **"ubuntu-22.04"**.
+
+The following tools are used:
+
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/)
+  - [az bicep build](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build)
+  - [az bicep build-params](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build-params)
+  - [az provider register](https://learn.microsoft.com/en-us/cli/azure/provider?view=azure-cli-latest#az-provider-register)
+  - [az deployment {SCOPE} create](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-create)
+  - [az deployment {SCOPE} validate](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-validate)
+  - [az deployment {SCOPE} what-if](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-what-if)
+- [Azure Cost Estimator](https://github.com/TheCloudTheory/arm-estimator)
+- [curl](https://curl.se/)
+- Azure Pipelines task:
+  - [AzureCLI@2](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2?view=azure-pipelines)
+  - [checkout](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout?view=azure-pipelines)
+  - [ps-rule-assert](https://github.com/microsoft/PSRule-pipelines/blob/main/docs/tasks.md#ps-rule-assert)
+  - [publish](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-publish?view=azure-pipelines)
+- [GNU bash](https://www.gnu.org/software/bash/)
+- [GNU bc](https://www.gnu.org/software/bc/)
+- [GNU core utilities](https://www.gnu.org/software/coreutils/coreutils.html)
+- [GNU find utilities](https://www.gnu.org/software/findutils/)
+- [jq](https://jqlang.github.io/jq/)
+- [sed](https://www.gnu.org/software/sed/)
+- [unzip](https://infozip.sourceforge.net/)
+
 ### Plan job
 
 The plan job will build and test the code. If no issues are found in the code, a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report is generated.
 
-The plan job use the following tools:
-
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/)
-  - [az login](https://learn.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest#az-login)
-  - [az bicep build](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build)
-  - [az bicep build-params](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build-params)
-  - [az deployment {SCOPE} validate](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-validate)
-  - [az deployment {SCOPE} what-if](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-what-if)
-- [microsoft/ps-rule@v2](https://github.com/microsoft/ps-rule)
-- [azure-cost-estimator](https://github.com/TheCloudTheory/arm-estimator)
-
-The PSRule steps will only run if the repository has a **"ps-rule.yaml"** file. This file must be in the same folder as the main bicep/template file or in the repository root.
+The PSRule steps will only run if **"rule_option"** is specified and points to a file that exist.
 
 For more information about PSRule configuration, see:
 
@@ -77,34 +100,7 @@ For more information about PSRule configuration, see:
 
 The create job will only run when the plan job was successful. It targets a specific [environment](#get-started). If the environment is configured with **Approvers**, the job will require manual approval.
 
-The create job use the following tools:
-
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/)
-  - [az login](https://learn.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest#az-login)
-  - [az provider register](https://learn.microsoft.com/en-us/cli/azure/provider?view=azure-cli-latest#az-provider-register)
-  - [az deployment {SCOPE} create](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-create)
-
 ### Variables
-
-- **vmImageName**: Name of the [VM image](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted?view=azure-devops&tabs=yaml#software) to use.
-
-- **azureServiceConnection**: Name of the [Azure Resource Manager service connection](#get-started) to use.
-
-- **environment**: Name of the [environment](#get-started) to use for the [create job](#create-job).
-
-- **azure_subscription_id**: The subscription ID in which to deploy the resources.
-
-- **location**: The Azure location to store the deployment metadata.
-
-- **scope**: The deployment scope. Accepted: tenant, mg, sub, group.
-
-- **management_group**: Management group to create deployment at for mg scope.
-
-- **resource_group**: Resource group to create deployment at for group scope.
-
-- **code_template**: The template address. A path or URI to a file or a template spec resource id.
-
-- **parameters**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
 
 - **azure_providers**: A comma separated list of Azure resource providers.
 
@@ -114,15 +110,15 @@ The create job use the following tools:
 
 - **azure_provider_wait_count**: Times to check provider status before giving up.
 
-- **ace_version**: Azure Cost Estimator version. The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
+- **azure_subscription_id**: The subscription ID in which to deploy the resources.
 
-- **ace_currency**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
+- **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
-- **ace_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
+- **currency**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
 
-- **psrule_baseline**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
+- **environment**: Name of the [environment](#get-started) to use for the [create job](#create-job).
 
-- **psrule_modules**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
+- **location**: The Azure location to store the deployment metadata.
 
 - **log_severity**: The log verbosity. Can be one of:
 
@@ -131,6 +127,26 @@ The create job use the following tools:
   - VERBOSE - Increase logging verbosity. Always dump context.
   - DEBUG - Show all debug logs. Always dump context.
 
+- **management_group**: Management group to create deployment at for mg scope.
+
+- **resource_group**: Resource group to create deployment at for group scope.
+
+- **rule_baseline**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
+
+- **rule_modules**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
+
+- **rule_option**: The path to an options file.
+
+- **scope**: The deployment scope. Accepted: tenant, mg, sub, group.
+
+- **serviceConnection**: The Azure Resource Manager service connection name.
+
+- **template**: The template address. A path or URI to a file or a template spec resource id.
+
+- **template_parameters**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
+
+- **version_ace_tool**: Azure Cost Estimator version. The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
+
 ## License
 
-The code and documentation in this project are released under the [MIT License](../LICENSE).
+The code and documentation in this project are released under the [BSD 3-Clause License](../LICENSE).
