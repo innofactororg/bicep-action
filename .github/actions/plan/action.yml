@@ -120,23 +120,21 @@ runs:
         echo "${PATH}"
 
     - name: Install tools
-      id: install_tools
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: install_tools
         LOG_ORDER: b1
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
       run: install-tools.sh
 
     - name: Azure login
-      id: azure_login
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         CLIENT_ID: ${{ inputs.azure_client_id }}
         CLIENT_SECRET: ${{ inputs.azure_client_secret }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: azure_login
         LOG_ORDER: b2
         LOG_PATH: ${{ runner.workspace }}/logs
         SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
@@ -150,7 +148,7 @@ runs:
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: bicep_build
         LOG_ORDER: b3
         LOG_PATH: ${{ runner.workspace }}/logs
         SCRIPT_ACTION: build
@@ -164,7 +162,7 @@ runs:
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template_parameters }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: bicep_build_params
         LOG_ORDER: b4
         LOG_PATH: ${{ runner.workspace }}/logs
         SCRIPT_ACTION: build-params
@@ -173,7 +171,6 @@ runs:
       run: az-bicep.sh
 
     - name: Validate
-      id: validate
       env:
         IN_LOCATION: ${{ inputs.location }}
         IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
@@ -183,17 +180,16 @@ runs:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template }}
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: validate
         LOG_ORDER: b5
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
-        SCRIPT_ACTION: ${{ github.action }}
+        SCRIPT_ACTION: validate
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
       run: az-deploy.sh
 
     - name: What-if
-      id: what-if
       env:
         IN_LOCATION: ${{ inputs.location }}
         IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
@@ -203,11 +199,11 @@ runs:
         IN_TEMPLATE: ${{ inputs.template }}
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
         JOB_NAME: "${{ github.workflow }} #${{ github.run_number }}"
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: what-if
         LOG_ORDER: a1
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
-        SCRIPT_ACTION: ${{ github.action }}
+        SCRIPT_ACTION: what-if
       shell: bash
       run: az-deploy.sh
 
@@ -223,7 +219,6 @@ runs:
       run: psrule-config.sh
 
     - name: PSRule analysis
-      id: psrule_analysis
       if: inputs.rule_option != '' && steps.psrule_config.outputs.error != ''
       uses: microsoft/ps-rule@2fb1024354743290eb724889d62c4f485a15373a # v2.9.0 + 5 commits
       with:
@@ -236,18 +231,16 @@ runs:
         summary: false
 
     - name: PSRule report
-      id: psrule_report
       if: inputs.rule_option != '' && (failure() || success())
       env:
         CONFIG_ERROR: ${{ steps.psrule_config.outputs.error }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: psrule_report
         LOG_ORDER: b6
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
       run: psrule-report.sh
 
     - name: Cost estimate
-      id: cost_estimate
       if: steps.bicep_build.outputs.file != ''
       env:
         IN_CURRENCY: ${{ inputs.currency }}
@@ -256,7 +249,7 @@ runs:
         IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
         IN_SCOPE: ${{ inputs.scope }}
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: cost_estimate
         LOG_ORDER: a2
         LOG_PATH: ${{ runner.workspace }}/logs
         SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}

@@ -101,23 +101,21 @@ runs:
         echo "${PATH}"
 
     - name: Install tools
-      id: install_tools
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: install_tools
         LOG_ORDER: b1
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
       run: install-tools.sh
 
     - name: Azure login
-      id: azure_login
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         CLIENT_ID: ${{ inputs.azure_client_id }}
         CLIENT_SECRET: ${{ inputs.azure_client_secret }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: azure_login
         LOG_ORDER: b2
         LOG_PATH: ${{ runner.workspace }}/logs
         SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
@@ -126,12 +124,11 @@ runs:
       run: az-login.sh
 
     - name: Check resource providers
-      id: check_providers
       if: inputs.azure_providers != ''
       env:
         IN_PROVIDERS: ${{ inputs.azure_providers }}
         IN_SEVERITY: ${{ inputs.log_severity }}
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: check_providers
         LOG_ORDER: b3
         LOG_PATH: ${{ runner.workspace }}/logs
         WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
@@ -140,7 +137,6 @@ runs:
       run: azure-providers.sh
 
     - name: Create deployment
-      id: create
       env:
         IN_LOCATION: ${{ inputs.location }}
         IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
@@ -150,11 +146,11 @@ runs:
         IN_TEMPLATE: ${{ inputs.template }}
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
         JOB_NAME: "${{ github.workflow }} #${{ github.run_number }}"
-        LOG_NAME: ${{ github.action }}
+        LOG_NAME: create_deployment
         LOG_ORDER: a1
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
-        SCRIPT_ACTION: ${{ github.action }}
+        SCRIPT_ACTION: create
       shell: bash
       run: az-deploy.sh
 
