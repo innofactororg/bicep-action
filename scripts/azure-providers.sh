@@ -15,7 +15,7 @@ cleanup() {
 }
 error() {
   local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-  msg+=" in ${LOG_NAME} at $(date '+%Y-%m-%d %H:%M:%S')"
+  msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
   log_output "$4" "${msg}" "$3"
   exit $1
@@ -27,12 +27,14 @@ log_output() {
     data=$(cat "${1}")
   fi
   if test -n "${2}"; then
-    summary="The ${LOG_NAME} failed. ${2}❗"
+    summary="The ${LOG_NAME/_/ } failed. ${2}❗"
     if test -n "${3}"; then
-      summary+="\n\nCommand that failed:\n${3}"
+      summary+='\n\nCommand that failed:\n\n```text\n'
+      summary+="${3}"
+      summary+='\n```'
     fi
   elif test -z "${data}"; then
-    summary="The ${LOG_NAME} failed. No output found❗"
+    summary="The ${LOG_NAME/_/ } failed. No output found❗"
   fi
   if test -n "${summary}"; then
     summary="\n\n${summary}"

@@ -15,7 +15,7 @@ cleanup() {
 }
 error() {
   local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-  msg+=" in ${LOG_NAME} at $(date '+%Y-%m-%d %H:%M:%S')"
+  msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
   log_output "$4" "${msg}" "$3"
   exit $1
@@ -33,22 +33,22 @@ log_output() {
     errors=$(echo "${errors//ERROR: /}")
   fi
   if test -n "${errors}" || test -n "${2}"; then
-    summary="The ${LOG_NAME} failed. ${2}❗"
+    summary="The ${LOG_NAME/_/ } failed. ${2}❗"
     if test -n "${3}"; then
-      summary+="\n\nCommand that failed:\n${3}"
+      summary+='\n\nCommand that failed:\n\n```text\n'
+      summary+="${3}"
+      summary+='\n```'
     fi
-  elif test -n "${warnings}"; then
-    summary="Notice the ${LOG_NAME} warning ✋"
   fi
   if test -n "${summary}"; then
     local output="## Bicep ${SCRIPT_ACTION}\n\n${summary}"
     if test -n "${warnings}"; then
-      output+='\n\nWARNINGS:\n\n```text\n'
+      output+='\n\n:warning: **WARNINGS**:\n\n```text\n'
       output+="${warnings}\n"
       output+='```'
     fi
     if test -n "${errors}"; then
-      output+='\n\nERRORS:\n\n```text\n'
+      output+='\n\n:x: **ERRORS**:\n\n```text\n'
       output+="${errors}\n"
       output+='```'
     fi

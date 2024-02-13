@@ -15,7 +15,7 @@ cleanup() {
 }
 error() {
   local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
-  msg+=" in ${LOG_NAME} at $(date '+%Y-%m-%d %H:%M:%S')"
+  msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
   log_output "$4" "${msg}" "$3"
   exit $1
@@ -24,7 +24,9 @@ log_output() {
   local data=''
   local summary="${2}❗"
   if test -n "${3}"; then
-    summary+="\n\nCommand that failed:\n${3}"
+    summary+='\n\nCommand that failed:\n\n```text\n'
+    summary+="${3}"
+    summary+='\n```'
   fi
   if test -f "${1}"; then
     data=$(
