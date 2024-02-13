@@ -5,6 +5,14 @@
 set -e
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+trap cleanup EXIT
+cleanup() {
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '##[endgroup]'
+  else
+    echo '::endgroup::'
+  fi
+}
 error() {
   local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
   msg+=" in ${LOG_NAME} at $(date '+%Y-%m-%d %H:%M:%S')"
@@ -81,17 +89,11 @@ log_output() {
       exit 1
     fi
   fi
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '::endgroup::'
-  else
-    echo '##[endgroup]'
-  fi
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "::group::${LOG_NAME}"
-else
   echo "##[group]${LOG_NAME}"
-cho '##[endgroup]'
+else
+  echo "::group::${LOG_NAME}"
 fi
 if ! test -f "${TEMPLATE_FILE}"; then
   echo "Skip: Unable to find ${TEMPLATE_FILE}."

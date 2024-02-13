@@ -5,6 +5,14 @@
 set -e
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
+trap cleanup EXIT
+cleanup() {
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '##[endgroup]'
+  else
+    echo '::endgroup::'
+  fi
+}
 error() {
   local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
   msg+=" in ${LOG_NAME} at $(date '+%Y-%m-%d %H:%M:%S')"
@@ -100,17 +108,11 @@ log_output() {
     local list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
     echo "providers=${list}" >> "$GITHUB_OUTPUT"
   fi
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '::endgroup::'
-  else
-    echo '##[endgroup]'
-  fi
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "::group::${LOG_NAME}"
-else
   echo "##[group]${LOG_NAME}"
-cho '##[endgroup]'
+else
+  echo "::group::${LOG_NAME}"
 fi
 if [[ $IN_TEMPLATE == http* ]]; then
   if ! test -f "${IN_TEMPLATE##*/}"; then

@@ -3,12 +3,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+trap cleanup EXIT
+cleanup() {
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '##[endgroup]'
+  else
+    echo '::endgroup::'
+  fi
+}
 missing=''
 if [ -n "${TF_BUILD-}" ]; then
-  echo "::group::${LOG_NAME}"
-else
   echo "##[group]${LOG_NAME}"
-cho '##[endgroup]'
+else
+  echo "::group::${LOG_NAME}"
 fi
 if ! test -f "${OPTION}"; then
   missing="Unable to find rule_option file ${OPTION}"
@@ -38,9 +45,4 @@ echo "error=${missing}" >> "$GITHUB_OUTPUT"
 if test -n "${missing}"; then
   echo "${msg}"
   exit 1
-fi
-if [ -n "${TF_BUILD-}" ]; then
-  echo '::endgroup::'
-else
-  echo '##[endgroup]'
 fi

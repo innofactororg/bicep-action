@@ -3,6 +3,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+trap cleanup EXIT
+cleanup() {
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '##[endgroup]'
+  else
+    echo '::endgroup::'
+  fi
+}
 add_output() {
   local add=''
   local data=''
@@ -33,10 +41,9 @@ add_output() {
   echo "$output"
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "::group::${LOG_NAME}"
-else
   echo "##[group]${LOG_NAME}"
-cho '##[endgroup]'
+else
+  echo "::group::${LOG_NAME}"
 fi
 output=$(find $LOG_PATH -name 'step_*.md' -maxdepth 1 -type f | sort | add_output)
 case "${JOB_STATUS}" in
@@ -76,9 +83,4 @@ if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
     cat "${LOG_PATH}/comment.log"
   fi
   exit 1
-fi
-if [ -n "${TF_BUILD-}" ]; then
-  echo '::endgroup::'
-else
-  echo '##[endgroup]'
 fi

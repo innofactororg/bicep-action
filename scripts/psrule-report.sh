@@ -3,12 +3,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+trap cleanup EXIT
+cleanup() {
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '##[endgroup]'
+  else
+    echo '::endgroup::'
+  fi
+}
 output=''
 if [ -n "${TF_BUILD-}" ]; then
-  echo "::group::${LOG_NAME}"
-else
   echo "##[group]${LOG_NAME}"
-cho '##[endgroup]'
+else
+  echo "::group::${LOG_NAME}"
 fi
 if test -n "${CONFIG_ERROR}"; then
   output='## PSRule\n\n'
@@ -46,9 +53,4 @@ elif test -f "${LOG_PATH}/psrule_analysis.md"; then
 fi
 if test -n "${output}"; then
   echo -e "${output}" > "${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.md"
-fi
-if [ -n "${TF_BUILD-}" ]; then
-  echo '::endgroup::'
-else
-  echo '##[endgroup]'
 fi
