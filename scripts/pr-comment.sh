@@ -54,10 +54,10 @@ esac
 if test -z "${output}"; then
   summary+=' Output is missing ⭕'
 fi
-summary+='\n\nPR | Commit | Run | Actor | Action'
-summary+='---|---|---|---|---'
+summary+='\n\nPR | Commit | Run | Actor | Action\n'
+summary+='---|---|---|---|---\n'
 summary+="#${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
-summary+=" ${EVENT_ACTOR} | ${EVENT_ACTION}"
+summary+=" ${EVENT_ACTOR} | ${EVENT_ACTION}\n\n"
 if [ "${LOG_NAME}" = 'plan_comment' ]; then
   output="# Plan for ${JOB_NAME}\n\n${summary}${output}"
 else
