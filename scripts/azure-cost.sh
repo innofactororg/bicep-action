@@ -21,12 +21,12 @@ log_output() {
     data=$(cat "${1}")
   fi
   if test -n "${2}"; then
-    summary="The ${LOG_NAME} failed❗ ${2}"
+    summary="The ${LOG_NAME} failed. ${2}❗"
     if test -n "${3}"; then
       summary+="\n\nCommand that failed:\n${3}"
     fi
   elif test -z "${data}"; then
-    summary="The ${LOG_NAME} failed❗ No output found."
+    summary="The ${LOG_NAME} failed. No output found❗"
   fi
   if test -n "${summary}"; then
     summary="\n\n${summary}"
@@ -81,7 +81,18 @@ log_output() {
       exit 1
     fi
   fi
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '::endgroup::'
+  else
+    echo '##[endgroup]'
+  fi
 }
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 if ! test -f "${TEMPLATE_FILE}"; then
   echo "Skip: Unable to find ${TEMPLATE_FILE}."
   exit 1

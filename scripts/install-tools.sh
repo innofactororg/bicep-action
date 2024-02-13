@@ -14,19 +14,32 @@ error() {
   exit $1
 }
 log_output() {
-  local summary="${2}❗"
-  if test -n "${3}"; then
-    summary+="\n\nCommand that failed:\n${3}"
+  if test -n "${2}"; then
+    local summary="${2}❗"
+    if test -n "${3}"; then
+      summary+="\n\nCommand that failed:\n${3}"
+    fi
+    local data=$(cat "${1}" 2>/dev/null || true)
+    local output="## Install tools\n\n${summary}"
+    if test -n "${data}"; then
+      output+='\n\n```text\n'
+      output+="${data}\n"
+      output+='```'
+    fi
+    echo -e "${output}" > "${1/.log/.md}"
   fi
-  local data=$(cat "${1}" 2>/dev/null || true)
-  local output="## Install tools\n\n${summary}"
-  if test -n "${data}"; then
-    output+='\n\n```text\n'
-    output+="${data}\n"
-    output+='```'
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '::endgroup::'
+  else
+    echo '##[endgroup]'
   fi
-  echo -e "${output}" > "${1/.log/.md}"
 }
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 az_version=$(az version | jq -r '."azure-cli"')
 echo "Azure CLI ${az_version}" | tee -a "${log}"
 echo 'Installed extensions:' | tee -a "${log}"
@@ -42,3 +55,4 @@ if [[ $IN_TEMPLATE == *.bicep ]]; then
   echo "Run: ${cmd}"
   eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
+log_output "${log}" '' ''

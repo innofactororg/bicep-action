@@ -32,17 +32,25 @@ add_output() {
   done
   echo "$output"
 }
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 output=$(find $LOG_PATH -name 'step_*.md' -maxdepth 1 -type f | sort | add_output)
-title="The job [${JOB_NAME}](${JOB_URL}) realted to pull request #${EVENT_NO}"
-title+=" and commit ${COMMIT_SHA} ${EVENT_ACTION} by ${EVENT_ACTOR}"
 case "${JOB_STATUS}" in
-  cancelled|Canceled) title+=' was cancelled ❎';;
-  failed|Failed)      title+=' failed ⛔';;
-  *)                  title+=' completed successfully ✅';;
+  cancelled|Canceled) title='The job was cancelled ❎';;
+  failed|Failed)      title='The job failed ⛔';;
+  *)                  title='The job completed successfully ✅';;
 esac
 if test -z "${output}"; then
-  title+=' Job output is missing ⭕'
+  title+=' Output is missing ⭕'
 fi
+title+='\n\nPR | Commit | Run | Actor | Action'
+title+='---|---|---|---|---'
+title+="#${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
+title+=" ${EVENT_ACTOR} | ${EVENT_ACTION}"
 output="${output/_JOB_STATUS_/${title}}"
 echo "Comment has ${#output} characters."
 echo "${output}" > "${LOG_PATH}/comment.md"
@@ -68,4 +76,9 @@ if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
     cat "${LOG_PATH}/comment.log"
   fi
   exit 1
+fi
+if [ -n "${TF_BUILD-}" ]; then
+  echo '::endgroup::'
+else
+  echo '##[endgroup]'
 fi

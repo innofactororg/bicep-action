@@ -37,7 +37,7 @@ log_output() {
   fi
   if test -n "${errors}" || test -n "${2}"; then
     if [ "${SCRIPT_ACTION}" = 'validate' ]; then
-      summary="The ${LOG_NAME} failed❗ ${2}"
+      summary="The ${LOG_NAME} failed. ${2}❗"
     else
       summary="${2}"
     fi
@@ -47,9 +47,9 @@ log_output() {
   elif test -n "${warnings}"; then
     summary="Notice the ${LOG_NAME} warning ✋"
   elif [ "${SCRIPT_ACTION}" = 'validate' ] && test -z "${json_object}"; then
-    summary="The ${LOG_NAME} failed❗ No output found."
-  elif [ "${SCRIPT_ACTION}" != 'validate' ] && test -z "${data}"; then
-    summary="No output found."
+    summary="The ${LOG_NAME} failed. No output found❗"
+  elif [ "${SCRIPT_ACTION}" != 'validate' ] && test -z "${data}" && test -z "${json_object}"; then
+    summary="No output found❗"
   fi
   if test -n "${summary}"; then
     summary="\n\n${summary}"
@@ -100,7 +100,18 @@ log_output() {
     local list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
     echo "providers=${list}" >> "$GITHUB_OUTPUT"
   fi
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '::endgroup::'
+  else
+    echo '##[endgroup]'
+  fi
 }
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 if [[ $IN_TEMPLATE == http* ]]; then
   if ! test -f "${IN_TEMPLATE##*/}"; then
     echo "Run: curl -o ${IN_TEMPLATE##*/} -sSL ${IN_TEMPLATE}"

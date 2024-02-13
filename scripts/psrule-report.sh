@@ -4,6 +4,12 @@
 #
 set -e
 output=''
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 if test -n "${CONFIG_ERROR}"; then
   output='## PSRule\n\n'
   output+="${CONFIG_ERROR}❗"
@@ -40,4 +46,9 @@ elif test -f "${LOG_PATH}/psrule_analysis.md"; then
 fi
 if test -n "${output}"; then
   echo -e "${output}" > "${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.md"
+fi
+if [ -n "${TF_BUILD-}" ]; then
+  echo '::endgroup::'
+else
+  echo '##[endgroup]'
 fi

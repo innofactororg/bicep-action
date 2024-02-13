@@ -19,12 +19,12 @@ log_output() {
     data=$(cat "${1}")
   fi
   if test -n "${2}"; then
-    summary="The ${LOG_NAME} failed❗ ${2}"
+    summary="The ${LOG_NAME} failed. ${2}❗"
     if test -n "${3}"; then
       summary+="\n\nCommand that failed:\n${3}"
     fi
   elif test -z "${data}"; then
-    summary="The ${LOG_NAME} failed❗ No output found."
+    summary="The ${LOG_NAME} failed. No output found❗"
   fi
   if test -n "${summary}"; then
     summary="\n\n${summary}"
@@ -37,7 +37,18 @@ log_output() {
     output+='```\n\n</details>'
   fi
   echo -e "${output}" > "${1/.log/.md}"
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '::endgroup::'
+  else
+    echo '##[endgroup]'
+  fi
 }
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 providers=($(echo "${IN_PROVIDERS}" | tr ',' '\n' | sort -u))
 declare -a checkProviders=()
 case "${IN_SEVERITY}" in

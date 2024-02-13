@@ -25,7 +25,7 @@ log_output() {
     errors=$(echo "${errors//ERROR: /}")
   fi
   if test -n "${errors}" || test -n "${2}"; then
-    summary="The ${LOG_NAME} failed❗ ${2}"
+    summary="The ${LOG_NAME} failed. ${2}❗"
     if test -n "${3}"; then
       summary+="\n\nCommand that failed:\n${3}"
     fi
@@ -46,7 +46,18 @@ log_output() {
     fi
     echo -e "${output}" > "${1/.log/.md}"
   fi
+  if [ -n "${TF_BUILD-}" ]; then
+    echo '::endgroup::'
+  else
+    echo '##[endgroup]'
+  fi
 }
+if [ -n "${TF_BUILD-}" ]; then
+  echo "::group::${LOG_NAME}"
+else
+  echo "##[group]${LOG_NAME}"
+cho '##[endgroup]'
+fi
 if [ "${SCRIPT_ACTION}" = 'build-params' ]; then
   IN_TEMPLATE="${IN_TEMPLATE%% *}"
   src_file_extension='bicepparam'
