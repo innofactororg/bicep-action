@@ -63,9 +63,8 @@ log_output() {
     summary="\n\n${summary}"
   fi
   case "${SCRIPT_ACTION}" in
-    create)   output="# ${JOB_NAME}\n\n_JOB_STATUS_${summary}";;
     validate) output="## Deployment validate${summary}";;
-    what-if)  output="# Plan for ${JOB_NAME}\n\n_JOB_STATUS_${summary}";;
+    *)        output="${summary}";;
   esac
   if [ "${SCRIPT_ACTION}" = 'what-if' ] && test -n "${data}"; then
     if [ ${#data} -gt 5000 ]; then

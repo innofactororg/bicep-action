@@ -47,22 +47,27 @@ else
 fi
 output=$(find $LOG_PATH -name 'step_*.md' -maxdepth 1 -type f | sort | add_output)
 case "${JOB_STATUS}" in
-  cancelled|Canceled) title='The job was cancelled ❎';;
-  failed|Failed)      title='The job failed ⛔';;
-  *)                  title='The job completed successfully ✅';;
+  cancelled|Canceled) summary='The job was cancelled ❎';;
+  failed|Failed)      summary='The job failed ⛔';;
+  *)                  summary='The job completed successfully ✅';;
 esac
 if test -z "${output}"; then
-  title+=' Output is missing ⭕'
+  summary+=' Output is missing ⭕'
 fi
-title+='\n\nPR | Commit | Run | Actor | Action'
-title+='---|---|---|---|---'
-title+="#${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
-title+=" ${EVENT_ACTOR} | ${EVENT_ACTION}"
-output="${output/_JOB_STATUS_/${title}}"
+summary+='\n\nPR | Commit | Run | Actor | Action'
+summary+='---|---|---|---|---'
+summary+="#${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
+summary+=" ${EVENT_ACTOR} | ${EVENT_ACTION}"
+if [ "${LOG_NAME}" = 'plan_comment' ]; then
+  output="# Plan for ${JOB_NAME}\n\n${summary}${output}"
+else
+  output="# ${JOB_NAME}\n\n${summary}${output}"
+fi
+output=$(echo -e "${output}")
 echo "Comment has ${#output} characters."
-echo "${output}" > "${LOG_PATH}/comment.md"
+echo "${output}" > "${LOG_PATH}/${LOG_NAME}.md"
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##vso[task.uploadsummary]${LOG_PATH}/comment.md"
+  echo "##vso[task.uploadsummary]${LOG_PATH}/${LOG_NAME}.md"
   data=$(jq --arg content "${output}" '.comments[0].content = $content' <<< '{"comments": [{"parentCommentId": 0,"content": "","commentType": 1}],"status": 1}')
 else
   echo "${output}" >> "$GITHUB_STEP_SUMMARY"

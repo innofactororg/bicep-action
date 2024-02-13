@@ -147,7 +147,6 @@ runs:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template }}
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
-        JOB_NAME: ${{ github.workflow }}
         LOG_NAME: create_deployment
         LOG_ORDER: a1
         LOG_PATH: ${{ runner.workspace }}/logs
@@ -217,9 +216,10 @@ runs:
         EVENT_ACTION: ${{ github.event.action }}
         EVENT_ACTOR: ${{ github.actor }}
         EVENT_NO: ${{ github.event.number }}
+        JOB_NAME: ${{ github.workflow }}
         JOB_STATUS: ${{ env.JOB_STATUS }}
         JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        LOG_NAME: add_comment
+        LOG_NAME: deploy_comment
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_NUMBER: ${{ github.run_number }}
         TOKEN: ${{ inputs.token }}
