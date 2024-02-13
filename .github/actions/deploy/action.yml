@@ -186,7 +186,9 @@ runs:
                 }
               }
             `);
+            console.log('::group::auto_merge');
             core.info(JSON.stringify(response, null, 2));
+            console.log('::endgroup::');
           } catch (e) {
             const msg = `Failed to enable auto-merge! ${e}`;
             core.info(msg);

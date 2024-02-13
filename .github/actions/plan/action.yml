@@ -221,7 +221,7 @@ runs:
       run: psrule-config.sh
 
     - name: PSRule analysis
-      if: inputs.rule_option != '' && steps.psrule_config.outputs.error != ''
+      if: inputs.rule_option != '' && steps.psrule_config.outputs.error == ''
       uses: microsoft/ps-rule@2fb1024354743290eb724889d62c4f485a15373a # v2.9.0 + 5 commits
       with:
         baseline: ${{ inputs.rule_baseline }}
