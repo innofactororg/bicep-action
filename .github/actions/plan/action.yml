@@ -109,6 +109,10 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: List actions dir
+      shell: bash
+      run: ls -la /home/runner/work/_actions/innofactororg/bicep-action/beta6
+
     - name: Install tools
       id: install_tools
       env:
