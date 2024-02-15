@@ -113,7 +113,11 @@ log_output() {
       echo "${from_code}"
     fi
     local list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
-    echo "providers=${list}" >> "$GITHUB_OUTPUT"
+    if [ -n "${TF_BUILD-}" ]; then
+      echo "##vso[task.setvariable variable=providers;isOutput=true]${list}"
+    else
+      echo "providers=${list}" >> "$GITHUB_OUTPUT"
+    fi
   fi
 }
 if [ -n "${TF_BUILD-}" ]; then

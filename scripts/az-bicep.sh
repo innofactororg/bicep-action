@@ -90,5 +90,9 @@ if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
 else
   echo "Skip bicep ${SCRIPT_ACTION}, not a ${src_file_extension} file: ${IN_TEMPLATE}"
 fi
-echo "file=${out_file}" >> "$GITHUB_OUTPUT"
+if [ -n "${TF_BUILD-}" ]; then
+  echo "##vso[task.setvariable variable=${LOG_NAME}_file]${out_file}"
+else
+  echo "file=${out_file}" >> "$GITHUB_OUTPUT"
+fi
 log_output "${log}" '' ''

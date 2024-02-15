@@ -41,7 +41,11 @@ else
     fi
   fi
 fi
-echo "error=${missing}" >> "$GITHUB_OUTPUT"
+if [ -n "${TF_BUILD-}" ]; then
+  echo "##vso[task.setvariable variable=${LOG_NAME}_error]${missing}"
+else
+  echo "error=${missing}" >> "$GITHUB_OUTPUT"
+fi
 if test -n "${missing}"; then
   echo "${msg}"
   exit 1
