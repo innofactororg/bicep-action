@@ -9,8 +9,8 @@ This repository includes GitHub actions and Azure DevOps [pipeline](.pipelines/R
 1. The user creates a new branch, then commits and push the code.
 1. The user creates a pull request.
 1. The workflow is automatically triggered and starts the [plan job](#plan-job).
-1. If the plan job was successful, the workflow will wait for a [required reviewer](#get-started) to approve the [create job](#create-job).
-1. When a reviewer has approved, the workflow starts the [create job](#create-job) to deploy the code.
+1. If the plan job was successful, the workflow will wait for a [required reviewer](#get-started) to approve the [deploy job](#deploy-job).
+1. When a reviewer has approved, the workflow starts the [deploy job](#deploy-job) to deploy the code.
 
 ## Get started
 
@@ -32,7 +32,7 @@ To set up a bicep deploy workflow, several prerequisite steps are required:
      - Select entity type **"Pull request"** (needed for the [plan job](#plan-job)).
      - Save the credential.
      - Add another federated credential with the scenario **"GitHub Actions deploying Azure resources"**.
-     - Select entity type **"Environment"** (needed for the [create job](#create-job)).
+     - Select entity type **"Environment"** (needed for the [deploy job](#deploy-job)).
      - Specify the environment name that was created in step 1.
      - Save the credential.
 
@@ -62,7 +62,7 @@ Recommended branch protection for production use:
 - Require status checks to pass before merging
   - Require branches to be up to date before merging
   - Add the following status checks:
-    - 🔧 Deploy / 🏃 Create
+    - 🏃 Deploy
 - Require conversation resolution before merging
 - Require linear history
 - Require deployments to succeed before merging (and select the environment that must succeed)
@@ -116,9 +116,9 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
-### Create job
+### Deploy job
 
-The create job will only run when the plan job was successful.
+The deploy job will only run when the plan job was successful.
 
 A specific [environment](#get-started) must be specified for this job.
 
@@ -300,8 +300,8 @@ jobs:
           template: bicep/pattern1/main.bicep
           template_parameters: bicep/pattern1/main.bicepparam
 
-  create:
-    name: 🏃 Create
+  deploy:
+    name: 🏃 Deploy
     needs: plan
     environment: production
     permissions:
