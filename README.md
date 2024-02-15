@@ -1,6 +1,6 @@
 # Bicep deploy
 
-This repository includes GitHub actions and Azure DevOps [pipeline](.pipelines/README.md) to plan and deploy Azure infrastructure.
+This repository includes GitHub actions and Azure DevOps [pipeline](.azuredevops/README.md) to plan and deploy Azure infrastructure.
 
 ## Overview
 
