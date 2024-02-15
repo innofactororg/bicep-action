@@ -215,12 +215,12 @@ stages:
             inputs:
               targetType: inline
               script: |
-                if [ "${TEMPLATE_FILE}" = '$(bicep_build.file)' ]; then
-                  echo "Missing TEMPLATE_FILE value: ${TEMPLATE_FILE}"
+                if [[ "${TEMPLATE_FILE}" == *bicep_build.file* ]]; then
+                  echo 'The bicep_build.file output has not been set!'
                   export TEMPLATE_FILE=''
                 fi
-                if [ "${TEMPLATE_PARAMS_FILE}" = '$(bicep_build_params.file)' ]; then
-                  echo "Missing TEMPLATE_PARAMS_FILE value: ${TEMPLATE_PARAMS_FILE}"
+                if [[ "${TEMPLATE_PARAMS_FILE}" == *bicep_build_params.file* ]]; then
+                  echo 'The bicep_build_params.file output has not been set!'
                   export TEMPLATE_PARAMS_FILE=''
                 fi
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -261,8 +261,8 @@ stages:
             inputs:
               targetType: inline
               script: |
-                if [ "${CONFIG_ERROR}" = '$(psrule_config.error)' ]; then
-                  echo "Missing CONFIG_ERROR value: ${CONFIG_ERROR}"
+                if [[ "${CONFIG_ERROR}" == *psrule_config.error* ]]; then
+                  echo 'The psrule_config.error output has not been set!'
                   export CONFIG_ERROR=''
                 fi
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -302,12 +302,12 @@ stages:
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
-                if [ "${TEMPLATE_FILE}" = '$(bicep_build.file)' ]; then
-                  echo "Missing TEMPLATE_FILE value: ${TEMPLATE_FILE}"
-                  export TEMPLATE_FILE=''
+                if [[ "${TEMPLATE_FILE}" == *bicep_build.file* ]]; then
+                  echo '##[error]The bicep_build.file output has not been set!'
+                  exit 1
                 fi
-                if [ "${TEMPLATE_PARAMS_FILE}" = '$(bicep_build_params.file)' ]; then
-                  echo "Missing TEMPLATE_PARAMS_FILE value: ${TEMPLATE_PARAMS_FILE}"
+                if [[ "${TEMPLATE_PARAMS_FILE}" == *bicep_build_params.file* ]]; then
+                  echo 'The bicep_build_params.file output has not been set!'
                   export TEMPLATE_PARAMS_FILE=''
                 fi
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -390,6 +390,7 @@ stages:
           runOnce:
             deploy:
               steps:
+                - download: none
                 - checkout: self
                   displayName: Checkout
                   fetchDepth: 1
@@ -432,6 +433,7 @@ stages:
                     LOG_ORDER: b3
                     LOG_PATH: $(Pipeline.Workspace)/logs
                     SCRIPT: azure-providers
+                    SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
                     VERSION: ${{ variables.version_action }}
                     WAIT_COUNT: ${{ variables.azure_provider_wait_count }}
                     WAIT_SECONDS: ${{ variables.azure_provider_wait_seconds }}
@@ -440,9 +442,9 @@ stages:
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
-                      if [ "${IN_PROVIDERS}" = '$(plan_providers)' ]; then
-                        echo "Missing IN_PROVIDERS value: ${IN_PROVIDERS}"
-                        export IN_PROVIDERS=''
+                      if [[ "${IN_PROVIDERS}" == *plan_providers* ]]; then
+                        echo 'Skip! The plan.validate.providers output has not been set!'
+                        exit
                       fi
                       HTTP_CODE=$(curl --show-error --silent --remote-name \
                         --write-out "%{response_code}" \
