@@ -81,6 +81,7 @@ stages:
               SCRIPT: az-bicep
               SOURCE_PATH: $(Build.SourcesDirectory)
               VERSION: ${{ variables.version_action }}
+            name: bicep_build
             inputs:
               azureSubscription: ${{ variables.serviceConnection }}
               scriptLocation: inlineScript
@@ -110,6 +111,7 @@ stages:
               SCRIPT: az-bicep
               SOURCE_PATH: $(Build.SourcesDirectory)
               VERSION: ${{ variables.version_action }}
+            name: bicep_build_params
             inputs:
               azureSubscription: ${{ variables.serviceConnection }}
               scriptType: bash
@@ -207,16 +209,18 @@ stages:
               LOG_PATH: $(Pipeline.Workspace)/logs
               OPTION: ${{ variables.rule_option }}
               SCRIPT: psrule-config
-              TEMPLATE_FILE: $(bicep_build_file)
-              TEMPLATE_PARAMS_FILE: $(bicep_build_params_file)
+              TEMPLATE_FILE: $(bicep_build.file)
+              TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
               VERSION: ${{ variables.version_action }}
             inputs:
               targetType: inline
               script: |
-                if [ "${TEMPLATE_FILE}" = '$(bicep_build_file)' ]; then
+                if [ "${TEMPLATE_FILE}" = '$(bicep_build.file)' ]; then
+                  echo "Missing TEMPLATE_FILE value: ${TEMPLATE_FILE}"
                   export TEMPLATE_FILE=''
                 fi
-                if [ "${TEMPLATE_PARAMS_FILE}" = '$(bicep_build_params_file)' ]; then
+                if [ "${TEMPLATE_PARAMS_FILE}" = '$(bicep_build_params.file)' ]; then
+                  echo "Missing TEMPLATE_PARAMS_FILE value: ${TEMPLATE_PARAMS_FILE}"
                   export TEMPLATE_PARAMS_FILE=''
                 fi
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -232,7 +236,7 @@ stages:
                 ./${SCRIPT}.sh
 
           - task: ps-rule-assert@2
-            condition: and(succeeded(), not(eq(variables['rule_option'], '')), eq(variables['psrule_config_error'], ''))
+            condition: and(succeeded(), not(eq(variables['rule_option'], '')), eq(variables['psrule_config.error'], ''))
             displayName: PSRule analysis
             inputs:
               baseline: ${{ variables.rule_baseline }}
@@ -248,7 +252,7 @@ stages:
             condition: and(not(eq(variables['rule_option'], '')), or(succeeded(), failed()))
             displayName: PSRule report
             env:
-              CONFIG_ERROR: $(psrule_config_error)
+              CONFIG_ERROR: $(psrule_config.error)
               LOG_NAME: psrule_report
               LOG_ORDER: b6
               LOG_PATH: $(Pipeline.Workspace)/logs
@@ -257,7 +261,8 @@ stages:
             inputs:
               targetType: inline
               script: |
-                if [ "${CONFIG_ERROR}" = '$(psrule_config_error)' ]; then
+                if [ "${CONFIG_ERROR}" = '$(psrule_config.error)' ]; then
+                  echo "Missing CONFIG_ERROR value: ${CONFIG_ERROR}"
                   export CONFIG_ERROR=''
                 fi
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -273,7 +278,7 @@ stages:
                 ./${SCRIPT}.sh
 
           - task: AzureCLI@2
-            condition: and(succeeded(), not(eq(variables['bicep_build_file'], '')))
+            condition: and(succeeded(), not(eq(variables['bicep_build.file'], '')))
             displayName: Cost estimate
             env:
               IN_CURRENCY: ${{ variables.currency }}
@@ -287,8 +292,8 @@ stages:
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: azure-cost
               SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
-              TEMPLATE_FILE: $(bicep_build_file)
-              TEMPLATE_PARAMS_FILE: $(bicep_build_params_file)
+              TEMPLATE_FILE: $(bicep_build.file)
+              TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
               THRESHOLD: ${{ variables.cost_threshold }}
               VERSION: ${{ variables.version_action }}
               VERSION_ACE: ${{ variables.version_ace_tool }}
@@ -297,10 +302,12 @@ stages:
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
-                if [ "${TEMPLATE_FILE}" = '$(bicep_build_file)' ]; then
+                if [ "${TEMPLATE_FILE}" = '$(bicep_build.file)' ]; then
+                  echo "Missing TEMPLATE_FILE value: ${TEMPLATE_FILE}"
                   export TEMPLATE_FILE=''
                 fi
-                if [ "${TEMPLATE_PARAMS_FILE}" = '$(bicep_build_params_file)' ]; then
+                if [ "${TEMPLATE_PARAMS_FILE}" = '$(bicep_build_params.file)' ]; then
+                  echo "Missing TEMPLATE_PARAMS_FILE value: ${TEMPLATE_PARAMS_FILE}"
                   export TEMPLATE_PARAMS_FILE=''
                 fi
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -320,7 +327,8 @@ stages:
             displayName: Add comment
             env:
               COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
-              COMMIT_SHA: "[$(System.PullRequest.SourceCommitId)]($(Build.Repository.Uri)/commit/$(System.PullRequest.SourceCommitId))"
+              COMMIT_SHA: $(System.PullRequest.SourceCommitId)
+              COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
               EVENT_ACTION: $(Build.Reason)
               EVENT_ACTOR: $(Build.SourceVersionAuthor)
               EVENT_NO: "[$(System.PullRequest.PullRequestId)]($(Build.BuildUri))"
@@ -336,6 +344,7 @@ stages:
             inputs:
               targetType: inline
               script: |
+                export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
                 HTTP_CODE=$(curl --show-error --silent --remote-name \
                   --write-out "%{response_code}" \
                   --header 'Accept: application/vnd.github.raw' \
@@ -432,6 +441,7 @@ stages:
                     scriptLocation: inlineScript
                     inlineScript: |
                       if [ "${IN_PROVIDERS}" = '$(plan_providers)' ]; then
+                        echo "Missing IN_PROVIDERS value: ${IN_PROVIDERS}"
                         export IN_PROVIDERS=''
                       fi
                       HTTP_CODE=$(curl --show-error --silent --remote-name \
@@ -486,7 +496,8 @@ stages:
                   displayName: Add comment
                   env:
                     COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
-                    COMMIT_SHA: "[$(System.PullRequest.SourceCommitId)]($(Build.Repository.Uri)/commit/$(System.PullRequest.SourceCommitId))"
+                    COMMIT_SHA: $(System.PullRequest.SourceCommitId)
+                    COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
                     EVENT_ACTION: $(Build.Reason)
                     EVENT_ACTOR: $(Build.SourceVersionAuthor)
                     EVENT_NO: "[$(System.PullRequest.PullRequestId)]($(Build.BuildUri))"
@@ -502,6 +513,7 @@ stages:
                   inputs:
                     targetType: inline
                     script: |
+                      export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
                       HTTP_CODE=$(curl --show-error --silent --remote-name \
                         --write-out "%{response_code}" \
                         --header 'Accept: application/vnd.github.raw' \
