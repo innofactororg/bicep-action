@@ -1,8 +1,6 @@
 # Bicep deploy
 
-This repository includes GitHub actions to plan and deploy Azure infrastructure.
-
-For a version that works with Azure DevOps look at this [pipeline](.pipelines/README.md).
+This repository includes GitHub actions and Azure DevOps [pipeline](.pipelines/README.md) to plan and deploy Azure infrastructure.
 
 ## Overview
 
@@ -120,45 +118,136 @@ For more information about PSRule configuration, see:
 
 ### Create job
 
-The create job will only run when the plan job was successful. It targets a specific [environment](#get-started). If the environment is configured with **required reviewers**, the job will require manual approval.
+The create job will only run when the plan job was successful.
+
+A specific [environment](#get-started) must be specified for this job.
+
+If the environment is configured with **required reviewers**, the job will require manual approval.
 
 ### Passing secrets
 
-If the value of **"azure_tenant_id"**, **"azure_client_id"** or **"azure_subscription_id"** is stored as a secret, it can be passed using the secrets syntax.
+The input **"azure_client_secret"** is needed if federated credentials are not used. This value should be passed as a secret.
 
-Note that secrets are masked in the job log. The result is that IDs can't be seen and it may be difficult to see if the wrong ID is used.
+It could make sense to pass **"azure_client_id"**, **"azure_subscription_id"** and **"azure_tenant_id"** as secret too. However, note that secrets are masked in the job log. The result is that IDs can't be seen and it may be difficult to see if the wrong ID is used.
+
+Secrets are passed using the secrets syntax, for example:
 
 ```yaml
-name: Azure Deploy
-on:
-  pull_request:
-    branches: [main]
-    paths: ["bicep/**.bicep*"]
-    types: [opened, synchronize]
+with:
+  azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+  azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+  azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+```
 
-permissions: {}
+### Inputs
 
-jobs:
-  deploy:
-    name: 🔧 Deploy
-    uses: innofactororg/bicep-action/.github/workflows/deploy.yml@beta6
-    permissions:
-      contents: write
-      id-token: write
-      pull-requests: write
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTION_ID }}
-      AZURE_TENANT_ID: ${{ secrets.TENANT_ID }}
-    with:
-      environment: sandbox1
-      location: westeurope
-      log_severity: INFO
-      rule_option: ps-rule.yaml
-      scope: sub
-      template: main.bicep
-      template_parameters: main.bicepparam
+#### Required
+
+```yaml
+azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
+# Required
+# The client ID of the service principal for Azure login.
+# This service principal must have permission to deploy within the
+# Azure subscription.
+
+azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
+# Required
+# The subscription ID in which to deploy the resources.
+
+azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
+# Required
+# The tenant ID in which the subscription exists.
+
+location: westeurope
+# Required
+# The Azure location to store the deployment metadata.
+
+scope: sub
+# Required
+# The deployment scope. Accepted: tenant, mg, sub, group.
+
+template: main.bicep
+# Required
+# The template address.
+# A path or URI to a file or a template spec resource id.
+```
+
+#### Optional
+
+```yaml
+auto_merge: disable
+# Optional. Default: squash
+# Auto merge method to use after successful deployment.
+# Can be one of: merge, squash, rebase or disable (turn off auto merge).
+
+azure_providers: Microsoft.Advisor,microsoft.support
+# Optional. Default: ''
+# A comma separated list of Azure resource providers.
+# The workflow will try to register the specified providers in addition
+# to the providers that is detected in code by deployment validate.
+
+azure_provider_wait_count: 30
+# Optional. Default: 30
+# Times to check provider status before giving up.
+
+azure_provider_wait_seconds: 10
+# Optional. Default: 10
+# Seconds to wait between each provider status check.
+
+cost_threshold: 1000
+# Optional. Default: -1
+# Max acceptable estimated cost.
+# Exceeding threshold causes plan to fail.
+
+currency: USD
+# Optional. Default: 'EUR'
+# Currency code to use for estimations.
+# See allowed values at
+# https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency
+
+log_severity: INFO
+# Optional. Default: ERROR
+# The log verbosity. Can be one of:
+# ERROR - Only show errors, suppressing warnings. Dump context at fail.
+# INFO - Standard log level. Always dump context.
+# VERBOSE - Increase logging verbosity. Always dump context.
+# DEBUG - Show all debug logs. Always dump context.
+
+management_group:
+# Optional. Default: ''
+# Management group to create deployment at for mg scope.
+
+resource_group:
+# Optional. Default: ''
+# Resource group to create deployment at for group scope.
+
+rule_baseline: Azure.GA_2023_12
+# Optional. Default: Azure.Default
+# The name of a PSRule baseline to use.
+# For a list of baseline names for module PSRule.Rules.Azure see
+# https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/
+
+rule_modules: Az.Resources,PSRule.Rules.CAF
+# Optional. Default: Az.Resources,PSRule.Rules.Azure
+# A comma separated list of modules to use for analysis.
+# For a list of modules see
+# https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22
+
+rule_option: bicep/pattern1/ps-rule.prod.yaml
+# Optional. Default: ''
+# The path to an options file.
+
+template_parameters: bicep/pattern1/main.prod.bicepparam
+# Optional. Default: ''
+# Deployment parameter values.
+# Either a path, URI, JSON string, or <KEY=VALUE> pairs.
+
+version_ace_tool: "1.4"
+# Optional. Default: '1.4'
+# Azure Cost Estimator version.
+# The version to use for cost estimation. See versions at
+# https://github.com/TheCloudTheory/arm-estimator/releases
 ```
 
 ### Usage
@@ -171,181 +260,78 @@ on:
     paths: ["bicep/**.bicep*"]
     types: [opened, synchronize]
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
-  deploy:
-    name: 🔧 Deploy
-    uses: innofactororg/bicep-action/.github/workflows/deploy.yml@beta6
+  plan:
+    name: 🗓️ Plan
     permissions:
-      contents: write # for Auto Merge
-      id-token: write # for Log in to Azure (Federated)
-      pull-requests: write # for Comment when done
-    secrets:
-      # The client ID of the service principal for Azure login.
-      #
-      # This service principal must have permission to deploy within the
-      # Azure subscription.
-      #
-      # Required if input azure_client_id is not specified.
-      # Ignored if input azure_client_id is specified.
-      AZURE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      contents: read # for checkout_src
+      id-token: write # for login_open_id
+      pull-requests: write # for comment
+    outputs:
+      providers: ${{ steps.plan.outputs.providers }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
-      # The service principal secret used for Azure login.
-      #
-      # Note: Don't add this secret if you want to use federated credentials.
-      #
-      # Optional: only needed as an alternative to federated credentials.
-      AZURE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      - name: Plan
+        id: plan
+        uses: innofactororg/bicep-action/.github/actions/plan@beta6
+        with:
+          azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
+          azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
+          azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
+          azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
+          cost_threshold: 1000
+          currency: EUR
+          location: westeurope
+          log_severity: INFO
+          rule_option: ps-rule.yaml
+          scope: sub
+          template: bicep/pattern1/main.bicep
+          template_parameters: bicep/pattern1/main.bicepparam
 
-      # The subscription ID in which to deploy the resources.
-      #
-      # Required if input azure_subscription_id is not specified.
-      # Ignored if input azure_subscription_id is specified.
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTION_ID }}
+  create:
+    name: 🏃 Create
+    needs: plan
+    environment: production
+    permissions:
+      contents: write # for auto_merge
+      id-token: write # for login_open_id
+      pull-requests: write # for comment
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
 
-      # The tenant ID in which the subscription exists.
-      #
-      # Required if input azure_tenant_id is not specified.
-      # Ignored if input azure_tenant_id is specified.
-      AZURE_TENANT_ID: ${{ secrets.TENANT_ID }}
-
-    with:
-      # Auto merge method to use after successful deployment.
-      #
-      # Can be one of: merge, squash, rebase or disable (turn off auto merge).
-      #
-      # Default: squash
-      auto_merge: disable
-
-      # The client ID of the service principal for Azure login.
-      #
-      # This service principal must have permission to deploy within the
-      # Azure subscription.
-      #
-      # Required if secret AZURE_CLIENT_ID is not specified.
-      azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
-
-      # A comma separated list of Azure resource providers.
-      #
-      # The workflow will try to register the specified providers in addition
-      # to the providers that is detected in code by deployment validate.
-      #
-      # Default: ''
-      azure_providers: Microsoft.Advisor,microsoft.support
-
-      # Times to check provider status before giving up.
-      #
-      # Default: 30
-      azure_provider_wait_count: 30
-
-      # Seconds to wait between each provider status check.
-      #
-      # Default: 10
-      azure_provider_wait_seconds: 10
-
-      # The subscription ID in which to deploy the resources.
-      #
-      # Required if secret AZURE_SUBSCRIPTION_ID is not specified.
-      azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
-
-      # The tenant ID in which the subscription exists.
-      #
-      # Required if secret AZURE_TENANT_ID is not specified.
-      azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
-
-      # Max acceptable estimated cost.
-      #
-      # Exceeding threshold causes plan to fail.
-      #
-      # Default: -1
-      cost_threshold: 1000
-
-      # Currency code to use for estimations.
-      #
-      # See allowed values at
-      # https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency
-      #
-      # Default: 'EUR'
-      currency: USD
-
-      # The GitHub environment name to use for the create job.
-      #
-      # Default: production
-      environment: production
-
-      # The Azure location to store the deployment metadata.
-      #
-      # Default: westeurope
-      location: southcentralus
-
-      # The log verbosity. Can be one of:
-      #
-      # ERROR - Only show errors, suppressing warnings. Dump context at fail.
-      # INFO - Standard log level. Always dump context.
-      # VERBOSE - Increase logging verbosity. Always dump context.
-      # DEBUG - Show all debug logs. Always dump context.
-      #
-      # Default: ERROR
-      log_severity: INFO
-
-      # Management group to create deployment at for mg scope.
-      #
-      # Default: ''
-      management_group:
-
-      # Resource group to create deployment at for group scope.
-      #
-      # Default: ''
-      resource_group:
-
-      # The name of a PSRule baseline to use.
-      #
-      # For a list of baseline names for module PSRule.Rules.Azure see
-      # https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/
-      #
-      # Default: Azure.Default
-      rule_baseline: Azure.GA_2023_12
-
-      # A comma separated list of modules to use for analysis.
-      #
-      # For a list of modules see
-      # https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22
-      #
-      # Default: Az.Resources,PSRule.Rules.Azure
-      rule_modules: Az.Resources,PSRule.Rules.CAF
-
-      # The path to an options file.
-      #
-      # Default: ''
-      rule_option: bicep/pattern1/ps-rule.prod.yaml
-
-      # The deployment scope. Accepted: tenant, mg, sub, group.
-      #
-      # Default: sub
-      scope: sub
-
-      # The template address.
-      #
-      # A path or URI to a file or a template spec resource id.
-      #
-      # Default: main.bicep
-      template: bicep/pattern1/main.bicep
-
-      # Deployment parameter values.
-      #
-      # Either a path, URI, JSON string, or <KEY=VALUE> pairs.
-      #
-      # Default: ''
-      template_parameters: bicep/pattern1/main.prod.bicepparam
-
-      # Azure Cost Estimator version.
-      #
-      # The version to use for cost estimation. See versions at
-      # https://github.com/TheCloudTheory/arm-estimator/releases
-      #
-      # Default: '1.4'
-      version_ace_tool: "1.4"
+      - name: Deploy
+        id: deploy
+        uses: innofactororg/bicep-action/.github/actions/deploy@beta6
+        with:
+          auto_merge: squash
+          azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
+          azure_providers: ${{ needs.plan.outputs.providers }}
+          azure_provider_wait_count: 30
+          azure_provider_wait_seconds: 10
+          azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
+          azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
+          location: westeurope
+          log_severity: INFO
+          scope: sub
+          template: bicep/pattern1/main.bicep
+          template_parameters: bicep/pattern1/main.bicepparam
 ```
 
 ## License

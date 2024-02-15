@@ -10,8 +10,7 @@ branding:
 inputs:
   azure_client_id:
     description: "The client ID of the service principal for Azure login."
-    required: false
-    default: ""
+    required: true
   azure_client_secret:
     description: "The client secret of the service principal for Azure login."
     required: false
@@ -22,12 +21,10 @@ inputs:
     default: ""
   azure_subscription_id:
     description: "The subscription ID in which to deploy the resources."
-    required: false
-    default: ""
+    required: true
   azure_tenant_id:
     description: "The tenant ID in which the subscription exists."
-    required: false
-    default: ""
+    required: true
   cost_threshold:
     description: "Max acceptable estimated cost."
     required: false
@@ -38,8 +35,7 @@ inputs:
     default: "EUR"
   location:
     description: "The Azure location to store the deployment metadata."
-    required: false
-    default: "westeurope"
+    required: true
   log_severity:
     description: "The log verbosity."
     required: false
@@ -66,12 +62,10 @@ inputs:
     default: ""
   scope:
     description: "The deployment scope. Accepted: tenant, mg, sub, group."
-    required: false
-    default: "sub"
+    required: true
   template:
     description: "The template address."
-    required: false
-    default: "main.bicep"
+    required: true
   template_parameters:
     description: "Deployment parameter values."
     required: false
