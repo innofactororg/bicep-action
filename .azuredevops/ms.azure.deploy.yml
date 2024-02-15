@@ -328,7 +328,7 @@ stages:
             env:
               COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
               COMMIT_SHA: $(System.PullRequest.SourceCommitId)
-              COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
+              COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
               EVENT_ACTION: $(Build.Reason)
               EVENT_ACTOR: $(Build.SourceVersionAuthor)
               EVENT_NO: "[$(System.PullRequest.PullRequestId)]($(Build.BuildUri))"
@@ -497,7 +497,7 @@ stages:
                   env:
                     COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
                     COMMIT_SHA: $(System.PullRequest.SourceCommitId)
-                    COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
+                    COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
                     EVENT_ACTION: $(Build.Reason)
                     EVENT_ACTOR: $(Build.SourceVersionAuthor)
                     EVENT_NO: "[$(System.PullRequest.PullRequestId)]($(Build.BuildUri))"
