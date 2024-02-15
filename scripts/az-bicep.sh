@@ -74,8 +74,14 @@ if [[ $IN_TEMPLATE == http* ]]; then
   curl -o "${IN_TEMPLATE##*/}" -sSL "${IN_TEMPLATE}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
   IN_TEMPLATE="${IN_TEMPLATE##*/}"
 fi
-out_file=$(readlink -f "${IN_TEMPLATE/.${src_file_extension}/.${out_file_extension}}")
 if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
+  out_file=$(readlink -f "${IN_TEMPLATE/.${src_file_extension}/.${out_file_extension}}")
+  echo "Set output: file='${out_file}'"
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##vso[task.setvariable variable=file;isoutput=true]${out_file}"
+  else
+    echo "file=${out_file}" >> "$GITHUB_OUTPUT"
+  fi
   cmd="az bicep ${SCRIPT_ACTION} --file ${IN_TEMPLATE} --outfile ${out_file}"
   case "${IN_SEVERITY}" in
     ERROR)   cmd+=' --only-show-errors';;
@@ -89,11 +95,5 @@ if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
   fi
 else
   echo "Skip bicep ${SCRIPT_ACTION}, not a ${src_file_extension} file: ${IN_TEMPLATE}"
-fi
-echo "Set output: file='${out_file}'"
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##vso[task.setvariable variable=file;isoutput=true]${out_file}"
-else
-  echo "file=${out_file}" >> "$GITHUB_OUTPUT"
 fi
 log_output "${log}" '' ''
