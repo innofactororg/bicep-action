@@ -61,6 +61,9 @@ case "${IN_SEVERITY}" in
   DEBUG)   log_severity=' --debug';;
   *)       log_severity='';;
 esac
+if [ -n "${TF_BUILD-}" ]; then
+  az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+fi
 echo 'Check resource providers...'
 registered=($(
   az provider list \

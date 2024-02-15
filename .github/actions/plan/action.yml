@@ -129,10 +129,9 @@ runs:
         LOG_NAME: bicep_build
         LOG_ORDER: b3
         LOG_PATH: ${{ runner.workspace }}/logs
-        SCRIPT_ACTION: build
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: az-bicep.sh
+      run: az-bicep.sh build
 
     - name: Bicep build-params
       id: bicep_build_params
@@ -143,10 +142,9 @@ runs:
         LOG_NAME: bicep_build_params
         LOG_ORDER: b4
         LOG_PATH: ${{ runner.workspace }}/logs
-        SCRIPT_ACTION: build-params
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: az-bicep.sh
+      run: az-bicep.sh build-params
 
     - name: Validate
       env:
@@ -162,10 +160,9 @@ runs:
         LOG_ORDER: b5
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
-        SCRIPT_ACTION: validate
         SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: az-deploy.sh
+      run: az-deploy.sh validate
 
     - name: What-if
       env:
@@ -180,9 +177,9 @@ runs:
         LOG_ORDER: a1
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
-        SCRIPT_ACTION: what-if
+        SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: az-deploy.sh
+      run: az-deploy.sh what-if
 
     - name: PSRule config
       id: psrule_config
@@ -260,7 +257,7 @@ runs:
         COMMIT_SHA: ${{ github.sha }}
         EVENT_ACTION: ${{ github.event.action }}
         EVENT_ACTOR: ${{ github.actor }}
-        EVENT_NO: ${{ github.event.number }}
+        EVENT_NO: "#${{ github.event.number }}"
         JOB_NAME: ${{ github.workflow }}
         JOB_STATUS: ${{ env.JOB_STATUS }}
         JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

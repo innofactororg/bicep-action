@@ -130,9 +130,9 @@ runs:
         LOG_ORDER: a1
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
-        SCRIPT_ACTION: create
+        SOURCE_PATH: ${{ github.workspace }}
       shell: bash
-      run: az-deploy.sh
+      run: az-deploy.sh create
 
     - name: Enable auto merge
       if: >
@@ -196,7 +196,7 @@ runs:
         COMMIT_SHA: ${{ github.sha }}
         EVENT_ACTION: ${{ github.event.action }}
         EVENT_ACTOR: ${{ github.actor }}
-        EVENT_NO: ${{ github.event.number }}
+        EVENT_NO: "#${{ github.event.number }}"
         JOB_NAME: ${{ github.workflow }}
         JOB_STATUS: ${{ env.JOB_STATUS }}
         JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

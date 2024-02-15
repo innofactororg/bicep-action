@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+SCRIPT_ACTION="${1}"
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
 trap cleanup EXIT
@@ -165,6 +166,9 @@ case "${SCRIPT_ACTION}" in
   validate) cmd+=' --no-prompt true -o json';;
   what-if)  cmd+=' --exclude-change-types Ignore NoChange --no-prompt true';;
 esac
+if [ -n "${TF_BUILD-}" ]; then
+  az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+fi
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 log_output "${log}" '' ''

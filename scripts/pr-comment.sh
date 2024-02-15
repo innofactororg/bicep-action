@@ -56,7 +56,7 @@ if test -z "${output}"; then
 fi
 summary+='\n\nPR | Commit | Run | Actor | Action\n'
 summary+='---|---|---|---|---\n'
-summary+="#${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
+summary+="${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
 summary+=" ${EVENT_ACTOR} | ${EVENT_ACTION}\n\n"
 if [ "${LOG_NAME}" = 'plan_comment' ]; then
   output="# Plan for ${JOB_NAME}\n\n${summary}${output}"
@@ -74,7 +74,7 @@ else
   data=$(jq --arg body "${output}" '.body = $body' <<< '{"body": ""}')
 fi
 HTTP_CODE=$(curl --request POST \
-  --write-out "%{http_code}" \
+  --write-out "%{response_code}" \
   --header 'Accept: application/json' \
   --header "Authorization: Bearer ${TOKEN}" \
   --header 'Content-Type: application/json' \
