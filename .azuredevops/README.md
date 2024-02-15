@@ -1,6 +1,6 @@
 # Bicep deploy pipeline
 
-A pipeline to plan and deploy Azure infrastructure.
+A [pipeline](ms.azure.deploy.yml) to plan and deploy Azure infrastructure.
 
 ## Overview
 
@@ -30,9 +30,9 @@ To use the pipeline, several prerequisite steps are required:
 
 1. In the [repo settings](https://learn.microsoft.com/en-us/azure/devops/repos/git/set-git-repository-permissions?view=azure-devops#open-security-for-a-repository), ensure the [build service](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/access-tokens?view=azure-devops&tabs=yaml#manage-build-service-account-permissions) has **"Contribute to pull requests"** permission.
 
-1. Add the [azure-pipelines-deploy.yml](azure-pipelines-deploy.yml) to a repo folder, e.g. **".pipelines"**.
+1. Add the [ms.azure.deploy.yml](ms.azure.deploy.yml) to a repo folder, e.g. **".pipelines"**.
 
-1. Customize the variable values in the **"azure-pipelines-deploy.yml"** file and commit the changes.
+1. Customize the variable values in the **"ms.azure.deploy.yml"** file and commit the changes.
 
 1. If needed, add [bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/) code to the repo.
 
@@ -44,7 +44,7 @@ To use the pipeline, several prerequisite steps are required:
 
 1. When the list of repositories appears, select the repository.
 
-1. Select **Existing Azure Pipelines YAML file** and choose the YAML file: /.pipelines/azure-pipelines-deploy.yml.
+1. Select **Existing Azure Pipelines YAML file** and choose the YAML file: /.pipelines/ms.azure.deploy.yml.
 
 1. Save the pipeline without running it.
 
@@ -144,6 +144,8 @@ The create job will only run when the plan job was successful. It targets a spec
 - **template**: The template address. A path or URI to a file or a template spec resource id.
 
 - **template_parameters**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
+
+- **version_action**: The version of the bicep-action scripts to use. See <https://github.com/innofactororg/bicep-action/tags>.
 
 - **version_ace_tool**: Azure Cost Estimator version. The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
 
