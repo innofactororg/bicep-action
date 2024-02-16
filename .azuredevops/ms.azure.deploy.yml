@@ -7,26 +7,26 @@ pr:
 name: Azure Deploy
 
 variables:
-  azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
-  azure_provider_wait_seconds: 10
-  azure_provider_wait_count: 30
-  azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
-  cost_threshold: -1
-  currency: EUR
-  environment: production
-  location: westeurope
-  log_severity: INFO
-  management_group:
-  resource_group:
-  rule_baseline: Azure.Default
-  rule_modules: Az.Resources,PSRule.Rules.Azure
-  rule_option: ps-rule.yaml
-  scope: sub
-  serviceConnection: ifsandboxvdc01_arm_connection
-  template: main.bicep
-  template_parameters: main.bicepparam
-  version_ace_tool: 1.4
-  version_action: beta6
+  AZURE_PROVIDERS: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
+  AZURE_PROVIDER_WAIT_SECONDS: 10
+  AZURE_PROVIDER_WAIT_COUNT: 30
+  AZURE_SUBSCRIPTION_ID: d0d0d0d0-ed29-4694-ac26-2e358c364506
+  COST_THRESHOLD: -1
+  CURRENCY: EUR
+  ENVIRONMENT: production
+  LOCATION: westeurope
+  LOG_SEVERITY: INFO
+  MANAGEMENT_GROUP:
+  RESOURCE_GROUP:
+  RULE_BASELINE: Azure.Default
+  RULE_MODULES: Az.Resources,PSRule.Rules.Azure
+  RULE_OPTION: ps-rule.yaml
+  SCOPE: sub
+  SERVICE_CONNECTION: ifsandboxvdc01_arm_connection
+  TEMPLATE: main.bicep
+  TEMPLATE_PARAMETERS: main.bicepparam
+  VERSION_ACE_TOOL: 1.4
+  VERSION_ACTION: beta6
 
 pool:
   vmImage: ubuntu-22.04
@@ -45,15 +45,15 @@ stages:
           - task: AzureCLI@2
             displayName: Install tools
             env:
-              IN_SEVERITY: ${{ variables.log_severity }}
-              IN_TEMPLATE: ${{ variables.template }}
+              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+              IN_TEMPLATE: ${{ variables.TEMPLATE }}
               LOG_NAME: install_tools
               LOG_ORDER: b1
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: install-tools
-              VERSION: ${{ variables.version_action }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             inputs:
-              azureSubscription: ${{ variables.serviceConnection }}
+              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
@@ -70,20 +70,20 @@ stages:
                 ./${SCRIPT}.sh
 
           - task: AzureCLI@2
-            condition: and(succeeded(), not(startsWith(variables['template'], '/subscriptions/')))
+            condition: and(succeeded(), not(startsWith(variables['TEMPLATE'], '/subscriptions/')))
             displayName: Bicep build
             env:
-              IN_SEVERITY: ${{ variables.log_severity }}
-              IN_TEMPLATE: ${{ variables.template }}
+              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+              IN_TEMPLATE: ${{ variables.TEMPLATE }}
               LOG_NAME: bicep_build
               LOG_ORDER: b3
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: az-bicep
               SOURCE_PATH: $(Build.SourcesDirectory)
-              VERSION: ${{ variables.version_action }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             name: bicep_build
             inputs:
-              azureSubscription: ${{ variables.serviceConnection }}
+              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
@@ -100,20 +100,20 @@ stages:
                 ./${SCRIPT}.sh build
 
           - task: AzureCLI@2
-            condition: and(succeeded(), not(eq(variables['template_parameters'], '')))
+            condition: and(succeeded(), not(eq(variables['TEMPLATE_PARAMETERS'], '')))
             displayName: Bicep build params
             env:
-              IN_SEVERITY: ${{ variables.log_severity }}
-              IN_TEMPLATE: ${{ variables.template_parameters }}
+              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+              IN_TEMPLATE: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: bicep_build_params
               LOG_ORDER: b4
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: az-bicep
               SOURCE_PATH: $(Build.SourcesDirectory)
-              VERSION: ${{ variables.version_action }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             name: bicep_build_params
             inputs:
-              azureSubscription: ${{ variables.serviceConnection }}
+              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
@@ -132,25 +132,25 @@ stages:
           - task: AzureCLI@2
             displayName: Validate
             env:
-              IN_LOCATION: ${{ variables.location }}
-              IN_MANAGEMENT_GROUP: ${{ variables.management_group }}
-              IN_PROVIDERS: ${{ variables.azure_providers }}
-              IN_RESOURCE_GROUP: ${{ variables.resource_group }}
-              IN_SCOPE: ${{ variables.scope }}
-              IN_SEVERITY: ${{ variables.log_severity }}
-              IN_TEMPLATE: ${{ variables.template }}
-              IN_TEMPLATE_PARAMS: ${{ variables.template_parameters }}
+              IN_LOCATION: ${{ variables.LOCATION }}
+              IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
+              IN_PROVIDERS: ${{ variables.AZURE_PROVIDERS }}
+              IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
+              IN_SCOPE: ${{ variables.SCOPE }}
+              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+              IN_TEMPLATE: ${{ variables.TEMPLATE }}
+              IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: validate
               LOG_ORDER: b5
               LOG_PATH: $(Pipeline.Workspace)/logs
               RUN_ID: $(Build.BuildId)
               SCRIPT: az-deploy
               SOURCE_PATH: $(Build.SourcesDirectory)
-              SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
-              VERSION: ${{ variables.version_action }}
+              SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             name: validate
             inputs:
-              azureSubscription: ${{ variables.serviceConnection }}
+              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
@@ -169,23 +169,23 @@ stages:
           - task: AzureCLI@2
             displayName: What-if
             env:
-              IN_LOCATION: ${{ variables.location }}
-              IN_MANAGEMENT_GROUP: ${{ variables.management_group }}
-              IN_RESOURCE_GROUP: ${{ variables.resource_group }}
-              IN_SCOPE: ${{ variables.scope }}
-              IN_SEVERITY: ${{ variables.log_severity }}
-              IN_TEMPLATE: ${{ variables.template }}
-              IN_TEMPLATE_PARAMS: ${{ variables.template_parameters }}
+              IN_LOCATION: ${{ variables.LOCATION }}
+              IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
+              IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
+              IN_SCOPE: ${{ variables.SCOPE }}
+              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+              IN_TEMPLATE: ${{ variables.TEMPLATE }}
+              IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: what-if
               LOG_ORDER: a1
               LOG_PATH: $(Pipeline.Workspace)/logs
               RUN_ID: $(Build.BuildId)
               SCRIPT: az-deploy
               SOURCE_PATH: $(Build.SourcesDirectory)
-              SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
-              VERSION: ${{ variables.version_action }}
+              SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             inputs:
-              azureSubscription: ${{ variables.serviceConnection }}
+              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
@@ -202,16 +202,16 @@ stages:
                 ./${SCRIPT}.sh what-if
 
           - task: Bash@3
-            condition: and(succeeded(), not(eq(variables['rule_option'], '')))
+            condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')))
             displayName: PSRule config
             env:
               LOG_NAME: psrule_config
               LOG_PATH: $(Pipeline.Workspace)/logs
-              OPTION: ${{ variables.rule_option }}
+              OPTION: ${{ variables.RULE_OPTION }}
               SCRIPT: psrule-config
               TEMPLATE_FILE: $(bicep_build.file)
               TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
-              VERSION: ${{ variables.version_action }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             inputs:
               targetType: inline
               script: |
@@ -236,20 +236,20 @@ stages:
                 ./${SCRIPT}.sh
 
           - task: ps-rule-assert@2
-            condition: and(succeeded(), not(eq(variables['rule_option'], '')), eq(variables['psrule_config.error'], ''))
+            condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')), eq(variables['psrule_config.error'], ''))
             displayName: PSRule analysis
             inputs:
-              baseline: ${{ variables.rule_baseline }}
+              baseline: ${{ variables.RULE_BASELINE }}
               inputPath: $(Build.SourcesDirectory)
               inputType: repository
-              modules: ${{ variables.rule_modules }}
-              option: ${{ variables.rule_option }}
+              modules: ${{ variables.RULE_MODULES }}
+              option: ${{ variables.RULE_OPTION }}
               outputFormat: Markdown
               outputPath: $(Pipeline.Workspace)/logs/psrule_analysis.md
               summary: false
 
           - task: Bash@3
-            condition: and(not(eq(variables['rule_option'], '')), or(succeeded(), failed()))
+            condition: and(not(eq(variables['RULE_OPTION'], '')), or(succeeded(), failed()))
             displayName: PSRule report
             env:
               CONFIG_ERROR: $(psrule_config.error)
@@ -257,7 +257,7 @@ stages:
               LOG_ORDER: b6
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: psrule-report
-              VERSION: ${{ variables.version_action }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             inputs:
               targetType: inline
               script: |
@@ -281,24 +281,24 @@ stages:
             condition: and(succeeded(), not(eq(variables['bicep_build.file'], '')))
             displayName: Cost estimate
             env:
-              IN_CURRENCY: ${{ variables.currency }}
-              IN_LOCATION: ${{ variables.location }}
-              IN_MANAGEMENT_GROUP: ${{ variables.management_group }}
-              IN_RESOURCE_GROUP: ${{ variables.resource_group }}
-              IN_SCOPE: ${{ variables.scope }}
-              IN_TEMPLATE_PARAMS: ${{ variables.template_parameters }}
+              IN_CURRENCY: ${{ variables.CURRENCY }}
+              IN_LOCATION: ${{ variables.LOCATION }}
+              IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
+              IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
+              IN_SCOPE: ${{ variables.SCOPE }}
+              IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: cost_estimate
               LOG_ORDER: a2
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: azure-cost
-              SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
+              SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
               TEMPLATE_FILE: $(bicep_build.file)
               TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
-              THRESHOLD: ${{ variables.cost_threshold }}
-              VERSION: ${{ variables.version_action }}
-              VERSION_ACE: ${{ variables.version_ace_tool }}
+              THRESHOLD: ${{ variables.COST_THRESHOLD }}
+              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION_ACE: ${{ variables.VERSION_ACE_TOOL }}
             inputs:
-              azureSubscription: ${{ variables.serviceConnection }}
+              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
@@ -340,7 +340,7 @@ stages:
               RUN_NUMBER: $(Build.BuildId)
               SCRIPT: pr-comment
               TOKEN: $(System.AccessToken)
-              VERSION: ${{ variables.version_action }}
+              VERSION: ${{ variables.VERSION_ACTION }}
             inputs:
               targetType: inline
               script: |
@@ -358,7 +358,7 @@ stages:
                 ./${SCRIPT}.sh
 
           - task: Bash@3
-            condition: or(failed(), and(succeeded(), not(eq(variables['log_severity'], 'ERROR'))))
+            condition: or(failed(), and(succeeded(), not(eq(variables['LOG_SEVERITY'], 'ERROR'))))
             displayName: Show debug info
             inputs:
               targetType: inline
@@ -383,7 +383,7 @@ stages:
     jobs:
       - deployment: create
         displayName: Create deployment
-        environment: ${{ variables.environment }}
+        environment: ${{ variables.ENVIRONMENT }}
         variables:
           plan_providers: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
         strategy:
@@ -399,15 +399,15 @@ stages:
                 - task: AzureCLI@2
                   displayName: Install tools
                   env:
-                    IN_SEVERITY: ${{ variables.log_severity }}
-                    IN_TEMPLATE: ${{ variables.template }}
+                    IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+                    IN_TEMPLATE: ${{ variables.TEMPLATE }}
                     LOG_NAME: install_tools
                     LOG_ORDER: b1
                     LOG_PATH: $(Pipeline.Workspace)/logs
                     SCRIPT: install-tools
-                    VERSION: ${{ variables.version_action }}
+                    VERSION: ${{ variables.VERSION_ACTION }}
                   inputs:
-                    azureSubscription: ${{ variables.serviceConnection }}
+                    azureSubscription: ${{ variables.SERVICE_CONNECTION }}
                     scriptLocation: inlineScript
                     scriptType: bash
                     inlineScript: |
@@ -428,17 +428,17 @@ stages:
                   displayName: Check Azure providers
                   env:
                     IN_PROVIDERS: $(plan_providers)
-                    IN_SEVERITY: ${{ variables.log_severity }}
+                    IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
                     LOG_NAME: check_providers
                     LOG_ORDER: b3
                     LOG_PATH: $(Pipeline.Workspace)/logs
                     SCRIPT: azure-providers
-                    SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
-                    VERSION: ${{ variables.version_action }}
-                    WAIT_COUNT: ${{ variables.azure_provider_wait_count }}
-                    WAIT_SECONDS: ${{ variables.azure_provider_wait_seconds }}
+                    SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
+                    VERSION: ${{ variables.VERSION_ACTION }}
+                    WAIT_COUNT: ${{ variables.AZURE_PROVIDER_WAIT_COUNT }}
+                    WAIT_SECONDS: ${{ variables.AZURE_PROVIDER_WAIT_SECONDS }}
                   inputs:
-                    azureSubscription: ${{ variables.serviceConnection }}
+                    azureSubscription: ${{ variables.SERVICE_CONNECTION }}
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
@@ -461,23 +461,23 @@ stages:
                 - task: AzureCLI@2
                   displayName: Deploy
                   env:
-                    IN_LOCATION: ${{ variables.location }}
-                    IN_MANAGEMENT_GROUP: ${{ variables.management_group }}
-                    IN_RESOURCE_GROUP: ${{ variables.resource_group }}
-                    IN_SCOPE: ${{ variables.scope }}
-                    IN_SEVERITY: ${{ variables.log_severity }}
-                    IN_TEMPLATE: ${{ variables.template }}
-                    IN_TEMPLATE_PARAMS: ${{ variables.template_parameters }}
+                    IN_LOCATION: ${{ variables.LOCATION }}
+                    IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
+                    IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
+                    IN_SCOPE: ${{ variables.SCOPE }}
+                    IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
+                    IN_TEMPLATE: ${{ variables.TEMPLATE }}
+                    IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
                     LOG_NAME: deploy
                     LOG_ORDER: a1
                     LOG_PATH: $(Pipeline.Workspace)/logs
                     RUN_ID: $(Build.BuildId)
                     SCRIPT: az-deploy
                     SOURCE_PATH: $(Build.SourcesDirectory)
-                    SUBSCRIPTION_ID: ${{ variables.azure_subscription_id }}
-                    VERSION: ${{ variables.version_action }}
+                    SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
+                    VERSION: ${{ variables.VERSION_ACTION }}
                   inputs:
-                    azureSubscription: ${{ variables.serviceConnection }}
+                    azureSubscription: ${{ variables.SERVICE_CONNECTION }}
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
@@ -511,7 +511,7 @@ stages:
                     RUN_NUMBER: $(Build.BuildId)
                     SCRIPT: pr-comment
                     TOKEN: $(System.AccessToken)
-                    VERSION: ${{ variables.version_action }}
+                    VERSION: ${{ variables.VERSION_ACTION }}
                   inputs:
                     targetType: inline
                     script: |
@@ -529,7 +529,7 @@ stages:
                       ./${SCRIPT}.sh
 
                 - task: Bash@3
-                  condition: or(failed(), and(succeeded(), not(eq(variables['log_severity'], 'ERROR'))))
+                  condition: or(failed(), and(succeeded(), not(eq(variables['LOG_SEVERITY'], 'ERROR'))))
                   displayName: Show debug info
                   name: debug
                   inputs:
