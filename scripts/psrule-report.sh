@@ -3,14 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
-trap cleanup EXIT
-cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
-    echo '::endgroup::'
-  fi
-}
 output=''
 if test -n "${CONFIG_ERROR}"; then
   output='## PSRule\n\n'

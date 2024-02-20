@@ -4,11 +4,6 @@
 #
 set -e
 missing=''
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]psrule"
-else
-  echo "::group::psrule"
-fi
 if ! test -f "${OPTION}"; then
   missing="Unable to find rule_option file ${OPTION}"
 else
