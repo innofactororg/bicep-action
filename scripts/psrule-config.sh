@@ -3,19 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
-trap cleanup EXIT
-cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
-    echo '::endgroup::'
-  fi
-}
 missing=''
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
+  echo "##[group]psrule"
 else
-  echo "::group::${LOG_NAME}"
+  echo "::group::psrule"
 fi
 if ! test -f "${OPTION}"; then
   missing="Unable to find rule_option file ${OPTION}"

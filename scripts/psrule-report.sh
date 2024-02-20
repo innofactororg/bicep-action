@@ -12,11 +12,6 @@ cleanup() {
   fi
 }
 output=''
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
-else
-  echo "::group::${LOG_NAME}"
-fi
 if test -n "${CONFIG_ERROR}"; then
   output='## PSRule\n\n'
   output+="${CONFIG_ERROR}❗"
