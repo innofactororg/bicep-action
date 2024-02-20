@@ -14,11 +14,12 @@ cleanup() {
   fi
 }
 error() {
-  local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+  local msg
+  msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
-  log_output "$4" "${msg}" "$3"
-  exit $1
+  log_output "${4}" "${msg}" "${3}"
+  exit "${1}"
 }
 log_output() {
   local data=''
@@ -77,4 +78,4 @@ fi
 cmd+=" --allow-no-subscriptions ${log_severity}"
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
-az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)

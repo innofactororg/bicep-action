@@ -15,23 +15,25 @@ cleanup() {
   fi
 }
 error() {
-  local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+  local msg
+  msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
-  log_output "$4" "${msg}" "$3"
-  exit $1
+  log_output "${4}" "${msg}" "${3}"
+  exit "${1}"
 }
 log_output() {
+  local data=''
   local errors=''
   local summary=''
   local warnings=''
   if test -f "${1}"; then
-    local data=$(cat "${1}")
-    data=$(echo "${data//${SOURCE_PATH}/}")
+    data=$(cat "${1}")
+    data="${data//${SOURCE_PATH}/}"
     warnings=$(echo "${data}" | sed -n -e '/) : Warning /p')
-    warnings=$(echo "${warnings//WARNING: /}")
+    warnings="${warnings//WARNING: /}"
     errors=$(echo "${data}" | sed -n -e '/) : Error /p')
-    errors=$(echo "${errors//ERROR: /}")
+    errors="${errors//ERROR: /}"
   fi
   if test -n "${errors}" || test -n "${2}"; then
     summary="The ${LOG_NAME/_/ } failed. ${2}❗"
@@ -91,7 +93,7 @@ if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
   echo "Run: ${cmd}"
   eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
   if test -f "${out_file}"; then
-    cp ${out_file} ${LOG_PATH}/
+    cp "${out_file}" "${LOG_PATH}/"
   fi
 else
   echo "Skip bicep ${SCRIPT_ACTION}, not a ${src_file_extension} file: ${IN_TEMPLATE}"

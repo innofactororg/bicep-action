@@ -1,4 +1,3 @@
-# pipeline version: beta6
 trigger: none
 pr:
   autoCancel: true
@@ -26,7 +25,7 @@ variables:
   TEMPLATE: main.bicep
   TEMPLATE_PARAMETERS: main.bicepparam
   VERSION_ACE_TOOL: 1.4
-  VERSION_ACTION: beta6
+  WORKFLOW_VERSION: beta6
 
 pool:
   vmImage: ubuntu-22.04
@@ -51,7 +50,7 @@ stages:
               LOG_ORDER: b1
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: install-tools
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptLocation: inlineScript
@@ -80,7 +79,7 @@ stages:
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: az-bicep
               SOURCE_PATH: $(Build.SourcesDirectory)
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             name: bicep_build
             inputs:
               azureSubscription: ${{ variables.SERVICE_CONNECTION }}
@@ -110,7 +109,7 @@ stages:
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: az-bicep
               SOURCE_PATH: $(Build.SourcesDirectory)
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             name: bicep_build_params
             inputs:
               azureSubscription: ${{ variables.SERVICE_CONNECTION }}
@@ -147,7 +146,7 @@ stages:
               SCRIPT: az-deploy
               SOURCE_PATH: $(Build.SourcesDirectory)
               SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             name: validate
             inputs:
               azureSubscription: ${{ variables.SERVICE_CONNECTION }}
@@ -183,7 +182,7 @@ stages:
               SCRIPT: az-deploy
               SOURCE_PATH: $(Build.SourcesDirectory)
               SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               azureSubscription: ${{ variables.SERVICE_CONNECTION }}
               scriptType: bash
@@ -211,7 +210,7 @@ stages:
               SCRIPT: psrule-config
               TEMPLATE_FILE: $(bicep_build.file)
               TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               targetType: inline
               script: |
@@ -257,7 +256,7 @@ stages:
               LOG_ORDER: b6
               LOG_PATH: $(Pipeline.Workspace)/logs
               SCRIPT: psrule-report
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               targetType: inline
               script: |
@@ -295,7 +294,7 @@ stages:
               TEMPLATE_FILE: $(bicep_build.file)
               TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
               THRESHOLD: ${{ variables.COST_THRESHOLD }}
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
               VERSION_ACE: ${{ variables.VERSION_ACE_TOOL }}
             inputs:
               azureSubscription: ${{ variables.SERVICE_CONNECTION }}
@@ -340,7 +339,7 @@ stages:
               RUN_NUMBER: $(Build.BuildId)
               SCRIPT: pr-comment
               TOKEN: $(System.AccessToken)
-              VERSION: ${{ variables.VERSION_ACTION }}
+              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               targetType: inline
               script: |
@@ -405,7 +404,7 @@ stages:
                     LOG_ORDER: b1
                     LOG_PATH: $(Pipeline.Workspace)/logs
                     SCRIPT: install-tools
-                    VERSION: ${{ variables.VERSION_ACTION }}
+                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                   inputs:
                     azureSubscription: ${{ variables.SERVICE_CONNECTION }}
                     scriptLocation: inlineScript
@@ -434,7 +433,7 @@ stages:
                     LOG_PATH: $(Pipeline.Workspace)/logs
                     SCRIPT: azure-providers
                     SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-                    VERSION: ${{ variables.VERSION_ACTION }}
+                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                     WAIT_COUNT: ${{ variables.AZURE_PROVIDER_WAIT_COUNT }}
                     WAIT_SECONDS: ${{ variables.AZURE_PROVIDER_WAIT_SECONDS }}
                   inputs:
@@ -475,7 +474,7 @@ stages:
                     SCRIPT: az-deploy
                     SOURCE_PATH: $(Build.SourcesDirectory)
                     SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-                    VERSION: ${{ variables.VERSION_ACTION }}
+                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                   inputs:
                     azureSubscription: ${{ variables.SERVICE_CONNECTION }}
                     scriptType: bash
@@ -511,7 +510,7 @@ stages:
                     RUN_NUMBER: $(Build.BuildId)
                     SCRIPT: pr-comment
                     TOKEN: $(System.AccessToken)
-                    VERSION: ${{ variables.VERSION_ACTION }}
+                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                   inputs:
                     targetType: inline
                     script: |
@@ -531,7 +530,6 @@ stages:
                 - task: Bash@3
                   condition: or(failed(), and(succeeded(), not(eq(variables['LOG_SEVERITY'], 'ERROR'))))
                   displayName: Show debug info
-                  name: debug
                   inputs:
                     targetType: inline
                     script: |
@@ -543,7 +541,6 @@ stages:
                       echo '##[endgroup]'
 
                 - task: PublishPipelineArtifact@1
-                  name: upload_logs
                   displayName: Upload logs
                   condition: always()
                   inputs:

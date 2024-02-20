@@ -15,11 +15,12 @@ cleanup() {
   fi
 }
 error() {
-  local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+  local msg
+  msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
-  log_output "$4" "${msg}" "$3"
-  exit $1
+  log_output "${4}" "${msg}" "${3}"
+  exit "${1}"
 }
 log_output() {
   local data=''
@@ -36,12 +37,12 @@ log_output() {
       )
     else
       data=$(sed '/^{$/,$d' "${1}")
-      data=$(echo "${data//${SOURCE_PATH}/}")
+      data="${data//${SOURCE_PATH}/}"
       json_object=$(sed -n '/^{$/,$p' "${1}")
       warnings=$(echo "${data}" | sed -n -e '/) : Warning /p')
-      warnings=$(echo "${warnings//WARNING: /}")
+      warnings="${warnings//WARNING: /}"
       errors=$(echo "${data}" | sed -n '/^ERROR: /,$p')
-      errors=$(echo "${errors//ERROR: /}")
+      errors="${errors//ERROR: /}"
     fi
   fi
   if test -n "${errors}" || test -n "${2}"; then
@@ -104,7 +105,7 @@ log_output() {
   echo -e "${output}" > "${1/.log/.md}"
   if [ "${SCRIPT_ACTION}" = 'validate' ]; then
     local from_code=''
-    if [[ "${json_object}" == {* ]]; then
+    if [[ "${json_object}" == '{'* ]]; then
       from_code=$(
         echo "${json_object}" | \
           jq '.properties.providers | map(.namespace) | join(",")'
@@ -112,7 +113,8 @@ log_output() {
       echo "Resource providers discovered by ${LOG_NAME}:"
       echo "${from_code}"
     fi
-    local list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
+    local list
+    list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
     echo "Set output: providers='${list}'"
     if [ -n "${TF_BUILD-}" ]; then
       echo "##vso[task.setvariable variable=providers;isOutput=true]${list}"
@@ -172,7 +174,7 @@ case "${SCRIPT_ACTION}" in
   what-if)  cmd+=' --exclude-change-types Ignore NoChange --no-prompt true';;
 esac
 if [ -n "${TF_BUILD-}" ]; then
-  az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+  az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)

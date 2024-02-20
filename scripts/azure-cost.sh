@@ -14,11 +14,12 @@ cleanup() {
   fi
 }
 error() {
-  local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+  local msg
+  msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
-  log_output "$4" "${msg}" "$3"
-  exit $1
+  log_output "${4}" "${msg}" "${3}"
+  exit "${1}"
 }
 log_output() {
   local data=''
@@ -46,15 +47,18 @@ log_output() {
   if test -f "${file}"; then
     mv -f "${file}" "${LOG_PATH}/"
     file="${LOG_PATH}/${LOG_NAME}.json"
-    local total=$(jq -r '.TotalCost.Value | select (.!=null)' ${file})
-    local delta=$(jq -r '.Delta.Value | select (.!=null)' ${file})
-    local currency=$(jq -r '.Currency | select (.!=null)' ${file})
+    local currency
+    local delta
+    local total
     local txt=''
+    total=$(jq -r '.TotalCost.Value | select (.!=null)' "${file}")
+    delta=$(jq -r '.Delta.Value | select (.!=null)' "${file}")
+    currency=$(jq -r '.Currency | select (.!=null)' "${file}")
     if [ "${total}" != "${delta}" ]; then
       if [ "${delta}" = '0.00' ]; then
         txt='No cost change detected! '
       elif [[ "${delta}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-        if [ $(echo "${delta} > 0" | bc -l) -eq 1 ]; then
+        if [ "$(echo "${delta} > 0" | bc -l)" -eq 1 ]; then
           txt="Estimated increase is +${delta} ${currency}! "
         else
           txt="Estimated decrease is -${delta} ${currency}! "
@@ -70,7 +74,7 @@ log_output() {
     fi
     if [[ "${THRESHOLD}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
       [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
-      [ $(echo "${total} > ${THRESHOLD}" | bc -l) -eq 1 ]
+      [ "$(echo "${total} > ${THRESHOLD}" | bc -l)" -eq 1 ]
     then
       over="Total estimated cost exceeds ${THRESHOLD} ${currency}❗"
       txt+="\n\n${over}"
@@ -107,8 +111,8 @@ url='https://github.com/TheCloudTheory/arm-estimator/'
 url+="releases/download/${VERSION_ACE}/${file}"
 mkdir -p "708gyals2sgas"
 echo "Run: curl -o 708gyals2sgas/${file} -sSL ${url}"
-curl -o 708gyals2sgas/${file} -sSL ${url}
-unzip -q 708gyals2sgas/${file} -d 708gyals2sgas
+curl -o "708gyals2sgas/${file}" -sSL "${url}"
+unzip -q "708gyals2sgas/${file}" -d 708gyals2sgas
 chmod +x ./708gyals2sgas/azure-cost-estimator
 PATH=$PATH:$(readlink -f 708gyals2sgas/)
 case "${IN_SCOPE}" in
@@ -121,7 +125,7 @@ if [[ $TEMPLATE_PARAMS_FILE == *.parameters.json ]]; then
   cmd+=" --parameters ${TEMPLATE_PARAMS_FILE}"
 fi
 if [[ $IN_TEMPLATE_PARAMS == *=* ]]; then
-  param_list=($IN_TEMPLATE_PARAMS)
+  param_list=("${IN_TEMPLATE_PARAMS}")
   for pair in "${param_list[@]}"; do
     if test -n "${pair%=*}" && [[ "${pair}" == *=* ]]; then
       cmd+=" --inline ${pair%=*}=${pair#*=}"

@@ -15,11 +15,12 @@ cleanup() {
   fi
 }
 error() {
-  local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+  local msg
+  msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
-  log_output "$4" "${msg}" "$3"
-  exit $1
+  log_output "${4}" "${msg}" "${3}"
+  exit "${1}"
 }
 log_output() {
   local summary="${2}❗"
@@ -28,7 +29,8 @@ log_output() {
     summary+="${3}"
     summary+='\n```'
   fi
-  local data=$(cat "${1}" 2>/dev/null || true)
+  local data
+  data=$(cat "${1}" 2>/dev/null || true)
   local output="## Install tools\n\n${summary}"
   if test -n "${data}"; then
     output+='\n\n```text\n'

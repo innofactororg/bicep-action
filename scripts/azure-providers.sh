@@ -14,11 +14,12 @@ cleanup() {
   fi
 }
 error() {
-  local msg="Error on or near line $(expr $2 + 1) (exit code $1)"
+  local msg
+  msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
   echo "${msg}"
-  log_output "$4" "${msg}" "$3"
-  exit $1
+  log_output "${4}" "${msg}" "${3}"
+  exit "${1}"
 }
 log_output() {
   local data=''
@@ -53,7 +54,8 @@ if [ -n "${TF_BUILD-}" ]; then
 else
   echo "::group::${LOG_NAME}"
 fi
-providers=($(echo "${IN_PROVIDERS}" | tr ',' '\n' | sort -u))
+IFS=',' read -ra provider_list <<< "${IN_PROVIDERS}"
+providers=$(printf '%s\n' "${provider_list[@]}" | sort -u)
 declare -a checkProviders=()
 case "${IN_SEVERITY}" in
   ERROR)   log_severity=' --only-show-errors';;
@@ -62,29 +64,30 @@ case "${IN_SEVERITY}" in
   *)       log_severity='';;
 esac
 if [ -n "${TF_BUILD-}" ]; then
-  az account set -s ${SUBSCRIPTION_ID} 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+  az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
 echo 'Check resource providers...'
-registered=($(
-  az provider list \
-    --query "[?registrationState=='Registered'].namespace" \
-    -o tsv $log_severity
-))
-if test -z "${registered[*]}"; then
+registered_list=()
+checkProviders=()
+while IFS='' read -r line; do
+  registered_list+=("${line}")
+done < <(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv "${log_severity}")
+if test -z "${registered_list[*]}"; then
   echo 'Could not find any registered providers!' | tee -a "${log}"
+  registered=''
 else
   echo 'Currently registered:' | tee -a "${log}"
-  echo -e "- $(echo "${registered[*]}" | sed 's/ /\n- /g')\n" | tee -a "${log}"
-  registered=$(echo "${registered[*]}" | tr '[:upper:]' '[:lower:]')
+  printf '%s\n' "${registered_list[@]}" | sort | tee -a "${log}"
+  registered=$(echo "${registered_list[*]}" | tr '[:upper:]' '[:lower:]')
 fi
 for provider in "${providers[@]}"; do
   value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
   if [[ ! " ${registered} " =~ ${value} ]]; then
     echo "Register ${provider}..." | tee -a "${log}"
     az provider register \
-      --consent-to-permissions --namespace $provider \
-      ${log_severity} 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
-    checkProviders+=($provider)
+      --consent-to-permissions --namespace "${provider}" \
+      "${log_severity}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+    checkProviders+=("${provider}")
   fi
 done
 if [ ${#checkProviders} -eq 0 ]; then
@@ -94,16 +97,16 @@ else
     state='Registering'
     timesTried=0
     while [ "${state}" != 'Registered' ] || \
-          [ $timesTried -gt $WAIT_COUNT ]
+          [ "${timesTried}" -gt "${WAIT_COUNT}" ]
     do
       echo "Waiting for ${provider} to register..."
       state=$(
-        az provider show --namespace $provider \
+        az provider show --namespace "${provider}" \
           --query 'registrationState' -o tsv \
-          $log_severity 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+          "${log_severity}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
       )
-      timesTried=$(expr $timesTried + 1)
-      sleep $WAIT_SECONDS
+      timesTried=$(("${timesTried}" + 1))
+      sleep "${WAIT_SECONDS}"
     done
     if ! [ "${state}" = 'Registered' ]; then
       echo "Timeout: ${provider} in ${state} state..." | tee -a "${log}"

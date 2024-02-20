@@ -1,16 +1,16 @@
-# Bicep deploy pipeline
+# Bicep deploy
 
 A [pipeline](ms.azure.deploy.yml) to plan and deploy Azure infrastructure.
 
 ## Overview
 
-![Deploy pipeline](../images/deploy-flow.azdo.drawio.png)
+![Flow overview](../images/deploy-flow.azdo.drawio.png)
 
 1. The user creates a new branch, then commits and push the code.
 1. The user creates a pull request.
 1. The pipeline is automatically triggered and starts the [plan job](#plan-job).
-1. If the plan job was successful, the pipeline will wait for a [required reviewer](#get-started) to approve the [create job](#create-job).
-1. When a reviewer has approved, the pipeline starts the [create job](#create-job) to deploy the code.
+1. If the plan job was successful, the pipeline will wait for a [required reviewer](#get-started) to approve the [deploy job](#deploy-job).
+1. When a reviewer has approved, the pipeline starts the [deploy job](#deploy-job) to deploy the code.
 
 ## Get started
 
@@ -30,13 +30,13 @@ To use the pipeline, several prerequisite steps are required:
 
 1. In the [repo settings](https://learn.microsoft.com/en-us/azure/devops/repos/git/set-git-repository-permissions?view=azure-devops#open-security-for-a-repository), ensure the [build service](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/access-tokens?view=azure-devops&tabs=yaml#manage-build-service-account-permissions) has **"Contribute to pull requests"** permission.
 
-1. Add the [ms.azure.deploy.yml](ms.azure.deploy.yml) to a repo folder, e.g. **".pipelines"**.
+1. Add the [ms.azure.deploy.yml](./ms.azure.deploy.yml) to a repo folder, e.g. **".pipelines"**.
 
 1. Customize the variable values in the **"ms.azure.deploy.yml"** file and commit the changes.
 
 1. If needed, add [bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/) code to the repo.
 
-1. Add a [ps-rule.yaml](../ps-rule.yaml) file to the same folder as the main bicep/template file or in the repository root.
+1. Add a [ps-rule.yaml](./../ps-rule.yaml) file to the same folder as the main bicep/template file or in the repository root.
 
 1. Go to the Azure DevOps **Pipelines** page. Then choose the action to create a **New pipeline**.
 
@@ -44,7 +44,7 @@ To use the pipeline, several prerequisite steps are required:
 
 1. When the list of repositories appears, select the repository.
 
-1. Select **Existing Azure Pipelines YAML file** and choose the YAML file: /.pipelines/ms.azure.deploy.yml.
+1. Select **Existing Azure Pipelines YAML file** and choose the YAML file: **"/.pipelines/ms.azure.deploy.yml"**.
 
 1. Save the pipeline without running it.
 
@@ -96,58 +96,62 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
-### Create job
+### Deploy job
 
-The create job will only run when the plan job was successful. It targets a specific [environment](#get-started). If the environment is configured with **Approvers**, the job will require manual approval.
+The deploy job will only run when the plan job was successful.
+
+It targets a specific [environment](#get-started).
+
+If the environment is configured with **Approvers**, the job will require manual approval.
 
 ### Variables
 
-- **azure_providers**: A comma separated list of Azure resource providers.
+- **AZURE_PROVIDERS**: A comma separated list of Azure resource providers.
 
   The pipeline create job will try to register the specified providers in addition to the providers that is detected in code by deployment validate.
 
-- **azure_provider_wait_seconds**: Seconds to wait between each provider status check.
+- **AZURE_PROVIDER_WAIT_SECONDS**: Seconds to wait between each provider status check.
 
-- **azure_provider_wait_count**: Times to check provider status before giving up.
+- **AZURE_PROVIDER_WAIT_COUNT**: Times to check provider status before giving up.
 
-- **azure_subscription_id**: The subscription ID in which to deploy the resources.
+- **AZURE_SUBSCRIPTION_ID**: The subscription ID in which to deploy the resources.
 
-- **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
+- **COST_THRESHOLD**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
-- **currency**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
+- **CURRENCY**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
 
-- **environment**: Name of the [environment](#get-started) to use for the [create job](#create-job).
+- **ENVIRONMENT**: Name of the [environment](#get-started) to use for the [deploy job](#deploy-job).
 
-- **location**: The Azure location to store the deployment metadata.
+- **LOCATION**: The Azure location to store the deployment metadata.
 
-- **log_severity**: The log verbosity. Can be one of:
+- **LOG_SEVERITY**: The log verbosity. Can be one of:
 
-  - ERROR - Only show errors, suppressing warnings. Dump context at fail.
-  - INFO - Standard log level. Always dump context.
-  - VERBOSE - Increase logging verbosity. Always dump context.
-  - DEBUG - Show all debug logs. Always dump context.
+  - ERROR - Only show errors, suppressing warnings.
+  - INFO - Standard log level.
+  - VERBOSE - Increase logging verbosity.
+  - DEBUG - Show all debug logs.
 
-- **management_group**: Management group to create deployment at for mg scope.
+- **MANAGEMENT_GROUP**: Management group to create deployment at for mg scope.
 
-- **resource_group**: Resource group to create deployment at for group scope.
+- **RESOURCE_GROUP**: Resource group to create deployment at for group scope.
 
-- **rule_baseline**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
+- **RULE_BASELINE**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
 
-- **rule_modules**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
+- **RULE_MODULES**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
 
-- **rule_option**: The path to an options file.
+- **RULE_OPTION**: The path to an options file.
 
-- **scope**: The deployment scope. Accepted: tenant, mg, sub, group.
+- **SCOPE**: The deployment scope. Accepted: tenant, mg, sub, group.
 
-- **serviceConnection**: The Azure Resource Manager service connection name.
+- **SERVICE_CONNECTION**: The Azure Resource Manager service connection name.
 
-- **template**: The template address. A path or URI to a file or a template spec resource id.
+- **TEMPLATE**: The template address. A path or URI to a file or a template spec resource id.
 
-- **template_parameters**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
+- **TEMPLATE_PARAMETERS**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
 
-- **version_action**: The version of the bicep-action scripts to use. See <https://github.com/innofactororg/bicep-action/tags>.
+- **VERSION_ACE_TOOL**: Azure Cost Estimator version. The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
 
-- **version_ace_tool**: Azure Cost Estimator version. The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
+- **WORKFLOW_VERSION**: The version of the bicep-action scripts to use. See <https://github.com/innofactororg/bicep-action/tags>.
 
 ## License
 

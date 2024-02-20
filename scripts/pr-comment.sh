@@ -12,10 +12,8 @@ cleanup() {
   fi
 }
 add_output() {
-  local add=''
   local data=''
   local name=''
-  local step=''
   local output=''
   while read -r file; do
     data=$(cat "${file}")
@@ -25,27 +23,25 @@ add_output() {
       name=${name/_/ }
       name=${name/psrule/PSRule}
       name=${name/.md/}
-      name="$(tr '[:lower:]' '[:upper:]' <<< ${name:0:1})${name:1}"
-      step=$(printf '%20s' "'${name}'")
-      add=$(printf '%5d' ${#data})
+      name="$(tr '[:lower:]' '[:upper:]' <<< "${name:0:1}")${name:1}"
       if [ ${#data} -gt 63900 ]; then
         data=$(echo -e "## ${name}\n\nThe ${name} output is too long!")
       fi
       if test -z "${output}"; then
-        output=$data
+        output="${data}"
       else
-        output+=$(echo -e "\n\n${data}")
+        output+="$(echo -e "\n\n${data}")"
       fi
     fi
   done
-  echo "$output"
+  echo "${output}"
 }
 if [ -n "${TF_BUILD-}" ]; then
   echo "##[group]${LOG_NAME}"
 else
   echo "::group::${LOG_NAME}"
 fi
-output=$(find $LOG_PATH -name 'step_*.md' -maxdepth 1 -type f | sort | add_output)
+output=$(find "${LOG_PATH}" -name 'step_*.md' -maxdepth 1 -type f | sort | add_output)
 case "${JOB_STATUS}" in
   cancelled|Canceled) summary='The job was cancelled ❎';;
   failed|Failed)      summary='The job failed ⛔';;
@@ -79,7 +75,7 @@ HTTP_CODE=$(curl --request POST \
   --header "Authorization: Bearer ${TOKEN}" \
   --header 'Content-Type: application/json' \
   --data "${data}" \
-  --url "$( echo "${COMMENTS_URL}" | sed 's/ /%20/g' )" \
+  --url "${COMMENTS_URL// /%20}" \
   --output "${LOG_PATH}/comment.log" --silent
 )
 if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
