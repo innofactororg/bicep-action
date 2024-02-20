@@ -91,7 +91,7 @@ The following tools are used:
 - [curl](https://curl.se/)
 - GitHub actions:
   - [checkout](https://github.com/actions/checkout/tree/b4ffde65f46336ab88eb53be808477a3936bae11)
-  - [checkov action](https://github.com/bridgecrewio/checkov-action/tree/da52395a29e16e832cbdd5624df1d97b56984a41)
+  - [checkov action](https://github.com/bridgecrewio/checkov-action/tree/0dc29cc1e9248c45929de6394c1c2026602de647)
   - [upload-sarif-action](https://github.com/github/codeql-action/tree/0ce9708b98337c2050550a0195b04f83c90c4c88/upload-sarif)
   - [github-script](https://github.com/actions/github-script/tree/60a0d83039c74a4aee543508d2ffcb1c3799cdea)
   - [microsoft/ps-rule](https://github.com/microsoft/ps-rule/tree/001a0fcdab97b1d83e25c559163ecececc80cc6f)
