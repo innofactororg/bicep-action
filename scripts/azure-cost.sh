@@ -125,7 +125,7 @@ if [[ $TEMPLATE_PARAMS_FILE == *.parameters.json ]]; then
   cmd+=" --parameters ${TEMPLATE_PARAMS_FILE}"
 fi
 if [[ $IN_TEMPLATE_PARAMS == *=* ]]; then
-  param_list=("${IN_TEMPLATE_PARAMS}")
+  IFS=' ' read -ra param_list <<< "${IN_TEMPLATE_PARAMS}"
   for pair in "${param_list[@]}"; do
     if test -n "${pair%=*}" && [[ "${pair}" == *=* ]]; then
       cmd+=" --inline ${pair%=*}=${pair#*=}"
