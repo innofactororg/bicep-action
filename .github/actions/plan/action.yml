@@ -25,6 +25,18 @@ inputs:
   azure_tenant_id:
     description: "The tenant ID in which the subscription exists."
     required: true
+  checkov_action:
+    description: "Run Checkov action against the template."
+    required: false
+    default: true
+  checkov_skip_check:
+    description: "A comma separated list of checks to skip."
+    required: false
+    default: ""
+  checkov_upload_result:
+    description: "Upload analysis results to GitHub code scanning."
+    required: false
+    default: false
   cost_threshold:
     description: "Max acceptable estimated cost."
     required: false
@@ -218,6 +230,49 @@ runs:
         LOG_PATH: ${{ runner.workspace }}/logs
       shell: bash
       run: psrule-report.sh
+
+    - name: Checkov analysis
+      if: >
+        inputs.checkov_action == 'true' &&
+        endsWith(inputs.template, '.bicep') &&
+        !startsWith(inputs.template, '/subscriptions/')
+      uses: bridgecrewio/checkov-action@da52395a29e16e832cbdd5624df1d97b56984a41 # v12.2674.0
+      with:
+        file: ${{ inputs.template }}
+        framework: bicep
+        log_level: ${{ inputs.log_severity == 'DEBUG' && 'DEBUG' || 'WARNING' }}
+        output_file_path: console,checkov.json,checkov.sarif
+        output_format: cli,json,sarif
+        skip_check: ${{ inputs.checkov_skip_check }}
+
+    - name: Checkov report
+      if: >
+        (
+          success() || failure()
+        ) &&
+        inputs.checkov_action == 'true' &&
+        endsWith(inputs.template, '.bicep') &&
+        !startsWith(inputs.template, '/subscriptions/')
+      env:
+        LOG_NAME: checkov_report
+        LOG_ORDER: b7
+        LOG_PATH: ${{ runner.workspace }}/logs
+      shell: bash
+      run: checkov-report.sh
+
+    - name: Upload SARIF file
+      if: >
+        (
+          success() || failure()
+        ) &&
+        inputs.checkov_action == 'true' &&
+        inputs.checkov_upload_result == 'true' &&
+        endsWith(inputs.template, '.bicep') &&
+        !startsWith(inputs.template, '/subscriptions/')
+      uses: github/codeql-action/upload-sarif@0ce9708b98337c2050550a0195b04f83c90c4c88 # v3.24.3
+      with:
+        sarif_file: checkov.sarif
+        category: checkov
 
     - name: Cost estimate
       if: steps.bicep_build.outputs.file != ''

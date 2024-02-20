@@ -91,6 +91,8 @@ The following tools are used:
 - [curl](https://curl.se/)
 - GitHub actions:
   - [checkout](https://github.com/actions/checkout/tree/b4ffde65f46336ab88eb53be808477a3936bae11)
+  - [checkov action](https://github.com/bridgecrewio/checkov-action/tree/da52395a29e16e832cbdd5624df1d97b56984a41)
+  - [upload-sarif-action](https://github.com/github/codeql-action/tree/0ce9708b98337c2050550a0195b04f83c90c4c88/upload-sarif)
   - [github-script](https://github.com/actions/github-script/tree/60a0d83039c74a4aee543508d2ffcb1c3799cdea)
   - [microsoft/ps-rule](https://github.com/microsoft/ps-rule/tree/001a0fcdab97b1d83e25c559163ecececc80cc6f)
   - [upload-artifact](https://github.com/actions/upload-artifact/tree/ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb)
@@ -185,6 +187,26 @@ with:
 
   Default: **"10"**
 
+- **checkov_action**: Run Checkov action against the template.
+
+  Set to **"true"** to run [Checkov](https://github.com/bridgecrewio/checkov) against the **"template"** to identify misconfigurations, vulnerabilities, and license compliance issues.
+
+  Default: **"true"**
+
+- **checkov_skip_check**: A comma separated list of checks to skip.
+
+  For a list of all bicep checks see <https://www.checkov.io/5.Policy%20Index/bicep.html>.
+
+  Default: **""**
+
+- **checkov_upload_result**: Upload analysis results to GitHub code scanning.
+
+  Set to **"true"** to upload analysis results from the [Checkov](https://github.com/bridgecrewio/checkov) action to GitHub code scanning.
+
+  Note that this job will fail if [code scanning](https://docs.github.com/en/code-security/code-scanning/enabling-code-scanning) is not enabled.
+
+  Default: **"false"**
+
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
   A value of **"-1"** means no cost threshold.
@@ -271,6 +293,9 @@ env:
   azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
   azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
   cost_threshold: 1000
+  checkov_action: true
+  checkov_skip_check: CKV_AZURE_12,CKV_AZURE_19
+  checkov_upload_result: false
   currency: EUR
   location: westeurope
   log_severity: INFO
@@ -286,6 +311,7 @@ jobs:
       contents: read # for checkout
       id-token: write # for Azure login with open id
       pull-requests: write # for pull request comment
+      security-events: write # for checkov_upload_result SARIF file
     outputs:
       providers: ${{ steps.plan.outputs.providers }}
     runs-on: ubuntu-22.04
@@ -309,6 +335,9 @@ jobs:
           location: ${{ env.location }}
           log_severity: ${{ env.log_severity }}
           rule_option: ${{ env.rule_option }}
+          checkov_action: ${{ env.checkov_action }}
+          checkov_skip_check: ${{ env.checkov_skip_check }}
+          checkov_upload_result: ${{ env.checkov_upload_result }}
           scope: ${{ env.scope }}
           template: ${{ env.template }}
           template_parameters: ${{ env.template_parameters }}
