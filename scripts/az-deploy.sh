@@ -117,7 +117,7 @@ log_output() {
       echo "${from_code}"
     fi
     local list
-    list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
+    list=$(echo "${IN_PROVIDERS},${from_code}" | xargs)
     echo "Set output: providers='${list}'"
     if test -n "${TF_BUILD-}"; then
       echo "##vso[task.setvariable variable=providers;isOutput=true]${list}"
