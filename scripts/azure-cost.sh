@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+mkdir -p "${LOG_PATH}"
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
 trap cleanup EXIT

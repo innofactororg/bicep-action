@@ -423,7 +423,7 @@ stages:
                       echo "Download ${uri}"
                       HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}""
+                        --header 'Accept: application/vnd.github.raw' "${uri}"
                       )
                       if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
                         echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
@@ -459,7 +459,7 @@ stages:
                       echo "Download ${uri}"
                       HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}""
+                        --header 'Accept: application/vnd.github.raw' "${uri}"
                       )
                       if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
                         echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
@@ -495,7 +495,7 @@ stages:
                       echo "Download ${uri}"
                       HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}""
+                        --header 'Accept: application/vnd.github.raw' "${uri}"
                       )
                       if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
                         echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"

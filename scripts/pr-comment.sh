@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+mkdir -p "${LOG_PATH}"
 add_output() {
   local data=''
   local name=''

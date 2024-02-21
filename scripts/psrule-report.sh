@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
+mkdir -p "${LOG_PATH}"
 output=''
 if test -n "${CONFIG_ERROR}"; then
   output='## PSRule\n\n'
