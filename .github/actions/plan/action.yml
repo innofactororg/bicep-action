@@ -1,0 +1,303 @@
+# Copyright (c) Innofactor Plc & AUTHORS
+# SPDX-License-Identifier: BSD-3-Clause
+#
+name: Plan deployment
+author: Innofactor Plc
+description: Plan a deployment of Azure infrastructure.
+branding:
+  icon: eye
+  color: green
+inputs:
+  azure_client_id:
+    description: "The client ID of the service principal for Azure login."
+    required: true
+  azure_client_secret:
+    description: "The client secret of the service principal for Azure login."
+    required: false
+    default: ""
+  azure_providers:
+    description: "A comma separated list of Azure resource providers."
+    required: false
+    default: ""
+  azure_subscription_id:
+    description: "The subscription ID in which to deploy the resources."
+    required: true
+  azure_tenant_id:
+    description: "The tenant ID in which the subscription exists."
+    required: true
+  cost_threshold:
+    description: "Max acceptable estimated cost."
+    required: false
+    default: -1
+  currency:
+    description: "Currency code to use for estimations."
+    required: false
+    default: "EUR"
+  location:
+    description: "The Azure location to store the deployment metadata."
+    required: true
+  log_severity:
+    description: "The log verbosity."
+    required: false
+    default: "ERROR"
+  management_group:
+    description: "Management group to create deployment at for mg scope."
+    required: false
+    default: ""
+  resource_group:
+    description: "Resource group to create deployment at for group scope."
+    required: false
+    default: ""
+  rule_baseline:
+    description: "The name of a PSRule baseline to use."
+    required: false
+    default: "Azure.Default"
+  rule_modules:
+    description: "A comma separated list of modules to use for analysis."
+    required: false
+    default: "Az.Resources,PSRule.Rules.Azure"
+  rule_option:
+    description: "The path to an options file."
+    required: false
+    default: ""
+  scope:
+    description: "The deployment scope. Accepted: tenant, mg, sub, group."
+    required: true
+  template:
+    description: "The template address."
+    required: true
+  template_parameters:
+    description: "Deployment parameter values."
+    required: false
+    default: ""
+  token:
+    description: "GitHub token used to comment on pull request."
+    required: false
+    default: ${{ github.token }}
+  version_ace_tool:
+    description: "Azure Cost Estimator version."
+    required: false
+    default: "1.4"
+outputs:
+  providers:
+    description: The Azure resource providers that should be registered.
+    value: ${{ steps.validate.outputs.providers }}
+runs:
+  using: composite
+  steps:
+    - name: Add scripts to system path
+      shell: bash
+      run: |
+        folder=$(readlink -f "${GITHUB_ACTION_PATH}/../../../scripts")
+        echo "Script folder: ${folder}"
+        echo "${folder}" >> "${GITHUB_PATH}"
+
+    - name: Install tools
+      env:
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        LOG_NAME: install_tools
+        LOG_ORDER: b1
+        LOG_PATH: ${{ runner.workspace }}/logs
+      shell: bash
+      run: install-tools.sh
+
+    - name: Azure login
+      env:
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        CLIENT_ID: ${{ inputs.azure_client_id }}
+        CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        LOG_NAME: azure_login
+        LOG_ORDER: b2
+        LOG_PATH: ${{ runner.workspace }}/logs
+        SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        TENANT_ID: ${{ inputs.azure_tenant_id }}
+      shell: bash
+      run: az-login.sh
+
+    - name: Bicep build
+      id: bicep_build
+      if: ${{ !startsWith(inputs.template, '/subscriptions/') }}
+      env:
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        LOG_NAME: bicep_build
+        LOG_ORDER: b3
+        LOG_PATH: ${{ runner.workspace }}/logs
+        SOURCE_PATH: ${{ github.workspace }}
+      shell: bash
+      run: az-bicep.sh build
+
+    - name: Bicep build-params
+      id: bicep_build_params
+      if: inputs.parameters != ''
+      env:
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        IN_TEMPLATE: ${{ inputs.template_parameters }}
+        LOG_NAME: bicep_build_params
+        LOG_ORDER: b4
+        LOG_PATH: ${{ runner.workspace }}/logs
+        SOURCE_PATH: ${{ github.workspace }}
+      shell: bash
+      run: az-bicep.sh build-params
+
+    - name: Validate
+      env:
+        IN_LOCATION: ${{ inputs.location }}
+        IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
+        IN_PROVIDERS: ${{ inputs.azure_providers }}
+        IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
+        IN_SCOPE: ${{ inputs.scope }}
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
+        LOG_NAME: validate
+        LOG_ORDER: b5
+        LOG_PATH: ${{ runner.workspace }}/logs
+        RUN_ID: ${{ github.run_id }}
+        SOURCE_PATH: ${{ github.workspace }}
+      shell: bash
+      run: az-deploy.sh validate
+
+    - name: What-if
+      env:
+        IN_LOCATION: ${{ inputs.location }}
+        IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
+        IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
+        IN_SCOPE: ${{ inputs.scope }}
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
+        LOG_NAME: what-if
+        LOG_ORDER: a1
+        LOG_PATH: ${{ runner.workspace }}/logs
+        RUN_ID: ${{ github.run_id }}
+        SOURCE_PATH: ${{ github.workspace }}
+      shell: bash
+      run: az-deploy.sh what-if
+
+    - name: PSRule config
+      id: psrule_config
+      if: inputs.rule_option != ''
+      env:
+        LOG_NAME: psrule_config
+        LOG_PATH: ${{ runner.workspace }}/logs
+        OPTION: ${{ inputs.rule_option }}
+        TEMPLATE_FILE: ${{ steps.bicep_build.outputs.file }}
+        TEMPLATE_PARAMS_FILE: ${{ steps.bicep_build_params.outputs.file }}
+      shell: bash
+      run: psrule-config.sh
+
+    - name: PSRule analysis
+      if: inputs.rule_option != '' && steps.psrule_config.outputs.error == ''
+      uses: microsoft/ps-rule@001a0fcdab97b1d83e25c559163ecececc80cc6f # v2.9.0 + 6 commits
+      with:
+        baseline: ${{ inputs.rule_baseline }}
+        inputType: repository
+        modules: ${{ inputs.rule_modules }}
+        option: ${{ inputs.rule_option }}
+        outputFormat: Markdown
+        outputPath: ${{ runner.workspace }}/logs/psrule_analysis.md
+        summary: false
+
+    - name: PSRule report
+      if: >
+        (
+          success() || failure()
+        ) &&
+        inputs.rule_option != ''
+      env:
+        CONFIG_ERROR: ${{ steps.psrule_config.outputs.error }}
+        LOG_NAME: psrule_report
+        LOG_ORDER: b6
+        LOG_PATH: ${{ runner.workspace }}/logs
+      shell: bash
+      run: psrule-report.sh
+
+    - name: Cost estimate
+      if: steps.bicep_build.outputs.file != ''
+      env:
+        IN_CURRENCY: ${{ inputs.currency }}
+        IN_LOCATION: ${{ inputs.location }}
+        IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
+        IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
+        IN_SCOPE: ${{ inputs.scope }}
+        IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
+        LOG_NAME: cost_estimate
+        LOG_ORDER: a2
+        LOG_PATH: ${{ runner.workspace }}/logs
+        SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        TEMPLATE_FILE: ${{ steps.bicep_build.outputs.file }}
+        TEMPLATE_PARAMS_FILE: ${{ steps.bicep_build_params.outputs.file }}
+        THRESHOLD: ${{ inputs.cost_threshold }}
+        VERSION_ACE: ${{ inputs.version_ace_tool }}
+      shell: bash
+      run: azure-cost.sh
+
+    - name: Job cancelled
+      if: cancelled()
+      shell: bash
+      run: echo 'JOB_STATUS=cancelled' >> "$GITHUB_ENV"
+
+    - name: Job failed
+      if: failure()
+      shell: bash
+      run: echo 'JOB_STATUS=failed' >> "$GITHUB_ENV"
+
+    - name: Add comment
+      if: >
+        always() &&
+        (
+          github.event_name == 'pull_request' ||
+          github.event_name == 'pull_request_target'
+        )
+      env:
+        COMMENTS_URL: ${{ github.event.pull_request.comments_url }}
+        COMMIT_SHA: ${{ github.sha }}
+        EVENT_ACTION: ${{ github.event.action }}
+        EVENT_ACTOR: ${{ github.actor }}
+        EVENT_NO: "#${{ github.event.number }}"
+        JOB_NAME: ${{ github.workflow }}
+        JOB_STATUS: ${{ env.JOB_STATUS }}
+        JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        LOG_NAME: plan_comment
+        LOG_PATH: ${{ runner.workspace }}/logs
+        RUN_NUMBER: ${{ github.run_number }}
+        TOKEN: ${{ inputs.token }}
+      shell: bash
+      run: pr-comment.sh
+
+    - name: Show debug info
+      if: >
+        (
+          success() &&
+          inputs.log_severity != 'ERROR'
+        ) || failure()
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const fs = require('fs');
+          const event = JSON.parse(fs.readFileSync(process.env['GITHUB_EVENT_PATH']));
+          console.log('::group::environment variables');
+          console.log('::stop-commands::77e6a57ef9854574');
+          for (const [key, value] of Object.entries(process.env).sort()) {
+            if (key != 'INPUT_SCRIPT') {
+              console.log(`${key}=${value}`);
+            }
+          }
+          console.log('::77e6a57ef9854574::');
+          console.log('::endgroup::');
+          console.log('::group::github event');
+          console.log('::stop-commands::77e6a57ef9854574');
+          console.log(JSON.stringify(event, null, 2));
+          console.log('::77e6a57ef9854574::');
+          console.log('::endgroup::');
+
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb #v4.3.1 + 3 commits
+      with:
+        if-no-files-found: ignore
+        name: plan_logs
+        path: ${{ runner.workspace }}/logs/
