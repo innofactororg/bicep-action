@@ -56,8 +56,9 @@ if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 IFS=',' read -ra provider_list <<< "${IN_PROVIDERS}"
-IFS=',' read -ra providers <<< "$(printf '%s\n' "${provider_list[@]}" | sort -u | tr '\n' ',')"
-declare -a checkProviders=()
+provider_sorted="$(printf '%s\n' "${provider_list[@]}" | sort -u | tr '\n' ',')"
+IFS=',' read -ra providers <<< "${provider_sorted}"
+checkProviders=()
 case "${IN_SEVERITY}" in
   ERROR)   log_severity=' --only-show-errors';;
   VERBOSE) log_severity=' --verbose';;
@@ -71,7 +72,10 @@ if test -n "${TF_BUILD-}"; then
 fi
 echo 'Check resource providers...'
 checkProviders=()
-IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(az provider list --query "[?registrationState=='Registered'].namespace" "${out_option}")" | tr '\n' ',')"
+cmd="az provider list --query [?registrationState=='Registered'].namespace"
+cmd+=" ${out_option}"
+echo "Run: ${cmd}"
+IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2))" | tr '\n' ',')"
 if test -z "${registered_list[*]}"; then
   echo 'Could not find any registered providers!' | tee -a "${log}"
   registered=''
@@ -84,8 +88,11 @@ for provider in "${providers[@]}"; do
   value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
   if [[ ! " ${registered} " =~ ${value} ]]; then
     echo "Register ${provider}..." | tee -a "${log}"
-    az provider register --namespace "${provider}" "${consent_option}" \
-      1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+    cmd='az provider register --namespace'
+    cmd+=" ${provider}"
+    cmd+=" ${consent_option}"
+    echo "Run: ${cmd}"
+    eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
     checkProviders+=("${provider}")
   fi
 done
@@ -99,10 +106,12 @@ else
           [ "${timesTried}" -gt "${WAIT_COUNT}" ]
     do
       echo "Waiting for ${provider} to register..."
+      cmd='az provider show --query "registrationState" --namespace'
+      cmd+=" ${provider}"
+      cmd+=" ${out_option}"
+      echo "Run: ${cmd}"
       state=$(
-        az provider show --namespace "${provider}" \
-          --query 'registrationState' "${out_option}" \
-          1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+        eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
       )
       timesTried=$(("${timesTried}" + 1))
       sleep "${WAIT_SECONDS}"
