@@ -73,7 +73,6 @@ fi
 echo 'Check resource providers...'
 checkProviders=()
 registered=''
-echo "Run: az provider list --query \"[?registrationState=='Registered'].namespace\" -o tsv"
 registered_result=$(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv)
 if test -n "${registered_result}"; then
   IFS=',' read -ra registered_list <<< "$(echo "${registered_result}" | tr '\n' ',')"
@@ -90,7 +89,6 @@ for provider in "${providers[@]}"; do
     cmd='az provider register --namespace'
     cmd+=" ${provider}"
     cmd+=" ${consent_option}"
-    echo "Run: ${cmd}"
     eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
     checkProviders+=("${provider}")
   fi
@@ -108,7 +106,6 @@ else
       cmd='az provider show --query "registrationState" --namespace'
       cmd+=" ${provider}"
       cmd+=" ${out_option}"
-      echo "Run: ${cmd}"
       state=$(
         eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
       )
