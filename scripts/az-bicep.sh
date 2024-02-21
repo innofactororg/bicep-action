@@ -8,9 +8,7 @@ log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
 trap cleanup EXIT
 cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
+  if test -z "${TF_BUILD-}"; then
     echo '::endgroup::'
   fi
 }
@@ -18,7 +16,7 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##[error]${msg}"
   else
     echo "::error::${msg}"
@@ -62,9 +60,7 @@ log_output() {
     echo -e "${output}" > "${1/.log/.md}"
   fi
 }
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]Output"
-else
+if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 if [ "${SCRIPT_ACTION}" = 'build-params' ]; then
@@ -83,7 +79,7 @@ if [[ $IN_TEMPLATE == http* ]]; then
     --write-out "%{response_code}" "${uri}"
   )
   if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-    if [ -n "${TF_BUILD-}" ]; then
+    if test -n "${TF_BUILD-}"; then
       echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
     else
       echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
@@ -95,7 +91,7 @@ fi
 if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
   out_file=$(readlink -f "${IN_TEMPLATE/.${src_file_extension}/.${out_file_extension}}")
   echo "Set output: file='${out_file}'"
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##vso[task.setvariable variable=file;isoutput=true]${out_file}"
   else
     echo "file=${out_file}" >> "$GITHUB_OUTPUT"

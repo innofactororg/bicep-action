@@ -7,9 +7,7 @@ log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
 trap cleanup EXIT
 cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
+  if test -z "${TF_BUILD-}"; then
     echo '::endgroup::'
   fi
 }
@@ -17,7 +15,7 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##[error]${msg}"
   else
     echo "::error::${msg}"
@@ -53,9 +51,7 @@ log_output() {
   fi
   echo -e "${output}" > "${1/.log/.md}"
 }
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]Output"
-else
+if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 IFS=',' read -ra provider_list <<< "${IN_PROVIDERS}"
@@ -67,7 +63,7 @@ case "${IN_SEVERITY}" in
   DEBUG)   log_severity=' --debug';;
   *)       log_severity='';;
 esac
-if [ -n "${TF_BUILD-}" ]; then
+if test -n "${TF_BUILD-}"; then
   az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
 echo 'Check resource providers...'

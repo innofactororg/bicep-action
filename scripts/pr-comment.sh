@@ -49,7 +49,7 @@ fi
 output=$(echo -e "${output}")
 echo "Comment has ${#output} characters."
 echo "${output}" > "${LOG_PATH}/${LOG_NAME}.md"
-if [ -n "${TF_BUILD-}" ]; then
+if test -n "${TF_BUILD-}"; then
   echo "##vso[task.uploadsummary]${LOG_PATH}/${LOG_NAME}.md"
   data=$(jq --arg content "${output}" '.comments[0].content = $content' <<< '{"comments": [{"parentCommentId": 0,"content": "","commentType": 1}],"status": 1}')
 else
@@ -65,7 +65,7 @@ HTTP_CODE=$(curl --request POST --data "${data}" \
   --url "${COMMENTS_URL// /%20}"
 )
 if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##[error]Unable to create comment! Response code: ${HTTP_CODE}}"
   else
     echo "::error::Unable to create comment! Response code: ${HTTP_CODE}"

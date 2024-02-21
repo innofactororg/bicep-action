@@ -10,7 +10,7 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##[error]${msg}"
   else
     echo "::error::${msg}"

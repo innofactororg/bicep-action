@@ -8,9 +8,7 @@ log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
 trap cleanup EXIT
 cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
+  if test -z "${TF_BUILD-}"; then
     echo '::endgroup::'
   fi
 }
@@ -18,7 +16,7 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##[error]${msg}"
   else
     echo "::error::${msg}"
@@ -120,16 +118,14 @@ log_output() {
     local list
     list=$(echo "${IN_PROVIDERS} ${from_code}" | xargs)
     echo "Set output: providers='${list}'"
-    if [ -n "${TF_BUILD-}" ]; then
+    if test -n "${TF_BUILD-}"; then
       echo "##vso[task.setvariable variable=providers;isOutput=true]${list}"
     else
       echo "providers=${list}" >> "$GITHUB_OUTPUT"
     fi
   fi
 }
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]Output"
-else
+if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 if [[ $IN_TEMPLATE == http* ]]; then
@@ -140,7 +136,7 @@ if [[ $IN_TEMPLATE == http* ]]; then
       --write-out "%{response_code}" "${IN_TEMPLATE}"
     )
     if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-      if [ -n "${TF_BUILD-}" ]; then
+      if test -n "${TF_BUILD-}"; then
         echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
       else
         echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
@@ -159,7 +155,7 @@ if [[ $IN_TEMPLATE_PARAMS == http* ]]; then
       --write-out "%{response_code}" "${uri}"
     )
     if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-      if [ -n "${TF_BUILD-}" ]; then
+      if test -n "${TF_BUILD-}"; then
         echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
       else
         echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
@@ -199,7 +195,7 @@ case "${SCRIPT_ACTION}" in
   validate) cmd+=' --no-prompt true -o json';;
   what-if)  cmd+=' --exclude-change-types Ignore NoChange --no-prompt true';;
 esac
-if [ -n "${TF_BUILD-}" ]; then
+if test -n "${TF_BUILD-}"; then
   az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
 echo "Run: ${cmd}"

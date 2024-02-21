@@ -29,13 +29,13 @@ else
   fi
 fi
 echo "Set output: error='${missing}'"
-if [ -n "${TF_BUILD-}" ]; then
+if test -n "${TF_BUILD-}"; then
   echo "##vso[task.setvariable variable=error;isoutput=true]${missing}"
 else
   echo "error=${missing}" >> "${GITHUB_OUTPUT}"
 fi
 if test -n "${missing}"; then
-  if [ -n "${TF_BUILD-}" ]; then
+  if test -n "${TF_BUILD-}"; then
     echo "##[error]${missing}"
   else
     echo "::error::${missing}"
