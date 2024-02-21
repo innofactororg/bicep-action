@@ -64,12 +64,14 @@ case "${IN_SEVERITY}" in
   DEBUG)   log_severity=' --debug';;
   *)       log_severity='';;
 esac
+out_option="-o tsv${log_severity}"
+consent_option="--consent-to-permissions${log_severity}"
 if test -n "${TF_BUILD-}"; then
   az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
 echo 'Check resource providers...'
 checkProviders=()
-IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv${log_severity})" | tr '\n' ',')"
+IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(az provider list --query "[?registrationState=='Registered'].namespace" "${out_option}")" | tr '\n' ',')"
 if test -z "${registered_list[*]}"; then
   echo 'Could not find any registered providers!' | tee -a "${log}"
   registered=''
@@ -82,9 +84,8 @@ for provider in "${providers[@]}"; do
   value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
   if [[ ! " ${registered} " =~ ${value} ]]; then
     echo "Register ${provider}..." | tee -a "${log}"
-    az provider register \
-      --consent-to-permissions --namespace "${provider}" \
-      "${log_severity}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+    az provider register --namespace "${provider}" "${consent_option}" \
+      1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
     checkProviders+=("${provider}")
   fi
 done
@@ -100,8 +101,8 @@ else
       echo "Waiting for ${provider} to register..."
       state=$(
         az provider show --namespace "${provider}" \
-          --query 'registrationState' -o tsv \
-          "${log_severity}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+          --query 'registrationState' "${out_option}" \
+          1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
       )
       timesTried=$(("${timesTried}" + 1))
       sleep "${WAIT_SECONDS}"

@@ -126,9 +126,13 @@ If the environment is configured with **required reviewers**, the job will requi
 
 ### Passing secrets
 
-The input **"azure_client_secret"** is needed if federated credentials are not used. This value should be passed as a secret.
+It is optional to pass **"azure_client_id"**, **"azure_subscription_id"** and **"azure_tenant_id"** as secret.
 
-It could make sense to pass **"azure_client_id"**, **"azure_subscription_id"** and **"azure_tenant_id"** as secret too. However, note that secrets are masked in the job log. The result is that IDs can't be seen and it may be difficult to see if the wrong ID is used.
+Secrets are masked in the job log. The result is that IDs can't be seen and it may be difficult to see if the wrong ID is used.
+
+On the other hand, passing these values as secrets will make them less exposed and is therefore the more secure option.
+
+When using **"Option 2"** in [Get started](#get-started), the input **"azure_client_secret"** is needed and must be passed as a secret.
 
 Secrets are passed using the secrets syntax, for example:
 
@@ -264,12 +268,12 @@ permissions: {}
 
 env:
   auto_merge: squash
-  azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd
+  azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd # when using a secret, remove this line and add the secret to each job below
   azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
   azure_provider_wait_count: 30
   azure_provider_wait_seconds: 10
-  azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506
-  azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4
+  azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506 # when using a secret, remove this line and add the secret to each job below
+  azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4 # when using a secret, remove this line and add the secret to each job below
   cost_threshold: 1000
   currency: EUR
   location: westeurope
@@ -300,10 +304,11 @@ jobs:
         id: plan
         uses: innofactororg/bicep-action/.github/actions/plan@beta6
         with:
-          azure_client_id: ${{ env.azure_client_id }}
+          azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
+          # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
           azure_providers: ${{ env.azure_providers }}
-          azure_subscription_id: ${{ env.azure_subscription_id }}
-          azure_tenant_id: ${{ env.azure_tenant_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }} # for secret, use ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure_tenant_id: ${{ env.azure_tenant_id }} # for secret, use ${{ secrets.AZURE_TENANT_ID }}
           cost_threshold: ${{ env.cost_threshold }}
           currency: ${{ env.currency }}
           location: ${{ env.location }}
@@ -334,12 +339,13 @@ jobs:
         uses: innofactororg/bicep-action/.github/actions/deploy@beta6
         with:
           auto_merge: ${{ env.auto_merge }}
-          azure_client_id: ${{ env.azure_client_id }}
+          azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
+          # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
           azure_providers: ${{ needs.plan.outputs.providers }}
           azure_provider_wait_count: ${{ env.azure_provider_wait_count }}
           azure_provider_wait_seconds: ${{ env.azure_provider_wait_seconds }}
-          azure_subscription_id: ${{ env.azure_subscription_id }}
-          azure_tenant_id: ${{ env.azure_tenant_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }} # for secret, use ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure_tenant_id: ${{ env.azure_tenant_id }} # for secret, use ${{ secrets.AZURE_TENANT_ID }}
           location: ${{ env.location }}
           log_severity: ${{ env.log_severity }}
           scope: ${{ env.scope }}

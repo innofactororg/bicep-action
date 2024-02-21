@@ -86,7 +86,7 @@ else
   echo "::add-mask::${token}"
   cmd+=" --federated-token ${token}"
 fi
-cmd+=" --allow-no-subscriptions ${log_severity}"
+cmd+=" --allow-no-subscriptions${log_severity}"
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
