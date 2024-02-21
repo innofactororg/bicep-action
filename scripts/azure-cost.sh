@@ -105,9 +105,9 @@ log_output() {
   fi
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
+  echo "##[group]Output"
 else
-  echo "::group::${LOG_NAME}"
+  echo "::group::Output"
 fi
 if ! test -f "${TEMPLATE_FILE}"; then
   if [ -n "${TF_BUILD-}" ]; then

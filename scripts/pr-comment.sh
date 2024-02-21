@@ -3,14 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 set -e
-trap cleanup EXIT
-cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
-    echo '::endgroup::'
-  fi
-}
 add_output() {
   local data=''
   local name=''
@@ -36,11 +28,6 @@ add_output() {
   done
   echo "${output}"
 }
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
-else
-  echo "::group::${LOG_NAME}"
-fi
 output=$(find "${LOG_PATH}" -name 'step_*.md' -maxdepth 1 -type f | sort | add_output)
 case "${JOB_STATUS}" in
   cancelled|Canceled) summary='The job was cancelled ❎';;

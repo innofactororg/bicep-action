@@ -6,14 +6,6 @@ set -e
 mkdir -p "${LOG_PATH}"
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
-trap cleanup EXIT
-cleanup() {
-  if [ -n "${TF_BUILD-}" ]; then
-    echo '##[endgroup]'
-  else
-    echo '::endgroup::'
-  fi
-}
 error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
@@ -43,14 +35,8 @@ log_output() {
   fi
   echo -e "${output}" > "${1/.log/.md}"
 }
-if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
-else
-  echo "::group::${LOG_NAME}"
-fi
 az_version=$(az version | jq -r '."azure-cli"')
-echo "Azure CLI ${az_version}" | tee -a "${log}"
-echo 'Installed extensions:' | tee -a "${log}"
+echo "Azure CLI ${az_version} with extensions:" | tee -a "${log}"
 az version --query extensions -o yaml | tee -a "${log}"
 if [[ $IN_TEMPLATE == *.bicep ]]; then
   az config set bicep.use_binary_from_path=False >/dev/null 2>&1

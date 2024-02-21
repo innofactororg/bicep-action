@@ -54,9 +54,9 @@ log_output() {
   echo -e "${output}" > "${1/.log/.md}"
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
+  echo "##[group]Output"
 else
-  echo "::group::${LOG_NAME}"
+  echo "::group::Output"
 fi
 case "${IN_SEVERITY}" in
   ERROR)   log_severity=' --only-show-errors';;

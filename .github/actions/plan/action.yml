@@ -88,14 +88,9 @@ runs:
     - name: Add scripts to system path
       shell: bash
       run: |
-        echo "::group::scripts_path"
-        scriptFolder=$(readlink -f "${GITHUB_ACTION_PATH}/../../../scripts")
-        echo 'Script folder:'
-        echo "${scriptFolder}"
-        echo "${scriptFolder}" >> "${GITHUB_PATH}"
-        echo 'System path:'
-        echo "${PATH}"
-        echo '::endgroup::'
+        folder=$(readlink -f "${GITHUB_ACTION_PATH}/../../../scripts")
+        echo "Script folder: ${folder}"
+        echo "${folder}" >> "${GITHUB_PATH}"
 
     - name: Install tools
       env:

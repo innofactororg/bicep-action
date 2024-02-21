@@ -128,9 +128,9 @@ log_output() {
   fi
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
+  echo "##[group]Output"
 else
-  echo "::group::${LOG_NAME}"
+  echo "::group::Output"
 fi
 if [[ $IN_TEMPLATE == http* ]]; then
   file="${IN_TEMPLATE##*/}"

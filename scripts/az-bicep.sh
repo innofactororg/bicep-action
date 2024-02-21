@@ -63,9 +63,9 @@ log_output() {
   fi
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
+  echo "##[group]Output"
 else
-  echo "::group::${LOG_NAME}"
+  echo "::group::Output"
 fi
 if [ "${SCRIPT_ACTION}" = 'build-params' ]; then
   IN_TEMPLATE="${IN_TEMPLATE%% *}"

@@ -54,9 +54,9 @@ log_output() {
   echo -e "${output}" > "${1/.log/.md}"
 }
 if [ -n "${TF_BUILD-}" ]; then
-  echo "##[group]${LOG_NAME}"
+  echo "##[group]Output"
 else
-  echo "::group::${LOG_NAME}"
+  echo "::group::Output"
 fi
 IFS=',' read -ra provider_list <<< "${IN_PROVIDERS}"
 providers=$(printf '%s\n' "${provider_list[@]}" | sort -u)
