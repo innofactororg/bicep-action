@@ -295,14 +295,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
           persist-credentials: false
 
       - name: Plan
         id: plan
-        uses: innofactororg/bicep-action/.github/actions/plan@beta6
+        uses: innofactororg/bicep-action/.github/actions/plan@v1
         with:
           azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
           # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
@@ -329,14 +329,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 1
 
       - name: Deploy
         id: deploy
-        uses: innofactororg/bicep-action/.github/actions/deploy@beta6
+        uses: innofactororg/bicep-action/.github/actions/deploy@v1
         with:
           auto_merge: ${{ env.auto_merge }}
           azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
