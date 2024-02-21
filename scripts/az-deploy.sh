@@ -56,7 +56,7 @@ log_output() {
     fi
     if test -n "${3}"; then
       summary+='\n\nCommand that failed:\n\n```text\n'
-      summary+="${3}"
+      summary+="$(eval echo "${3}")"
       summary+='\n```'
     fi
   elif [ "${SCRIPT_ACTION}" = 'validate' ] && \
