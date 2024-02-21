@@ -17,7 +17,11 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  echo "${msg}"
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]${msg}"
+  else
+    echo "::error::${msg}"
+  fi
   log_output "${4}" "${msg}" "${3}"
   exit "${1}"
 }
@@ -90,7 +94,11 @@ log_output() {
   fi
   echo -e "${output}" > "${1/.log/.md}"
   if test -n "${over}"; then
-    echo "::error::${over}"
+    if [ -n "${TF_BUILD-}" ]; then
+      echo "##[error]${over}"
+    else
+      echo "::error::${over}"
+    fi
     if test -z "${2}"; then
       exit 1
     fi
@@ -102,19 +110,33 @@ else
   echo "::group::${LOG_NAME}"
 fi
 if ! test -f "${TEMPLATE_FILE}"; then
-  echo "Skip: Unable to find ${TEMPLATE_FILE}."
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]Unable to find ${TEMPLATE_FILE}."
+  else
+    echo "::error::Unable to find ${TEMPLATE_FILE}."
+  fi
   exit 1
 fi
 cmd='./708gyals2sgas/azure-cost-estimator'
 file='linux-x64.zip'
-url='https://github.com/TheCloudTheory/arm-estimator/'
-url+="releases/download/${VERSION_ACE}/${file}"
+uri='https://github.com/TheCloudTheory/arm-estimator/'
+uri+="releases/download/${VERSION_ACE}/${file}"
 mkdir -p "708gyals2sgas"
-echo "Run: curl -o 708gyals2sgas/${file} -sSL ${url}"
-curl -o "708gyals2sgas/${file}" -sSL "${url}"
-unzip -q "708gyals2sgas/${file}" -d 708gyals2sgas
+echo "Download ${uri}"
+HTTP_CODE=$(curl -sSL --retry 4 --output "708gyals2sgas/${file}" \
+  --write-out "%{response_code}" "${uri}"
+)
+if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
+  else
+    echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
+  fi
+  exit 1
+fi
+unzip -q "708gyals2sgas/${file}" -d '708gyals2sgas'
 chmod +x ./708gyals2sgas/azure-cost-estimator
-PATH=$PATH:$(readlink -f 708gyals2sgas/)
+PATH=$PATH:$(readlink -f '708gyals2sgas/')
 case "${IN_SCOPE}" in
   tenant) cmd+=" ${IN_SCOPE} ${TEMPLATE_FILE} ${IN_LOCATION}";;
   mg)     cmd+=" ${IN_SCOPE} ${TEMPLATE_FILE} ${IN_MANAGEMENT_GROUP} ${IN_LOCATION}";;

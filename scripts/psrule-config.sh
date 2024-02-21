@@ -35,6 +35,10 @@ else
   echo "error=${missing}" >> "${GITHUB_OUTPUT}"
 fi
 if test -n "${missing}"; then
-  echo "${missing}"
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]${missing}"
+  else
+    echo "::error::${missing}"
+  fi
   exit 1
 fi

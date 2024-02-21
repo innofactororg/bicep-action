@@ -56,13 +56,14 @@ stages:
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -86,13 +87,14 @@ stages:
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -116,13 +118,14 @@ stages:
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -153,13 +156,14 @@ stages:
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -188,13 +192,14 @@ stages:
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -222,13 +227,14 @@ stages:
                   echo 'The bicep_build_params.file output has not been set!'
                   export TEMPLATE_PARAMS_FILE=''
                 fi
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -264,13 +270,14 @@ stages:
                   echo 'The psrule_config.error output has not been set!'
                   export CONFIG_ERROR=''
                 fi
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -309,13 +316,14 @@ stages:
                   echo 'The bicep_build_params.file output has not been set!'
                   export TEMPLATE_PARAMS_FILE=''
                 fi
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -344,13 +352,14 @@ stages:
               targetType: inline
               script: |
                 export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
-                HTTP_CODE=$(curl --show-error --silent --remote-name \
+                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                echo "Download ${uri}"
+                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                   --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' \
-                  --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                  --header 'Accept: application/vnd.github.raw' "${uri}"
                 )
-                if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                  echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                  echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                   exit 1
                 fi
                 chmod +x ${SCRIPT}.sh
@@ -410,13 +419,14 @@ stages:
                     scriptLocation: inlineScript
                     scriptType: bash
                     inlineScript: |
-                      HTTP_CODE=$(curl --show-error --silent --remote-name \
+                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                      echo "Download ${uri}"
+                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' \
-                        --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                        --header 'Accept: application/vnd.github.raw' "${uri}""
                       )
-                      if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                        echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                      if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                        echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                         exit 1
                       fi
                       chmod +x ${SCRIPT}.sh
@@ -445,13 +455,14 @@ stages:
                         echo 'Skip! The plan.validate.providers output has not been set!'
                         exit
                       fi
-                      HTTP_CODE=$(curl --show-error --silent --remote-name \
+                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                      echo "Download ${uri}"
+                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' \
-                        --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                        --header 'Accept: application/vnd.github.raw' "${uri}""
                       )
-                      if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                        echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                      if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                        echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                         exit 1
                       fi
                       chmod +x ${SCRIPT}.sh
@@ -480,13 +491,14 @@ stages:
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
-                      HTTP_CODE=$(curl --show-error --silent --remote-name \
+                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                      echo "Download ${uri}"
+                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' \
-                        --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                        --header 'Accept: application/vnd.github.raw' "${uri}""
                       )
-                      if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                        echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                      if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                        echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                         exit 1
                       fi
                       chmod +x ${SCRIPT}.sh
@@ -515,13 +527,14 @@ stages:
                     targetType: inline
                     script: |
                       export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
-                      HTTP_CODE=$(curl --show-error --silent --remote-name \
+                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
+                      echo "Download ${uri}"
+                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
                         --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' \
-                        --location https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh
+                        --header 'Accept: application/vnd.github.raw' "${uri}"
                       )
-                      if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-                        echo "##[error]Unable to get ${SCRIPT} script! Response code: ${HTTP_CODE}"
+                      if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+                        echo "##[error]Unable to get ${SCRIPT}! Response code: ${HTTP_CODE}"
                         exit 1
                       fi
                       chmod +x ${SCRIPT}.sh

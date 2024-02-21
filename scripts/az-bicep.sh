@@ -18,7 +18,11 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  echo "${msg}"
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]${msg}"
+  else
+    echo "::error::${msg}"
+  fi
   log_output "${4}" "${msg}" "${3}"
   exit "${1}"
 }
@@ -72,8 +76,20 @@ else
   out_file_extension='json'
 fi
 if [[ $IN_TEMPLATE == http* ]]; then
-  echo "Download ${IN_TEMPLATE}"
-  curl -o "${IN_TEMPLATE##*/}" -sSL "${IN_TEMPLATE}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+  file="${IN_TEMPLATE##*/}"
+  uri="${IN_TEMPLATE}"
+  echo "Download ${uri}"
+  HTTP_CODE=$(curl -sSL --retry 4 --output "${file}" \
+    --write-out "%{response_code}" "${uri}"
+  )
+  if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+    if [ -n "${TF_BUILD-}" ]; then
+      echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
+    else
+      echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
+    fi
+    exit 1
+  fi
   IN_TEMPLATE="${IN_TEMPLATE##*/}"
 fi
 if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then

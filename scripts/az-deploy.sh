@@ -18,7 +18,11 @@ error() {
   local msg
   msg="Error on or near line $(("${2}" + 1)) (exit code ${1})"
   msg+=" in ${LOG_NAME/_/ } at $(date '+%Y-%m-%d %H:%M:%S')"
-  echo "${msg}"
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]${msg}"
+  else
+    echo "::error::${msg}"
+  fi
   log_output "${4}" "${msg}" "${3}"
   exit "${1}"
 }
@@ -129,19 +133,41 @@ else
   echo "::group::${LOG_NAME}"
 fi
 if [[ $IN_TEMPLATE == http* ]]; then
-  if ! test -f "${IN_TEMPLATE##*/}"; then
-    echo "Run: curl -o ${IN_TEMPLATE##*/} -sSL ${IN_TEMPLATE}"
-    curl -o "${IN_TEMPLATE##*/}" -sSL "${IN_TEMPLATE}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+  file="${IN_TEMPLATE##*/}"
+  if ! test -f "${file}"; then
+    echo "Download ${IN_TEMPLATE}"
+    HTTP_CODE=$(curl -sSL --retry 4 --output "${file}" \
+      --write-out "%{response_code}" "${IN_TEMPLATE}"
+    )
+    if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+      if [ -n "${TF_BUILD-}" ]; then
+        echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
+      else
+        echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
+      fi
+      exit 1
+    fi
   fi
-  IN_TEMPLATE="${IN_TEMPLATE##*/}"
+  IN_TEMPLATE="${file}"
 fi
 if [[ $IN_TEMPLATE_PARAMS == http* ]]; then
-  file="${IN_TEMPLATE_PARAMS%% *}"
-  if ! test -f "${file##*/}"; then
-    echo "Run: curl -o ${file##*/} -sSL ${file}"
-    curl -o "${file##*/}" -sSL "${file}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+  uri="${IN_TEMPLATE_PARAMS%% *}"
+  file="${file##*/}"
+  if ! test -f "${file}"; then
+    echo "Download ${IN_TEMPLATE_PARAMS}"
+    HTTP_CODE=$(curl -sSL --retry 4 --output "${file}" \
+      --write-out "%{response_code}" "${uri}"
+    )
+    if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+      if [ -n "${TF_BUILD-}" ]; then
+        echo "##[error]Unable to get ${file}! Response code: ${HTTP_CODE}"
+      else
+        echo "::error::Unable to get ${file}! Response code: ${HTTP_CODE}"
+      fi
+      exit 1
+    fi
   fi
-  IN_TEMPLATE_PARAMS="${IN_TEMPLATE_PARAMS/${file}/${file##*/}}"
+  IN_TEMPLATE_PARAMS="${file}"
 fi
 cmd="az deployment ${IN_SCOPE} ${SCRIPT_ACTION} --name ${LOG_NAME}_${RUN_ID}"
 if [[ $IN_TEMPLATE == http* ]]; then

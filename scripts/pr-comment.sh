@@ -69,17 +69,20 @@ else
   echo "${output}" >> "$GITHUB_STEP_SUMMARY"
   data=$(jq --arg body "${output}" '.body = $body' <<< '{"body": ""}')
 fi
-HTTP_CODE=$(curl --request POST \
-  --write-out "%{response_code}" \
+HTTP_CODE=$(curl --request POST --data "${data}" \
+  --write-out "%{response_code}" --silent --retry 4 \
   --header 'Accept: application/json' \
   --header "Authorization: Bearer ${TOKEN}" \
   --header 'Content-Type: application/json' \
-  --data "${data}" \
-  --url "${COMMENTS_URL// /%20}" \
-  --output "${LOG_PATH}/comment.log" --silent
+  --output "${LOG_PATH}/comment.log" \
+  --url "${COMMENTS_URL// /%20}"
 )
-if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]]; then
-  echo "Unable to create comment! Response code: ${HTTP_CODE}"
+if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+  if [ -n "${TF_BUILD-}" ]; then
+    echo "##[error]Unable to create comment! Response code: ${HTTP_CODE}}"
+  else
+    echo "::error::Unable to create comment! Response code: ${HTTP_CODE}"
+  fi
   if test -f "${LOG_PATH}/comment.log"; then
     cat "${LOG_PATH}/comment.log"
   fi
