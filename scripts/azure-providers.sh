@@ -56,7 +56,7 @@ if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 IFS=',' read -ra provider_list <<< "${IN_PROVIDERS}"
-providers=$(printf '%s\n' "${provider_list[@]}" | sort -u)
+IFS=',' read -ra providers <<< "$(printf '%s\n' "${provider_list[@]}" | sort -u | tr '\n' ',')"
 declare -a checkProviders=()
 case "${IN_SEVERITY}" in
   ERROR)   log_severity=' --only-show-errors';;
@@ -68,11 +68,8 @@ if test -n "${TF_BUILD-}"; then
   az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 fi
 echo 'Check resource providers...'
-registered_list=()
 checkProviders=()
-while IFS='' read -r line; do
-  registered_list+=("${line}")
-done < <(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv "${log_severity}")
+IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv "${log_severity}")" | tr '\n' ',')"
 if test -z "${registered_list[*]}"; then
   echo 'Could not find any registered providers!' | tee -a "${log}"
   registered=''
