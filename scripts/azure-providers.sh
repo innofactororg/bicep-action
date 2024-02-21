@@ -72,17 +72,16 @@ if test -n "${TF_BUILD-}"; then
 fi
 echo 'Check resource providers...'
 checkProviders=()
-cmd="az provider list --query [?registrationState=='Registered'].namespace"
-cmd+=" ${out_option}"
-echo "Run: ${cmd}"
-IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2))" | tr '\n' ',')"
-if test -z "${registered_list[*]}"; then
-  echo 'Could not find any registered providers!' | tee -a "${log}"
-  registered=''
-else
+registered=''
+echo "Run: az provider list --query \"[?registrationState=='Registered'].namespace\" -o tsv"
+registered_result=$(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv)
+if test -n "${registered_result}"; then
+  IFS=',' read -ra registered_list <<< "$(echo "${registered_result}" | tr '\n' ',')"
   echo 'Currently registered:' | tee -a "${log}"
   printf '%s\n' "${registered_list[@]}" | sort | tee -a "${log}"
   registered=$(echo "${registered_list[*]}" | tr '[:upper:]' '[:lower:]')
+else
+  echo 'Could not find any registered providers!' | tee -a "${log}"
 fi
 for provider in "${providers[@]}"; do
   value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
