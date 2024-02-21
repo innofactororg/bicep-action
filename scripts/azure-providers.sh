@@ -69,7 +69,7 @@ if test -n "${TF_BUILD-}"; then
 fi
 echo 'Check resource providers...'
 checkProviders=()
-IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv "${log_severity}")" | tr '\n' ',')"
+IFS=',' read -ra registered_list <<< "$(printf '%s\n' "$(az provider list --query "[?registrationState=='Registered'].namespace" -o tsv${log_severity})" | tr '\n' ',')"
 if test -z "${registered_list[*]}"; then
   echo 'Could not find any registered providers!' | tee -a "${log}"
   registered=''
