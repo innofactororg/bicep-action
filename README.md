@@ -248,6 +248,8 @@ with:
 
   The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
 
+  To skip cost estimator, use an empty value: **""**
+
   Default: **"1.4"**
 
 ### Usage

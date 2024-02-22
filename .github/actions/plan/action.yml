@@ -216,7 +216,7 @@ runs:
       run: psrule-report.sh
 
     - name: Cost estimate
-      if: steps.bicep_build.outputs.file != ''
+      if: steps.bicep_build.outputs.file != '' && inputs.version_ace_tool != ''
       env:
         IN_CURRENCY: ${{ inputs.currency }}
         IN_LOCATION: ${{ inputs.location }}
