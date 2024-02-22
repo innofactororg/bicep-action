@@ -130,7 +130,7 @@ runs:
 
     - name: Bicep build-params
       id: bicep_build_params
-      if: inputs.parameters != ''
+      if: inputs.template_parameters != ''
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template_parameters }}
