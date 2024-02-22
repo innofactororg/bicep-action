@@ -207,6 +207,11 @@ runs:
           inputs.log_severity != 'ERROR'
         ) || failure()
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
+      env:
+        IN_PROVIDERS: ${{ inputs.azure_providers }}
+        IN_WAIT_COUNT: ${{ inputs.azure_provider_wait_count }}
+        IN_WAIT_SECONDS: ${{ inputs.azure_provider_wait_seconds }}
+        IN_AUTO_MERGE: ${{ inputs.auto_merge }}
       with:
         github-token: ${{ inputs.token }}
         script: |

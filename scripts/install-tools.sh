@@ -38,7 +38,7 @@ log_output() {
 az_version=$(az version | jq -r '."azure-cli"')
 echo "Azure CLI ${az_version} with extensions:" | tee -a "${log}"
 az version --query extensions -o yaml | tee -a "${log}"
-if [[ $IN_TEMPLATE == *.bicep ]]; then
+if [[ "${IN_TEMPLATE}" == *'.bicep' ]]; then
   az config set bicep.use_binary_from_path=False >/dev/null 2>&1
   cmd="az bicep install"
   case "${IN_SEVERITY}" in

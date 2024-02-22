@@ -8,7 +8,7 @@ if ! test -f "${OPTION}"; then
   missing="Unable to find rule_option file ${OPTION}"
 else
   echo "Use PSRule config at ${OPTION}"
-  if test -n "${TEMPLATE_FILE}" && [[ $TEMPLATE_PARAMS_FILE == *.parameters.json ]]; then
+  if test -n "${TEMPLATE_FILE}" && [[ "${TEMPLATE_PARAMS_FILE}" == *'.parameters.json' ]]; then
     file=$TEMPLATE_PARAMS_FILE
     t=$(basename "${TEMPLATE_FILE}")
     p=$(basename "${file}")

@@ -130,7 +130,7 @@ runs:
 
     - name: Bicep build-params
       id: bicep_build_params
-      if: inputs.parameters != ''
+      if: inputs.template_parameters != ''
       env:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template_parameters }}
@@ -274,6 +274,27 @@ runs:
           inputs.log_severity != 'ERROR'
         ) || failure()
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
+      env:
+        CLIENT_ID: ${{ inputs.azure_client_id }}
+        CLIENT_SECRET: ${{ inputs.azure_client_secret }}
+        IN_CURRENCY: ${{ inputs.currency }}
+        IN_LOCATION: ${{ inputs.location }}
+        IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
+        IN_PROVIDERS: ${{ inputs.azure_providers }}
+        IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
+        IN_SCOPE: ${{ inputs.scope }}
+        IN_SEVERITY: ${{ inputs.log_severity }}
+        IN_SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        IN_RULE_OPTION: ${{ inputs.rule_option }}
+        IN_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
+        IN_THRESHOLD: ${{ inputs.cost_threshold }}
+        IN_VERSION_ACE: ${{ inputs.version_ace_tool }}
+        OUT_PROVIDERS: ${{ steps.validate.outputs.providers }}
+        RULE_CONFIG_ERROR: ${{ steps.psrule_config.outputs.error }}
+        TEMPLATE_FILE: ${{ steps.bicep_build.outputs.file }}
+        TEMPLATE_PARAMS_FILE: ${{ steps.bicep_build_params.outputs.file }}
       with:
         github-token: ${{ inputs.token }}
         script: |

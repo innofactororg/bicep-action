@@ -72,7 +72,7 @@ else
   src_file_extension='bicep'
   out_file_extension='json'
 fi
-if [[ $IN_TEMPLATE == http* ]]; then
+if [[ "${IN_TEMPLATE}" == 'http'* ]]; then
   file="${IN_TEMPLATE##*/}"
   uri="${IN_TEMPLATE}"
   echo "Download ${uri}"
@@ -89,7 +89,7 @@ if [[ $IN_TEMPLATE == http* ]]; then
   fi
   IN_TEMPLATE="${IN_TEMPLATE##*/}"
 fi
-if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
+if [[ "${IN_TEMPLATE}" == *".${src_file_extension}" ]]; then
   out_file=$(readlink -f "${IN_TEMPLATE/.${src_file_extension}/.${out_file_extension}}")
   echo "Set output: file='${out_file}'"
   if test -n "${TF_BUILD-}"; then
@@ -109,6 +109,15 @@ if [[ $IN_TEMPLATE == *.${src_file_extension} ]]; then
     cp "${out_file}" "${LOG_PATH}/"
   fi
 else
+  if [[ "${IN_TEMPLATE}" == *".${out_file_extension}" ]]; then
+    out_file=$(readlink -f "${IN_TEMPLATE}")
+    echo "Set output: file='${out_file}'"
+    if test -n "${TF_BUILD-}"; then
+      echo "##vso[task.setvariable variable=file;isoutput=true]${out_file}"
+    else
+      echo "file=${out_file}" >> "$GITHUB_OUTPUT"
+    fi
+  fi
   echo "Skip bicep ${SCRIPT_ACTION}, not a ${src_file_extension} file: ${IN_TEMPLATE}"
 fi
 log_output "${log}" '' ''
