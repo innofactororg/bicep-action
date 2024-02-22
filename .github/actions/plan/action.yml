@@ -142,6 +142,7 @@ runs:
       run: az-bicep.sh build-params
 
     - name: Validate
+      id: validate
       env:
         IN_LOCATION: ${{ inputs.location }}
         IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
