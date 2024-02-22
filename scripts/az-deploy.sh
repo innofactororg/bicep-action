@@ -129,7 +129,7 @@ log_output() {
 if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
-if [[ $IN_TEMPLATE == http* ]]; then
+if [[ "${IN_TEMPLATE}" == 'http'* ]]; then
   file="${IN_TEMPLATE##*/}"
   if ! test -f "${file}"; then
     echo "Download ${IN_TEMPLATE}"
@@ -147,7 +147,7 @@ if [[ $IN_TEMPLATE == http* ]]; then
   fi
   IN_TEMPLATE="${file}"
 fi
-if [[ $IN_TEMPLATE_PARAMS == http* ]]; then
+if [[ "${IN_TEMPLATE_PARAMS}" == 'http'* ]]; then
   uri="${IN_TEMPLATE_PARAMS%% *}"
   file="${file##*/}"
   if ! test -f "${file}"; then
@@ -167,9 +167,9 @@ if [[ $IN_TEMPLATE_PARAMS == http* ]]; then
   IN_TEMPLATE_PARAMS="${file}"
 fi
 cmd="az deployment ${IN_SCOPE} ${SCRIPT_ACTION} --name ${LOG_NAME}_${RUN_ID}"
-if [[ $IN_TEMPLATE == http* ]]; then
+if [[ "${IN_TEMPLATE}" == 'http'* ]]; then
   cmd+=" --template-uri ${IN_TEMPLATE}"
-elif [[ $IN_TEMPLATE == /subscriptions/* ]]; then
+elif [[ "${IN_TEMPLATE}" == '/subscriptions/'* ]]; then
   cmd+=" --template-spec ${IN_TEMPLATE}"
 else
   cmd+=" --template-file ${IN_TEMPLATE}"
