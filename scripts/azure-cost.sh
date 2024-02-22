@@ -140,7 +140,7 @@ case "${IN_SCOPE}" in
   sub)    cmd+=" ${IN_SCOPE} ${TEMPLATE_FILE} ${SUBSCRIPTION_ID} ${IN_LOCATION}";;
   group)  cmd+=" ${TEMPLATE_FILE} ${SUBSCRIPTION_ID} ${IN_RESOURCE_GROUP}";;
 esac
-if [[ "${TEMPLATE_PARAMS_FILE}" == *.parameters.json ]]; then
+if [[ "${TEMPLATE_PARAMS_FILE}" == *'.parameters.json' ]]; then
   cmd+=" --parameters ${TEMPLATE_PARAMS_FILE}"
 fi
 if [[ "${IN_TEMPLATE_PARAMS}" == *'='* ]]; then
