@@ -179,6 +179,8 @@ with:
 
   The workflow will try to register the specified providers in addition to the providers that is detected in code by deployment validate.
 
+  Use the value **"disable"** to prevent the workflow from trying to register Azure resource providers.
+
   Default: **""**
 
 - **azure_provider_wait_count**: Times to check provider status before giving up.

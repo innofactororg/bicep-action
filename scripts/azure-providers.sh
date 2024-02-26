@@ -84,7 +84,7 @@ else
 fi
 for provider in "${providers[@]}"; do
   value=$(echo " ${provider} " | tr '[:upper:]' '[:lower:]')
-  if [[ ! " ${registered} " =~ ${value} ]]; then
+  if [[ ! " ${registered} " =~ ${value} ]] && test -n "${provider}"; then
     echo "Register ${provider}..." | tee -a "${log}"
     cmd='az provider register --namespace'
     cmd+=" ${provider}"

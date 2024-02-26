@@ -91,7 +91,7 @@ if [[ "${IN_TEMPLATE}" == 'http'* ]]; then
 fi
 if [[ "${IN_TEMPLATE}" == *".${src_file_extension}" ]]; then
   out_file=$(readlink -f "${IN_TEMPLATE/.${src_file_extension}/.${out_file_extension}}")
-  echo "Set output: file='${out_file}'"
+  echo "Set output file='${out_file}'"
   if test -n "${TF_BUILD-}"; then
     echo "##vso[task.setvariable variable=file;isoutput=true]${out_file}"
   else
@@ -111,7 +111,7 @@ if [[ "${IN_TEMPLATE}" == *".${src_file_extension}" ]]; then
 else
   if [[ "${IN_TEMPLATE}" == *".${out_file_extension}" ]]; then
     out_file=$(readlink -f "${IN_TEMPLATE}")
-    echo "Set output: file='${out_file}'"
+    echo "Set output file='${out_file}'"
     if test -n "${TF_BUILD-}"; then
       echo "##vso[task.setvariable variable=file;isoutput=true]${out_file}"
     else

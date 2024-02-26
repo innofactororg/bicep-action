@@ -22,6 +22,21 @@ body:
       description: What happened?
     validations:
       required: true
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: What version of bicep-action are you running?
+      multiple: false
+      options:
+        - v1.0.4
+        - v1.0.3
+        - v1.0.2
+        - v1.0.1
+        - v1.0.0
+      default: 0
+    validations:
+      required: true
   - type: textarea
     id: steps
     attributes:
