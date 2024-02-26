@@ -110,6 +110,8 @@ If the environment is configured with **Approvers**, the job will require manual
 
   The pipeline create job will try to register the specified providers in addition to the providers that is detected in code by deployment validate.
 
+  Use the value **"disable"** to prevent the pipeline from trying to register Azure resource providers.
+
 - **AZURE_PROVIDER_WAIT_SECONDS**: Seconds to wait between each provider status check.
 
 - **AZURE_PROVIDER_WAIT_COUNT**: Times to check provider status before giving up.

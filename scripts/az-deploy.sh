@@ -116,9 +116,17 @@ log_output() {
       echo "Resource providers discovered by ${LOG_NAME}:"
       echo "${from_code}"
     fi
-    local list
-    list=$(echo "${IN_PROVIDERS},${from_code}" | xargs)
-    echo "Set output: providers='${list}'"
+    local list=''
+    if [ "$(echo "${IN_PROVIDERS}" | tr '[:upper:]' '[:lower:]')" = 'disable' ]; then
+      list=''
+    elif test -n "${IN_PROVIDERS}" && test -n "${from_code}"; then
+      list="${IN_PROVIDERS},${from_code}"
+    elif test -n "${IN_PROVIDERS}"; then
+      list=$IN_PROVIDERS
+    elif test -n "${from_code}"; then
+      list=$from_code
+    fi
+    echo "Set output providers='${list}'"
     if test -n "${TF_BUILD-}"; then
       echo "##vso[task.setvariable variable=providers;isOutput=true]${list}"
     else
