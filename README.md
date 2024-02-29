@@ -300,9 +300,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          persist-credentials: false
 
       - name: Plan
         id: plan
@@ -334,9 +331,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          fetch-depth: 1
 
       - name: Deploy
         id: deploy
