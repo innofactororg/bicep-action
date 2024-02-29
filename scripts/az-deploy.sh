@@ -111,7 +111,7 @@ log_output() {
     if [[ "${json_object}" == '{'* ]]; then
       from_code=$(
         echo "${json_object}" | \
-          jq '.properties.providers | map(.namespace) | join(",")'
+          jq -r '.properties.providers | map(.namespace) | join(",")'
       )
       echo "Resource providers discovered by ${LOG_NAME}:"
       echo "${from_code}"
