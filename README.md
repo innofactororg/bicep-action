@@ -232,7 +232,7 @@ with:
 
   Default: **Az.Resources,PSRule.Rules.Azure**
 
-- **rule_option**: The path to an options file.
+- **rule_option**: The path to an options file. If empty, PSRule will be skipped.
 
   For example: `bicep/pattern1/ps-rule.prod.yaml`
 
@@ -246,11 +246,9 @@ with:
 
   Default: **""**
 
-- **version_ace_tool**: Azure Cost Estimator version.
+- **version_ace_tool**: Azure Cost Estimator version. If empty, cost estimator will be skipped.
 
-  The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
-
-  To skip cost estimator, use an empty value: **""**
+  See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
 
   Default: **"1.4"**
 

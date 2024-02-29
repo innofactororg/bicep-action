@@ -65,7 +65,7 @@ HTTP_CODE=$(curl --request POST --data "${data}" \
   --output "${LOG_PATH}/comment.log" \
   --url "${COMMENTS_URL// /%20}"
 )
-if [[ "${HTTP_CODE}" -lt 200 || "${HTTP_CODE}" -gt 299 ]]; then
+if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
   if test -n "${TF_BUILD-}"; then
     echo "##[error]Unable to create comment! Response code: ${HTTP_CODE}}"
   else

@@ -141,7 +141,7 @@ If the environment is configured with **Approvers**, the job will require manual
 
 - **RULE_MODULES**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
 
-- **RULE_OPTION**: The path to an options file.
+- **RULE_OPTION**: The path to an options file. If empty, PSRule will be skipped.
 
 - **SCOPE**: The deployment scope. Accepted: tenant, mg, sub, group.
 
@@ -151,7 +151,7 @@ If the environment is configured with **Approvers**, the job will require manual
 
 - **TEMPLATE_PARAMETERS**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
 
-- **VERSION_ACE_TOOL**: Azure Cost Estimator version. The version to use for cost estimation. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>
+- **VERSION_ACE_TOOL**: Azure Cost Estimator version. If empty, cost estimator will be skipped. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
 
 - **WORKFLOW_VERSION**: The version of the bicep-action scripts to use. See <https://github.com/innofactororg/bicep-action/tags>.
 
