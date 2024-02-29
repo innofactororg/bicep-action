@@ -47,7 +47,9 @@ To set up a bicep deploy workflow, several prerequisite steps are required:
 
 To allow pull requests to merge automatically once all required reviews and status checks have passed, enable **"Allow auto-merge"** in the repository settings under **"General"**.
 
-For auto merge to work as intended, [branch protection](#branch-protection) must be configured.
+To clean up the head branch after merge, enable **"Automatically delete head branches"** on the same page.
+
+For auto merge to work as intended, enable [branch protection](#branch-protection).
 
 ### Branch protection
 
