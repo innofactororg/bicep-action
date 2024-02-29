@@ -259,7 +259,7 @@ name: Azure Deploy
 on:
   pull_request:
     branches: [main]
-    paths: ["bicep/**.bicep*"]
+    paths: ["**.bicep*"] # for multiple workflows, limit to a path: "ptn/avd/**.bicep*"
     types: [opened, synchronize]
 
 concurrency:
@@ -282,8 +282,8 @@ env:
   log_severity: INFO
   rule_option: ps-rule.yaml
   scope: sub
-  template: bicep/pattern1/main.bicep
-  template_parameters: bicep/pattern1/main.bicepparam
+  template: main.bicep
+  template_parameters: main.bicepparam # parameters can be passed inline too, like this: namePrefix=t serviceShort=tstsp3
 
 jobs:
   plan:
