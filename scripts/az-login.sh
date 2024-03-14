@@ -62,8 +62,8 @@ case "${IN_SEVERITY}" in
   *)       log_severity='';;
 esac
 cmd="az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID}"
-if test -n "${CLIENT_SECRET}"; then
-  cmd+=" -p ${CLIENT_SECRET}"
+if test -n "${CLIENT_SECRET//[$'\t\r\n']}"; then
+  cmd+=" -p ${CLIENT_SECRET//[$'\t\r\n']}"
 else
   HTTP_CODE=$(curl -sSL --retry 4 --output token.txt \
     --write-out "%{response_code}" \
