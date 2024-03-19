@@ -286,6 +286,7 @@ env:
   scope: sub
   template: main.bicep
   template_parameters: main.bicepparam # parameters can be passed inline too, like this: namePrefix=t serviceShort=tstsp3
+  version_ace_tool: "1.4"
 
 jobs:
   plan:
@@ -318,6 +319,7 @@ jobs:
           scope: ${{ env.scope }}
           template: ${{ env.template }}
           template_parameters: ${{ env.template_parameters }}
+          version_ace_tool: ${{ env.version_ace_tool }}
 
   deploy:
     name: 🏃 Deploy
