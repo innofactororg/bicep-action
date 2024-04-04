@@ -104,6 +104,10 @@ It targets a specific [environment](#get-started).
 
 If the environment is configured with **Approvers**, the job will require manual approval.
 
+### Variable Group
+
+When using the Variable Group version of the pipeline, make sure the pipeline has permissions to get the values, and use the same variables described next.
+
 ### Variables
 
 - **AZURE_PROVIDERS**: A comma separated list of Azure resource providers.
