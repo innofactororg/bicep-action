@@ -66,6 +66,10 @@ inputs:
     description: "GitHub token used to comment on pull request and to enable auto-merge."
     required: false
     default: ${{ github.token }}
+  artifact_identifier:
+    description: "Unique identifier added to artifact names in case of multiple runs within one workflow."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -237,5 +241,5 @@ runs:
       uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb #v4.3.1 + 3 commits
       with:
         if-no-files-found: ignore
-        name: deploy_logs
+        name: "deploy_logs${{ inputs.artifact_identifier != '' && format('{0}{1}', '_', inputs.artifact_identifier) || '' }}"
         path: ${{ runner.workspace }}/logs/

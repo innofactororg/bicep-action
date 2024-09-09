@@ -78,6 +78,10 @@ inputs:
     description: "Azure Cost Estimator version."
     required: false
     default: "1.4"
+  artifact_identifier:
+    description: "Unique identifier added to artifact names in case of multiple runs within one workflow."
+    required: false
+    default: ""
 outputs:
   providers:
     description: The Azure resource providers that should be registered.
@@ -321,5 +325,5 @@ runs:
       uses: actions/upload-artifact@ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb #v4.3.1 + 3 commits
       with:
         if-no-files-found: ignore
-        name: plan_logs
+        name: "plan_logs${{ inputs.artifact_identifier != '' && format('{0}{1}', '_', inputs.artifact_identifier) || '' }}"
         path: ${{ runner.workspace }}/logs/
