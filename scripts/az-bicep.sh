@@ -65,6 +65,7 @@ if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 if [ "${SCRIPT_ACTION}" = 'build-params' ]; then
+  IN_TEMPLATE="${IN_TEMPLATE_PARAMS:=${IN_TEMPLATE}}"
   IN_TEMPLATE="${IN_TEMPLATE%% *}"
   src_file_extension='bicepparam'
   out_file_extension='parameters.json'
