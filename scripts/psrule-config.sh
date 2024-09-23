@@ -4,6 +4,7 @@
 #
 set -e
 missing=''
+OPTION="${RULE_OPTION:=${OPTION}}"
 if ! test -f "${OPTION}"; then
   missing="Unable to find rule_option file ${OPTION}"
 else
