@@ -75,11 +75,11 @@ log_output() {
     elif [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
       txt="Estimated cost increase is +${total} ${currency}!"
     fi
-    if [[ "${THRESHOLD}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
+    if [[ "${COST_THRESHOLD:=${THRESHOLD}}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
       [[ "${total}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && \
-      [ "$(echo "${total} > ${THRESHOLD}" | bc -l)" -eq 1 ]
+      [ "$(echo "${total} > ${COST_THRESHOLD:=${THRESHOLD}}" | bc -l)" -eq 1 ]
     then
-      over="Total estimated cost exceeds ${THRESHOLD} ${currency}❗"
+      over="Total estimated cost exceeds ${COST_THRESHOLD:=${THRESHOLD}} ${currency}❗"
       txt+="\n\n${over}"
     fi
     output+="\n\n${txt}"
@@ -154,6 +154,7 @@ fi
 cmd+=" --currency ${IN_CURRENCY}"
 cmd+=' --disable-cache --generateJsonOutput'
 cmd+=" --jsonOutputFilename ${LOG_NAME}"
+# test out --generate-markdown-output --markdown-output-filename in v5
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 log_output "${log}" '' ''
