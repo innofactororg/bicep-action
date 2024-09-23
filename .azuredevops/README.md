@@ -106,40 +106,60 @@ If the environment is configured with **Approvers**, the job will require manual
 
 ### Variable Group
 
-When using the Variable Group version of the pipeline, make sure the pipeline has permissions to get the values, and use the same variables described next.
+When using a variable group, make sure the pipeline has permissions to get the values.
+
+Update the [pipeline](ms.azure.deploy.yml) and replace the `variables:` with section to only include the name of the variable group, for example:
+
+```yaml
+trigger: none
+pr:
+  autoCancel: true
+  drafts: false
+
+name: Azure Deploy
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: PROD_GROUP
+
+stages:
+  - stage: Plan
+```
 
 ### Variables
 
-- **AZURE_PROVIDERS**: A comma separated list of Azure resource providers.
+- **COST_THRESHOLD**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
+
+- **ENVIRONMENT**: Name of the [environment](#get-started) to use for the [deploy job](#deploy-job).
+
+- **IN_CURRENCY**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
+
+- **IN_LOCATION**: The Azure location to store the deployment metadata.
+
+- **IN_MANAGEMENT_GROUP**: Management group to create deployment at for mg scope.
+
+- **IN_PROVIDERS**: A comma separated list of Azure resource providers.
 
   The pipeline create job will try to register the specified providers in addition to the providers that is detected in code by deployment validate.
 
   Use the value **"disable"** to prevent the pipeline from trying to register Azure resource providers.
 
-- **AZURE_PROVIDER_WAIT_SECONDS**: Seconds to wait between each provider status check.
+- **IN_RESOURCE_GROUP**: Resource group to create deployment at for group scope.
 
-- **AZURE_PROVIDER_WAIT_COUNT**: Times to check provider status before giving up.
+- **IN_TEMPLATE**: The template address. A path or URI to a file or a template spec resource id.
 
-- **AZURE_SUBSCRIPTION_ID**: The subscription ID in which to deploy the resources.
+- **IN_TEMPLATE_PARAMS**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
 
-- **COST_THRESHOLD**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
+- **IN_SCOPE**: The deployment scope. Accepted: tenant, mg, sub, group.
 
-- **CURRENCY**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
-
-- **ENVIRONMENT**: Name of the [environment](#get-started) to use for the [deploy job](#deploy-job).
-
-- **LOCATION**: The Azure location to store the deployment metadata.
-
-- **LOG_SEVERITY**: The log verbosity. Can be one of:
+- **IN_SEVERITY**: The log verbosity. Can be one of:
 
   - ERROR - Only show errors, suppressing warnings.
   - INFO - Standard log level.
   - VERBOSE - Increase logging verbosity.
   - DEBUG - Show all debug logs.
-
-- **MANAGEMENT_GROUP**: Management group to create deployment at for mg scope.
-
-- **RESOURCE_GROUP**: Resource group to create deployment at for group scope.
 
 - **RULE_BASELINE**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
 
@@ -147,15 +167,15 @@ When using the Variable Group version of the pipeline, make sure the pipeline ha
 
 - **RULE_OPTION**: The path to an options file. If empty, PSRule will be skipped.
 
-- **SCOPE**: The deployment scope. Accepted: tenant, mg, sub, group.
-
 - **SERVICE_CONNECTION**: The Azure Resource Manager service connection name.
 
-- **TEMPLATE**: The template address. A path or URI to a file or a template spec resource id.
+- **SUBSCRIPTION_ID**: The subscription ID in which to deploy the resources.
 
-- **TEMPLATE_PARAMETERS**: Deployment parameter values. Either a path, URI, JSON string, or `<KEY=VALUE>` pairs.
+- **VERSION_ACE**: Azure Cost Estimator version. If empty, cost estimator will be skipped. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
 
-- **VERSION_ACE_TOOL**: Azure Cost Estimator version. If empty, cost estimator will be skipped. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
+- **WAIT_SECONDS**: Seconds to wait between each provider status check.
+
+- **WAIT_COUNT**: Times to check provider status before giving up.
 
 - **WORKFLOW_VERSION**: The version of the bicep-action scripts to use. See <https://github.com/innofactororg/bicep-action/tags>.
 

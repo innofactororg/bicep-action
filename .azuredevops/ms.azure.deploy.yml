@@ -5,33 +5,38 @@ pr:
 
 name: Azure Deploy
 
+pool:
+  vmImage: ubuntu-latest
+
 variables:
-  AZURE_PROVIDERS: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
-  AZURE_PROVIDER_WAIT_SECONDS: 10
-  AZURE_PROVIDER_WAIT_COUNT: 30
-  AZURE_SUBSCRIPTION_ID: d0d0d0d0-ed29-4694-ac26-2e358c364506
+  #- group: NAME_OF_VARIABLE_GROUP
   COST_THRESHOLD: -1
-  CURRENCY: EUR
   ENVIRONMENT: production
-  LOCATION: westeurope
-  LOG_SEVERITY: INFO
-  MANAGEMENT_GROUP:
-  RESOURCE_GROUP:
+  IN_CURRENCY: EUR
+  IN_LOCATION: westeurope
+  IN_MANAGEMENT_GROUP:
+  IN_PROVIDERS: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
+  IN_RESOURCE_GROUP:
+  IN_SCOPE: sub
+  IN_SEVERITY: INFO
+  IN_TEMPLATE: main.bicep
+  IN_TEMPLATE_PARAMS: main.bicepparam
   RULE_BASELINE: Azure.Default
   RULE_MODULES: Az.Resources,PSRule.Rules.Azure
   RULE_OPTION: ps-rule.yaml
-  SCOPE: sub
-  SERVICE_CONNECTION: ifsandboxvdc01_arm_connection
-  TEMPLATE: main.bicep
-  TEMPLATE_PARAMETERS: main.bicepparam
-  VERSION_ACE_TOOL: 1.4
+  SERVICE_CONNECTION: prod_arm_connection
+  SUBSCRIPTION_ID: d0d0d0d0-ed29-4694-ac26-2e358c364506
+  VERSION_ACE: 1.4
+  WAIT_COUNT: 30
+  WAIT_SECONDS: 10
   WORKFLOW_VERSION: v1
-
-pool:
-  vmImage: ubuntu-22.04
 
 stages:
   - stage: Plan
+    variables:
+      LOG_PATH: $(Pipeline.Workspace)/logs
+      RUN_ID: $(Build.BuildId)
+      SOURCE_PATH: $(Build.SourcesDirectory)
     jobs:
       - job: plan
         displayName: Plan deployment
@@ -44,205 +49,106 @@ stages:
           - task: AzureCLI@2
             displayName: Install tools
             env:
-              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-              IN_TEMPLATE: ${{ variables.TEMPLATE }}
               LOG_NAME: install_tools
               LOG_ORDER: b1
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              SCRIPT: install-tools
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
-              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+              azureSubscription: $(SERVICE_CONNECTION)
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
+                declare -a SCRIPTS=(
+                  "az-bicep"
+                  "az-deploy"
+                  "azure-cost"
+                  "install-tools"
+                  "pr-comment"
+                  "psrule-config"
+                  "psrule-report"
                 )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh
+                for SCRIPT in "${SCRIPTS[@]}"; do
+                  uri="https://github.com/innofactororg/bicep-action/raw/${WORKFLOW_VERSION}/scripts/${SCRIPT}.sh"
+                  HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
+                    --write-out "%{response_code}" \
+                    --header 'Accept: application/vnd.github.raw' "${uri}"
+                  )
+                  if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+                    echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
+                    exit 1
+                  fi
+                  chmod +x "${SCRIPT}.sh"
+                done
+                ./install-tools.sh
 
           - task: AzureCLI@2
-            condition: and(succeeded(), not(startsWith(variables['TEMPLATE'], '/subscriptions/')))
+            condition: and(succeeded(), not(startsWith(variables['IN_TEMPLATE'], '/subscriptions/')))
             displayName: Bicep build
             env:
-              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-              IN_TEMPLATE: ${{ variables.TEMPLATE }}
               LOG_NAME: bicep_build
               LOG_ORDER: b3
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              SCRIPT: az-bicep
-              SOURCE_PATH: $(Build.SourcesDirectory)
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             name: bicep_build
             inputs:
-              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+              azureSubscription: $(SERVICE_CONNECTION)
               scriptLocation: inlineScript
               scriptType: bash
-              inlineScript: |
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh build
+              inlineScript: ./az-bicep.sh build
 
           - task: AzureCLI@2
-            condition: and(succeeded(), not(eq(variables['TEMPLATE_PARAMETERS'], '')))
+            condition: and(succeeded(), not(eq(variables['IN_TEMPLATE_PARAMS'], '')))
             displayName: Bicep build params
             env:
-              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-              IN_TEMPLATE: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: bicep_build_params
               LOG_ORDER: b4
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              SCRIPT: az-bicep
-              SOURCE_PATH: $(Build.SourcesDirectory)
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             name: bicep_build_params
             inputs:
-              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+              azureSubscription: $(SERVICE_CONNECTION)
               scriptType: bash
               scriptLocation: inlineScript
-              inlineScript: |
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh build-params
+              inlineScript: ./az-bicep.sh build-params
 
           - task: AzureCLI@2
             displayName: Validate
             env:
-              IN_LOCATION: ${{ variables.LOCATION }}
-              IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
-              IN_PROVIDERS: ${{ variables.AZURE_PROVIDERS }}
-              IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
-              IN_SCOPE: ${{ variables.SCOPE }}
-              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-              IN_TEMPLATE: ${{ variables.TEMPLATE }}
-              IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: validate
               LOG_ORDER: b5
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              RUN_ID: $(Build.BuildId)
-              SCRIPT: az-deploy
-              SOURCE_PATH: $(Build.SourcesDirectory)
-              SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             name: validate
             inputs:
-              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+              azureSubscription: $(SERVICE_CONNECTION)
               scriptType: bash
               scriptLocation: inlineScript
-              inlineScript: |
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh validate
+              inlineScript: ./az-deploy.sh validate
 
           - task: AzureCLI@2
             displayName: What-if
             env:
-              IN_LOCATION: ${{ variables.LOCATION }}
-              IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
-              IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
-              IN_SCOPE: ${{ variables.SCOPE }}
-              IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-              IN_TEMPLATE: ${{ variables.TEMPLATE }}
-              IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: what-if
               LOG_ORDER: a1
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              RUN_ID: $(Build.BuildId)
-              SCRIPT: az-deploy
-              SOURCE_PATH: $(Build.SourcesDirectory)
-              SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
-              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+              azureSubscription: $(SERVICE_CONNECTION)
               scriptType: bash
               scriptLocation: inlineScript
-              inlineScript: |
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh what-if
+              inlineScript: ./az-deploy.sh what-if
 
           - task: Bash@3
             condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')))
             displayName: PSRule config
             env:
               LOG_NAME: psrule_config
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              OPTION: ${{ variables.RULE_OPTION }}
-              SCRIPT: psrule-config
               TEMPLATE_FILE: $(bicep_build.file)
               TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
+            name: psrule_config
             inputs:
               targetType: inline
-              script: |
-                if [[ "${TEMPLATE_FILE}" == *bicep_build.file* ]]; then
-                  echo 'The bicep_build.file output has not been set!'
-                  export TEMPLATE_FILE=''
-                fi
-                if [[ "${TEMPLATE_PARAMS_FILE}" == *bicep_build_params.file* ]]; then
-                  echo 'The bicep_build_params.file output has not been set!'
-                  export TEMPLATE_PARAMS_FILE=''
-                fi
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh
+              script: ./psrule-config.sh
 
           - task: ps-rule-assert@2
             condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')), eq(variables['psrule_config.error'], ''))
             displayName: PSRule analysis
             inputs:
-              baseline: ${{ variables.RULE_BASELINE }}
+              baseline: $(RULE_BASELINE)
               inputPath: $(Build.SourcesDirectory)
               inputType: repository
-              modules: ${{ variables.RULE_MODULES }}
-              option: ${{ variables.RULE_OPTION }}
+              modules: $(RULE_MODULES)
+              option: $(RULE_OPTION)
               outputFormat: Markdown
               outputPath: $(Pipeline.Workspace)/logs/psrule_analysis.md
               summary: false
@@ -254,72 +160,23 @@ stages:
               CONFIG_ERROR: $(psrule_config.error)
               LOG_NAME: psrule_report
               LOG_ORDER: b6
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              SCRIPT: psrule-report
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               targetType: inline
-              script: |
-                if [[ "${CONFIG_ERROR}" == *psrule_config.error* ]]; then
-                  echo 'The psrule_config.error output has not been set!'
-                  export CONFIG_ERROR=''
-                fi
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh
+              script: ./psrule-report.sh
 
           - task: AzureCLI@2
-            condition: and(succeeded(), not(eq(variables['bicep_build.file'], '')))
+            condition: and(succeeded(), not(eq(variables['VERSION_ACE'], '')), not(eq(variables['bicep_build.file'], '')))
             displayName: Cost estimate
             env:
-              IN_CURRENCY: ${{ variables.CURRENCY }}
-              IN_LOCATION: ${{ variables.LOCATION }}
-              IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
-              IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
-              IN_SCOPE: ${{ variables.SCOPE }}
-              IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
               LOG_NAME: cost_estimate
               LOG_ORDER: a2
-              LOG_PATH: $(Pipeline.Workspace)/logs
-              SCRIPT: azure-cost
-              SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
               TEMPLATE_FILE: $(bicep_build.file)
               TEMPLATE_PARAMS_FILE: $(bicep_build_params.file)
-              THRESHOLD: ${{ variables.COST_THRESHOLD }}
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
-              VERSION_ACE: ${{ variables.VERSION_ACE_TOOL }}
             inputs:
-              azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+              azureSubscription: $(SERVICE_CONNECTION)
               scriptLocation: inlineScript
               scriptType: bash
-              inlineScript: |
-                if [[ "${TEMPLATE_FILE}" == *bicep_build.file* ]]; then
-                  echo '##[error]The bicep_build.file output has not been set!'
-                  exit 1
-                fi
-                if [[ "${TEMPLATE_PARAMS_FILE}" == *bicep_build_params.file* ]]; then
-                  echo 'The bicep_build_params.file output has not been set!'
-                  export TEMPLATE_PARAMS_FILE=''
-                fi
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh
+              inlineScript: ./azure-cost.sh
 
           - task: Bash@3
             condition: and(always(), eq(variables['Build.Reason'], 'PullRequest'))
@@ -335,29 +192,16 @@ stages:
               JOB_STATUS: $(Agent.JobStatus)
               JOB_URL: $(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
               LOG_NAME: plan_comment
-              LOG_PATH: $(Pipeline.Workspace)/logs
               RUN_NUMBER: $(Build.BuildId)
-              SCRIPT: pr-comment
               TOKEN: $(System.AccessToken)
-              VERSION: ${{ variables.WORKFLOW_VERSION }}
             inputs:
               targetType: inline
               script: |
                 export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
-                uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                  --write-out "%{response_code}" \
-                  --header 'Accept: application/vnd.github.raw' "${uri}"
-                )
-                if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                  echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                  exit 1
-                fi
-                chmod +x ${SCRIPT}.sh
-                ./${SCRIPT}.sh
+                ./pr-comment.sh
 
           - task: Bash@3
-            condition: or(failed(), and(succeeded(), not(eq(variables['LOG_SEVERITY'], 'ERROR'))))
+            condition: or(failed(), and(succeeded(), not(eq(variables['IN_SEVERITY'], 'ERROR'))))
             displayName: Show debug info
             inputs:
               targetType: inline
@@ -379,12 +223,16 @@ stages:
 
   - stage: Deploy
     dependsOn: Plan
+    variables:
+      LOG_PATH: $(Pipeline.Workspace)/logs
+      RUN_ID: $(Build.BuildId)
+      SOURCE_PATH: $(Build.SourcesDirectory)
     jobs:
       - deployment: create
         displayName: Create deployment
-        environment: ${{ variables.ENVIRONMENT }}
+        environment: $(ENVIRONMENT)
         variables:
-          plan_providers: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
+          IN_PROVIDERS: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
         strategy:
           runOnce:
             deploy:
@@ -398,46 +246,41 @@ stages:
                 - task: AzureCLI@2
                   displayName: Install tools
                   env:
-                    IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-                    IN_TEMPLATE: ${{ variables.TEMPLATE }}
                     LOG_NAME: install_tools
                     LOG_ORDER: b1
-                    LOG_PATH: $(Pipeline.Workspace)/logs
-                    SCRIPT: install-tools
-                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                   inputs:
-                    azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+                    azureSubscription: $(SERVICE_CONNECTION)
                     scriptLocation: inlineScript
                     scriptType: bash
                     inlineScript: |
-                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                        --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}"
+                      declare -a SCRIPTS=(
+                        "az-deploy"
+                        "azure-providers"
+                        "install-tools"
+                        "pr-comment"
                       )
-                      if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                        echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                        exit 1
-                      fi
-                      chmod +x ${SCRIPT}.sh
-                      ./${SCRIPT}.sh
+                      for SCRIPT in "${SCRIPTS[@]}"; do
+                        uri="https://github.com/innofactororg/bicep-action/raw/${WORKFLOW_VERSION}/scripts/${SCRIPT}.sh"
+                        HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
+                          --write-out "%{response_code}" \
+                          --header 'Accept: application/vnd.github.raw' "${uri}"
+                        )
+                        if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+                          echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
+                          exit 1
+                        fi
+                        chmod +x "${SCRIPT}.sh"
+                      done
+                      ./install-tools.sh
 
                 - task: AzureCLI@2
                   condition: and(succeeded(), not(eq(variables['plan_providers'], '')))
                   displayName: Check Azure providers
                   env:
-                    IN_PROVIDERS: $(plan_providers)
-                    IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
                     LOG_NAME: check_providers
                     LOG_ORDER: b3
-                    LOG_PATH: $(Pipeline.Workspace)/logs
-                    SCRIPT: azure-providers
-                    SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-                    VERSION: ${{ variables.WORKFLOW_VERSION }}
-                    WAIT_COUNT: ${{ variables.AZURE_PROVIDER_WAIT_COUNT }}
-                    WAIT_SECONDS: ${{ variables.AZURE_PROVIDER_WAIT_SECONDS }}
                   inputs:
-                    azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+                    azureSubscription: $(SERVICE_CONNECTION)
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
@@ -445,52 +288,18 @@ stages:
                         echo 'Skip! The plan.validate.providers output has not been set!'
                         exit
                       fi
-                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                        --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}"
-                      )
-                      if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                        echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                        exit 1
-                      fi
-                      chmod +x ${SCRIPT}.sh
-                      ./${SCRIPT}.sh
+                      ./azure-providers.sh
 
                 - task: AzureCLI@2
                   displayName: Deploy
                   env:
-                    IN_LOCATION: ${{ variables.LOCATION }}
-                    IN_MANAGEMENT_GROUP: ${{ variables.MANAGEMENT_GROUP }}
-                    IN_RESOURCE_GROUP: ${{ variables.RESOURCE_GROUP }}
-                    IN_SCOPE: ${{ variables.SCOPE }}
-                    IN_SEVERITY: ${{ variables.LOG_SEVERITY }}
-                    IN_TEMPLATE: ${{ variables.TEMPLATE }}
-                    IN_TEMPLATE_PARAMS: ${{ variables.TEMPLATE_PARAMETERS }}
                     LOG_NAME: deploy
                     LOG_ORDER: a1
-                    LOG_PATH: $(Pipeline.Workspace)/logs
-                    RUN_ID: $(Build.BuildId)
-                    SCRIPT: az-deploy
-                    SOURCE_PATH: $(Build.SourcesDirectory)
-                    SUBSCRIPTION_ID: ${{ variables.AZURE_SUBSCRIPTION_ID }}
-                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                   inputs:
-                    azureSubscription: ${{ variables.SERVICE_CONNECTION }}
+                    azureSubscription: $(SERVICE_CONNECTION)
                     scriptType: bash
                     scriptLocation: inlineScript
-                    inlineScript: |
-                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                        --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}"
-                      )
-                      if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                        echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                        exit 1
-                      fi
-                      chmod +x ${SCRIPT}.sh
-                      ./${SCRIPT}.sh create
+                    inlineScript: ./az-deploy.sh create
 
                 - task: Bash@3
                   condition: and(always(), eq(variables['Build.Reason'], 'PullRequest'))
@@ -506,29 +315,16 @@ stages:
                     JOB_STATUS: $(Agent.JobStatus)
                     JOB_URL: $(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
                     LOG_NAME: deploy_comment
-                    LOG_PATH: $(Pipeline.Workspace)/logs
                     RUN_NUMBER: $(Build.BuildId)
-                    SCRIPT: pr-comment
                     TOKEN: $(System.AccessToken)
-                    VERSION: ${{ variables.WORKFLOW_VERSION }}
                   inputs:
                     targetType: inline
                     script: |
                       export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
-                      uri="https://github.com/innofactororg/bicep-action/raw/${VERSION}/scripts/${SCRIPT}.sh"
-                      HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
-                        --write-out "%{response_code}" \
-                        --header 'Accept: application/vnd.github.raw' "${uri}"
-                      )
-                      if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
-                        echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
-                        exit 1
-                      fi
-                      chmod +x ${SCRIPT}.sh
-                      ./${SCRIPT}.sh
+                      ./pr-comment.sh
 
                 - task: Bash@3
-                  condition: or(failed(), and(succeeded(), not(eq(variables['LOG_SEVERITY'], 'ERROR'))))
+                  condition: or(failed(), and(succeeded(), not(eq(variables['IN_SEVERITY'], 'ERROR'))))
                   displayName: Show debug info
                   inputs:
                     targetType: inline
