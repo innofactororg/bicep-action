@@ -33,8 +33,7 @@ else
     fi
   fi
 fi
-echo "Set output:"
-echo "error='${missing}'"
+echo "Set output error='${missing}'"
 if test -n "${TF_BUILD-}"; then
   echo "##vso[task.setvariable variable=error;isoutput=true]${missing}"
 else

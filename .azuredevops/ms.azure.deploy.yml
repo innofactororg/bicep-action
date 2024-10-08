@@ -144,6 +144,8 @@ stages:
           - task: ps-rule-assert@2
             condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')), eq(variables['psrule_config.error'], ''))
             displayName: PSRule analysis
+            env:
+              PSRULE_AZURE_RESOURCE_MODULE_NOWARN: true
             inputs:
               baseline: $(RULE_BASELINE)
               inputPath: $(Build.SourcesDirectory)
@@ -208,17 +210,15 @@ stages:
               targetType: inline
               script: |
                 set -e
-                echo '##[group]environment variables'
                 for var in $(compgen -e); do
                   echo "${var} ${!var}"
                 done
-                echo '##[endgroup]'
 
           - task: PublishPipelineArtifact@1
             condition: always()
             displayName: Upload logs
             inputs:
-              artifact: ${{ join('plan_logs_', variables.ARTIFACT_IDENTIFIER) }}
+              artifact: "plan_logs_$(ARTIFACT_IDENTIFIER)"
               publishLocation: pipeline
               targetPath: $(Pipeline.Workspace)/logs
 
@@ -331,16 +331,14 @@ stages:
                     targetType: inline
                     script: |
                       set -e
-                      echo '##[group]environment variables'
                       for var in $(compgen -e); do
                         echo "${var} ${!var}"
                       done
-                      echo '##[endgroup]'
 
                 - task: PublishPipelineArtifact@1
                   displayName: Upload logs
                   condition: always()
                   inputs:
-                    artifact: ${{ join('deploy_logs_', variables.ARTIFACT_IDENTIFIER) }}
+                    artifact: "deploy_logs_$(ARTIFACT_IDENTIFIER)"
                     publishLocation: pipeline
                     targetPath: $(Pipeline.Workspace)/logs
