@@ -81,7 +81,7 @@ inputs:
   version_ace_tool:
     description: "Azure Cost Estimator version."
     required: false
-    default: "1.4"
+    default: "1.6"
 outputs:
   providers:
     description: The Azure resource providers that should be registered.

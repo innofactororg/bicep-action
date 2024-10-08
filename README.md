@@ -254,7 +254,7 @@ with:
 
   See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
 
-  Default: **"1.4"**
+  Default: **"1.6"**
 
 ### Usage
 
@@ -288,7 +288,7 @@ env:
   scope: sub
   template: main.bicep
   template_parameters: main.bicepparam # parameters can be passed inline too, like this: namePrefix=t serviceShort=tstsp3
-  version_ace_tool: "1.4"
+  version_ace_tool: "1.6"
 
 jobs:
   plan:

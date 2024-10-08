@@ -47,7 +47,7 @@ variables:
   - name: SUBSCRIPTION_ID
     value: d0d0d0d0-ed29-4694-ac26-2e358c364506
   - name: VERSION_ACE
-    value: 1.4
+    value: 1.6
   - name: WAIT_COUNT
     value: 30
   - name: WAIT_SECONDS

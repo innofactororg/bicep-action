@@ -157,9 +157,15 @@ if [[ "${IN_TEMPLATE_PARAMS}" == *'='* ]]; then
   done
 fi
 cmd+=" --currency ${IN_CURRENCY}"
-cmd+=' --disable-cache --generateJsonOutput'
-cmd+=" --jsonOutputFilename ${LOG_NAME}"
-# test out --generate-markdown-output --markdown-output-filename in v5
+cmd+=' --disable-cache'
+breakingVer='1.6'
+if [ "$(printf '%s\n' "${breakingVer}" "${VERSION_ACE}" | sort -V | head -n1)" = "${breakingVer}" ]; then
+  cmd+=' --generate-json-output'
+  cmd+=" --json-output-filename ${LOG_NAME}"
+else
+  cmd+=' --generateJsonOutput'
+  cmd+=" --jsonOutputFilename ${LOG_NAME}"
+fi
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 log_output "${log}" '' ''
