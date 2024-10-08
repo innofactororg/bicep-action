@@ -196,6 +196,8 @@ runs:
     - name: PSRule analysis
       if: inputs.rule_option != '' && steps.psrule_config.outputs.error == ''
       uses: microsoft/ps-rule@001a0fcdab97b1d83e25c559163ecececc80cc6f # v2.9.0 + 6 commits
+      env:
+        PSRULE_AZURE_RESOURCE_MODULE_NOWARN: true
       with:
         baseline: ${{ inputs.rule_baseline }}
         inputType: repository

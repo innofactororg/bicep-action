@@ -4,8 +4,13 @@
 #
 set -e
 missing=''
-if ! test -f "${OPTION}"; then
-  missing="Unable to find rule_option file ${OPTION}"
+if test -n "${RULE_OPTION-}"; then
+  OPTION=$RULE_OPTION
+fi
+if test -z "${OPTION-}"; then
+  missing="Environment variable RULE_OPTION or OPTION is not set"
+elif ! test -f "${OPTION-}"; then
+  missing="Unable to find file ${OPTION}"
 else
   echo "Use PSRule config at ${OPTION}"
   if test -n "${TEMPLATE_FILE}" && [[ "${TEMPLATE_PARAMS_FILE}" == *'.parameters.json' ]]; then
