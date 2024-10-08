@@ -166,6 +166,8 @@ with:
 
 #### Optional
 
+- **artifact_identifier**: A unique identifier added to artifact name in case of multiple runs within one workflow.
+
 - **auto_merge**: Auto merge method to use after successful deployment.
 
   Can be one of:
