@@ -8,6 +8,10 @@ branding:
   icon: eye
   color: green
 inputs:
+  artifact_identifier:
+    description: "A unique identifier added to artifact name in case of multiple runs within one workflow."
+    required: false
+    default: ""
   azure_client_id:
     description: "The client ID of the service principal for Azure login."
     required: true
@@ -78,10 +82,6 @@ inputs:
     description: "Azure Cost Estimator version."
     required: false
     default: "1.4"
-  artifact_identifier:
-    description: "Unique identifier added to artifact names in case of multiple runs within one workflow."
-    required: false
-    default: ""
 outputs:
   providers:
     description: The Azure resource providers that should be registered.

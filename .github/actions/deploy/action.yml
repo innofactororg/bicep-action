@@ -8,6 +8,10 @@ branding:
   icon: edit
   color: blue
 inputs:
+  artifact_identifier:
+    description: "A unique identifier added to artifact name in case of multiple runs within one workflow."
+    required: false
+    default: ""
   auto_merge:
     description: "Auto merge method to use after successful deployment."
     required: false
@@ -66,10 +70,6 @@ inputs:
     description: "GitHub token used to comment on pull request and to enable auto-merge."
     required: false
     default: ${{ github.token }}
-  artifact_identifier:
-    description: "Unique identifier added to artifact names in case of multiple runs within one workflow."
-    required: false
-    default: ""
 runs:
   using: composite
   steps:
