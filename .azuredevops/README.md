@@ -130,6 +130,8 @@ stages:
 
 ### Variables
 
+- **ARTIFACT_IDENTIFIER**: A unique identifier added to artifact name in case of multiple runs within one workflow.
+
 - **COST_THRESHOLD**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
 - **ENVIRONMENT**: Name of the [environment](#get-started) to use for the [deploy job](#deploy-job).

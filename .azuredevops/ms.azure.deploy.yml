@@ -9,7 +9,8 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  #- group: NAME_OF_VARIABLE_GROUP
+  #- group: NAME_OF_VARIABLE_GROUP_ooo_REMEMBER_TO_REMOVE_ALL_VARIABLES_BELOW_AND_ADD_ALL_TO_THE_VARIABLE_GROUP
+  ARTIFACT_IDENTIFIER: 1
   COST_THRESHOLD: -1
   ENVIRONMENT: production
   IN_CURRENCY: EUR
@@ -217,7 +218,7 @@ stages:
             condition: always()
             displayName: Upload logs
             inputs:
-              artifact: plan_logs
+              artifact: ${{ join('plan_logs_', variables.ARTIFACT_IDENTIFIER) }}
               publishLocation: pipeline
               targetPath: $(Pipeline.Workspace)/logs
 
@@ -340,6 +341,6 @@ stages:
                   displayName: Upload logs
                   condition: always()
                   inputs:
-                    targetPath: $(Pipeline.Workspace)/logs
-                    artifact: deploy_logs
+                    artifact: ${{ join('deploy_logs_', variables.ARTIFACT_IDENTIFIER) }}
                     publishLocation: pipeline
+                    targetPath: $(Pipeline.Workspace)/logs
