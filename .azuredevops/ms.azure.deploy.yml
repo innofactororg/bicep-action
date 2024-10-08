@@ -9,28 +9,51 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  #- group: NAME_OF_VARIABLE_GROUP_ooo_REMEMBER_TO_REMOVE_ALL_VARIABLES_BELOW_AND_ADD_ALL_TO_THE_VARIABLE_GROUP
-  ARTIFACT_IDENTIFIER: 1
-  COST_THRESHOLD: -1
-  ENVIRONMENT: production
-  IN_CURRENCY: EUR
-  IN_LOCATION: westeurope
-  IN_MANAGEMENT_GROUP:
-  IN_PROVIDERS: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
-  IN_RESOURCE_GROUP:
-  IN_SCOPE: sub
-  IN_SEVERITY: INFO
-  IN_TEMPLATE: main.bicep
-  IN_TEMPLATE_PARAMS: main.bicepparam
-  RULE_BASELINE: Azure.Default
-  RULE_MODULES: Az.Resources,PSRule.Rules.Azure
-  RULE_OPTION: ps-rule.yaml
-  SERVICE_CONNECTION: prod_arm_connection
-  SUBSCRIPTION_ID: d0d0d0d0-ed29-4694-ac26-2e358c364506
-  VERSION_ACE: 1.4
-  WAIT_COUNT: 30
-  WAIT_SECONDS: 10
-  WORKFLOW_VERSION: v1
+  #- group: NAME_OF_VARIABLE_GROUP_ooo_REMEMBER_TO_REMOVE_VARIABLES_BELOW_THAT_ARE_IN_THE_VARIABLE_GROUP
+  - name: ARTIFACT_IDENTIFIER
+    value: 1
+  - name: COST_THRESHOLD
+    value: -1
+  - name: ENVIRONMENT
+    value: production
+  - name: IN_CURRENCY
+    value: EUR
+  - name: IN_LOCATION
+    value: westeurope
+  - name: IN_MANAGEMENT_GROUP
+    value:
+  - name: IN_PROVIDERS
+    value: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
+  - name: IN_RESOURCE_GROUP
+    value:
+  - name: IN_SCOPE
+    value: sub
+  - name: IN_SEVERITY
+    value: INFO
+  - name: IN_TEMPLATE
+    value: main.bicep
+  - name: IN_TEMPLATE_PARAMS
+    value: main.bicepparam
+  - name: PSRULE_AZURE_RESOURCE_MODULE_NOWARN
+    value: true
+  - name: RULE_BASELINE
+    value: Azure.Default
+  - name: RULE_MODULES
+    value: Az.Resources,PSRule.Rules.Azure
+  - name: RULE_OPTION
+    value: ps-rule.yaml
+  - name: SERVICE_CONNECTION
+    value: prod_arm_connection
+  - name: SUBSCRIPTION_ID
+    value: d0d0d0d0-ed29-4694-ac26-2e358c364506
+  - name: VERSION_ACE
+    value: 1.4
+  - name: WAIT_COUNT
+    value: 30
+  - name: WAIT_SECONDS
+    value: 10
+  - name: WORKFLOW_VERSION
+    value: v1
 
 stages:
   - stage: Plan
@@ -144,8 +167,6 @@ stages:
           - task: ps-rule-assert@2
             condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')), eq(variables['psrule_config.error'], ''))
             displayName: PSRule analysis
-            env:
-              PSRULE_AZURE_RESOURCE_MODULE_NOWARN: true
             inputs:
               baseline: $(RULE_BASELINE)
               inputPath: $(Build.SourcesDirectory)
