@@ -65,7 +65,17 @@ if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
 if [ "${SCRIPT_ACTION}" = 'build-params' ]; then
-  IN_TEMPLATE="${IN_TEMPLATE_PARAMS:=${IN_TEMPLATE}}"
+  if test -n "${IN_TEMPLATE_PARAMS-}"; then
+    IN_TEMPLATE=$IN_TEMPLATE_PARAMS
+  fi
+  if test -z "${IN_TEMPLATE-}"; then
+    if test -n "${TF_BUILD-}"; then
+      echo "##[error]The environment variable IN_TEMPLATE_PARAMS is not set"
+    else
+      echo "::error::The environment variable IN_TEMPLATE_PARAMS is not set"
+    fi
+    exit 1
+  fi
   IN_TEMPLATE="${IN_TEMPLATE%% *}"
   src_file_extension='bicepparam'
   out_file_extension='parameters.json'

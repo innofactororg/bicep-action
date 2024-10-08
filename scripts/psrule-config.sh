@@ -4,9 +4,13 @@
 #
 set -e
 missing=''
-OPTION="${RULE_OPTION:=${OPTION}}"
-if ! test -f "${OPTION}"; then
-  missing="Unable to find rule_option file ${OPTION}"
+if test -n "${RULE_OPTION-}"; then
+  OPTION=$RULE_OPTION
+fi
+if test -z "${OPTION-}"; then
+  missing="Environment variable RULE_OPTION or OPTION is not set"
+elif ! test -f "${OPTION-}"; then
+  missing="Unable to find file ${OPTION}"
 else
   echo "Use PSRule config at ${OPTION}"
   if test -n "${TEMPLATE_FILE}" && [[ "${TEMPLATE_PARAMS_FILE}" == *'.parameters.json' ]]; then
@@ -29,7 +33,8 @@ else
     fi
   fi
 fi
-echo "Set output error='${missing}'"
+echo "Set output:"
+echo "error='${missing}'"
 if test -n "${TF_BUILD-}"; then
   echo "##vso[task.setvariable variable=error;isoutput=true]${missing}"
 else
