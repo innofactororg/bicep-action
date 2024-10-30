@@ -23,13 +23,19 @@ else
         json=$(jq --arg t "${t}" '. += {metadata:{template:$t}}' "${file}")
         if test -n "${json}"; then
           printf '%s\n' "${json}" >"${file}"
+          echo "Updated metadata in ${file}, meta was empty"
+          printf '%s\n' "${json}"
         fi
       else
         json=$(jq --arg t "${t}" '.metadata += {template:$t}' "${file}")
         if test -n "${json}"; then
           printf '%s\n' "${json}" >"${file}"
+          echo "Updated metadata in ${file}, meta was not empty"
+          printf '%s\n' "${json}"
         fi
       fi
+    else
+      echo "No need to update metadata in ${file}"
     fi
   fi
 fi
