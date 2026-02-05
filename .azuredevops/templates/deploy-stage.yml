@@ -184,6 +184,6 @@ stages:
                   displayName: Upload logs
                   condition: always()
                   inputs:
-                    artifact: "deploy_logs_1"
+                    artifact: "deploy_logs_$(ARTIFACT_IDENTIFIER)"
                     publishLocation: pipeline
                     targetPath: $(Pipeline.Workspace)/logs
