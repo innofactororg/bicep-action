@@ -66,7 +66,7 @@ fi
 if [ "${LOG_NAME}" = "stage_summary" ] || [ "${STAGE_RESULT:-}" != "" ]; then
   echo ""
   echo "🎯 Stage Results:"
-  
+
   # Check for plan stage artifacts
   if [ -f "${LOG_PATH}/step_b3_bicep_build.log" ]; then
     echo "  ${status_emoji} Bicep Build"
@@ -83,7 +83,7 @@ if [ "${LOG_NAME}" = "stage_summary" ] || [ "${STAGE_RESULT:-}" != "" ]; then
   if [ -f "${LOG_PATH}/step_b8_cost_estimate.log" ]; then
     echo "  ${status_emoji} Cost Estimation"
   fi
-  
+
   # Check for deploy stage artifacts
   if [ -f "${LOG_PATH}/step_c2_az_providers.log" ]; then
     echo "  ${status_emoji} Provider Registration"

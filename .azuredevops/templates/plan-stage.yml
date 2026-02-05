@@ -181,13 +181,13 @@ stages:
                 set -e
                 url="https://raw.githubusercontent.com/innofactororg/bicep-action/${WORKFLOW_VERSION}/scripts/debug-info.sh"
                 echo "Downloading debug-info.sh from: $url"
-                
+
                 if ! curl -sSLf --retry 4 "$url" -o debug-info.sh; then
                   echo "##[error]Failed to download debug-info.sh from $url"
                   echo "##[error]Check that WORKFLOW_VERSION '${WORKFLOW_VERSION}' contains this script"
                   exit 1
                 fi
-                
+
                 chmod +x debug-info.sh
                 ./debug-info.sh
 
@@ -218,13 +218,13 @@ stages:
                 set -e
                 url="https://raw.githubusercontent.com/innofactororg/bicep-action/${WORKFLOW_VERSION}/scripts/pipeline-summary.sh"
                 echo "Downloading pipeline-summary.sh from: $url"
-                
+
                 if ! curl -sSLf --retry 4 "$url" -o pipeline-summary.sh; then
                   echo "##[error]Failed to download pipeline-summary.sh from $url"
                   echo "##[error]Check that WORKFLOW_VERSION '${WORKFLOW_VERSION}' contains this script"
                   exit 1
                 fi
-                
+
                 chmod +x pipeline-summary.sh
                 ./pipeline-summary.sh
 
