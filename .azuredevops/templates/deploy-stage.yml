@@ -1,0 +1,110 @@
+stages:
+  - stage: Deploy
+    dependsOn: Plan
+    variables:
+      LOG_PATH: $(Pipeline.Workspace)/logs
+      RUN_ID: $(Build.BuildId)
+      SOURCE_PATH: $(Build.SourcesDirectory)
+    jobs:
+      - deployment: create
+        displayName: Create deployment
+        environment: $(ENVIRONMENT)
+        variables:
+          IN_PROVIDERS: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: none
+                - checkout: self
+                  displayName: Checkout
+                  fetchDepth: 1
+                  persistCredentials: true
+
+                - task: AzureCLI@2
+                  displayName: Install tools
+                  env:
+                    LOG_NAME: install_tools
+                    LOG_ORDER: b1
+                  inputs:
+                    azureSubscription: $(SERVICE_CONNECTION)
+                    scriptLocation: inlineScript
+                    scriptType: bash
+                    inlineScript: |
+                      declare -a SCRIPTS=(
+                        "az-deploy"
+                        "azure-providers"
+                        "install-tools"
+                        "pr-comment"
+                      )
+                      for SCRIPT in "${SCRIPTS[@]}"; do
+                        uri="https://github.com/innofactororg/bicep-action/raw/${WORKFLOW_VERSION}/scripts/${SCRIPT}.sh"
+                        HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
+                          --write-out "%{response_code}" \
+                          --header 'Accept: application/vnd.github.raw' "${uri}"
+                        )
+                        if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+                          echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
+                          exit 1
+                        fi
+                        chmod +x "${SCRIPT}.sh"
+                      done
+                      ./install-tools.sh
+
+                - task: AzureCLI@2
+                  condition: and(succeeded(), not(eq(variables['IN_PROVIDERS'], '')))
+                  displayName: Check Azure providers
+                  env:
+                    LOG_NAME: check_providers
+                    LOG_ORDER: b3
+                  inputs:
+                    azureSubscription: $(SERVICE_CONNECTION)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      if [[ "${IN_PROVIDERS}" == *plan_providers* ]]; then
+                        echo 'Skip! The plan.validate.providers output has not been set!'
+                        exit
+                      fi
+                      ./azure-providers.sh
+
+                - task: AzureCLI@2
+                  displayName: Deploy
+                  env:
+                    LOG_NAME: deploy
+                    LOG_ORDER: a1
+                  inputs:
+                    azureSubscription: $(SERVICE_CONNECTION)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: ./az-deploy.sh create
+
+                - task: Bash@3
+                  condition: and(always(), eq(variables['Build.Reason'], 'PullRequest'))
+                  displayName: Add comment
+                  env:
+                    COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
+                    COMMIT_SHA: $(System.PullRequest.SourceCommitId)
+                    COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
+                    EVENT_ACTION: $(Build.Reason)
+                    EVENT_ACTOR: $(Build.SourceVersionAuthor)
+                    EVENT_NO: "[$(System.PullRequest.PullRequestId)]($(Build.BuildUri))"
+                    JOB_NAME: $(Build.BuildNumber)
+                    JOB_STATUS: $(Agent.JobStatus)
+                    JOB_URL: $(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
+                    LOG_NAME: deploy_comment
+                    RUN_NUMBER: $(Build.BuildId)
+                    TOKEN: $(System.AccessToken)
+                  inputs:
+                    targetType: inline
+                    script: |
+                      export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
+                      ./pr-comment.sh
+
+                - task: PublishPipelineArtifact@1
+                  displayName: Upload logs
+                  condition: always()
+                  inputs:
+                    artifact: "deploy_logs_1"
+                    publishLocation: pipeline
+                    targetPath: $(Pipeline.Workspace)/logs
