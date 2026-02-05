@@ -157,10 +157,49 @@ Each stage ends with a formatted summary showing:
 **Viewing Logs**
 
 All execution logs and reports are published as pipeline artifacts:
-- `plan_logs_1` - Plan stage outputs (what-if, PSRule, cost estimate)
-- `deploy_logs_1` - Deploy stage outputs (deployment results)
+- `plan_logs_$(ARTIFACT_IDENTIFIER)` - Plan stage outputs (what-if, PSRule, cost estimate)
+- `deploy_logs_$(ARTIFACT_IDENTIFIER)` - Deploy stage outputs (deployment results)
 
 Access artifacts through: **Pipeline Run → Summary → Published Artifacts**
+
+**Note:** Artifact names include the `ARTIFACT_IDENTIFIER` variable to ensure uniqueness when jobs are retried within the same build run.
+
+**Cross-Subscription Permissions**
+
+When deploying infrastructure that references resources in other Azure subscriptions, the service principal requires additional RBAC permissions:
+
+**Common scenarios:**
+- **Private DNS Zones** - If creating private endpoints with DNS integration in a centralized DNS subscription:
+  - Grant `Private DNS Zone Contributor` role on the target private DNS zone
+  - Required for `Microsoft.Network/privateDnsZones/join/action`
+
+- **Central Log Analytics** - If configuring diagnostic settings to send logs to a centralized monitoring workspace:
+  - Grant `Log Analytics Contributor` role on the target Log Analytics workspace
+  - Required for `Microsoft.OperationalInsights/workspaces/sharedKeys/action`
+
+**Example permission grant:**
+```bash
+# Grant Private DNS Zone Contributor
+az role assignment create \
+  --assignee-object-id <service-principal-object-id> \
+  --assignee-principal-type ServicePrincipal \
+  --role "Private DNS Zone Contributor" \
+  --scope "/subscriptions/<subscription-id>/resourceGroups/<rg-name>/providers/Microsoft.Network/privateDnsZones/<zone-name>"
+
+# Grant Log Analytics Contributor
+az role assignment create \
+  --assignee-object-id <service-principal-object-id> \
+  --assignee-principal-type ServicePrincipal \
+  --role "Log Analytics Contributor" \
+  --scope "/subscriptions/<subscription-id>/resourceGroups/<rg-name>/providers/Microsoft.OperationalInsights/workspaces/<workspace-name>"
+```
+
+**Finding the service principal object ID:**
+```bash
+# Get the service connection's application ID from Azure DevOps
+# Then query for the object ID:
+az ad sp show --id <application-id> --query id -o tsv
+```
 
 ### Variable Group
 
