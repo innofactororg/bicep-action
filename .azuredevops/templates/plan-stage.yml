@@ -146,6 +146,71 @@ stages:
               inlineScript: ./azure-cost.sh
 
           - task: Bash@3
+            condition: or(failed(), and(succeeded(), not(eq(variables['IN_SEVERITY'], 'ERROR'))))
+            displayName: Debug information
+            env:
+              ARTIFACT_IDENTIFIER: $(ARTIFACT_IDENTIFIER)
+              BUILD_ID: $(Build.BuildId)
+              BUILD_NUMBER: $(Build.BuildNumber)
+              BUILD_REASON: $(Build.Reason)
+              BUILD_REQUESTED_FOR: $(Build.RequestedFor)
+              IN_LOCATION: $(IN_LOCATION)
+              IN_MANAGEMENT_GROUP: $(IN_MANAGEMENT_GROUP)
+              IN_RESOURCE_GROUP: $(IN_RESOURCE_GROUP)
+              IN_SCOPE: $(IN_SCOPE)
+              IN_SEVERITY: $(IN_SEVERITY)
+              IN_TEMPLATE: $(IN_TEMPLATE)
+              IN_TEMPLATE_PARAMS: $(IN_TEMPLATE_PARAMS)
+              LOG_NAME: debug_info
+              LOG_ORDER: z1
+              LOG_PATH: $(Pipeline.Workspace)/logs
+              REPOSITORY: $(Build.Repository.Name)
+              RULE_BASELINE: $(RULE_BASELINE)
+              RULE_MODULES: $(RULE_MODULES)
+              RULE_OPTION: $(RULE_OPTION)
+              SOURCE_BRANCH: $(Build.SourceBranch)
+              SOURCE_PATH: $(Build.SourcesDirectory)
+              SOURCE_VERSION: $(Build.SourceVersion)
+              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              VERSION_ACE: $(VERSION_ACE)
+              VERSION_BICEP_CLI: $(VERSION_BICEP_CLI)
+              WORKFLOW_VERSION: $(WORKFLOW_VERSION)
+            inputs:
+              targetType: inline
+              script: |
+                curl -sSL --retry 4 "https://raw.githubusercontent.com/innofactororg/bicep-action/${WORKFLOW_VERSION}/scripts/debug-info.sh" -o debug-info.sh
+                chmod +x debug-info.sh
+                ./debug-info.sh
+
+          - task: Bash@3
+            condition: always()
+            displayName: Pipeline summary
+            env:
+              ARTIFACT_IDENTIFIER: $(ARTIFACT_IDENTIFIER)
+              BUILD_NUMBER: $(Build.BuildNumber)
+              BUILD_REQUESTED_FOR: $(Build.RequestedFor)
+              IN_LOCATION: $(IN_LOCATION)
+              IN_MANAGEMENT_GROUP: $(IN_MANAGEMENT_GROUP)
+              IN_RESOURCE_GROUP: $(IN_RESOURCE_GROUP)
+              IN_SCOPE: $(IN_SCOPE)
+              IN_TEMPLATE: $(IN_TEMPLATE)
+              IN_TEMPLATE_PARAMS: $(IN_TEMPLATE_PARAMS)
+              JOB_STATUS: $(Agent.JobStatus)
+              LOG_NAME: stage_summary
+              LOG_ORDER: z2
+              LOG_PATH: $(Pipeline.Workspace)/logs
+              SOURCE_BRANCH: $(Build.SourceBranch)
+              SOURCE_VERSION: $(Build.SourceVersion)
+              STAGE_RESULT: $(Agent.JobStatus)
+              WORKFLOW_VERSION: $(WORKFLOW_VERSION)
+            inputs:
+              targetType: inline
+              script: |
+                curl -sSL --retry 4 "https://raw.githubusercontent.com/innofactororg/bicep-action/${WORKFLOW_VERSION}/scripts/pipeline-summary.sh" -o pipeline-summary.sh
+                chmod +x pipeline-summary.sh
+                ./pipeline-summary.sh
+
+          - task: Bash@3
             condition: and(always(), eq(variables['Build.Reason'], 'PullRequest'))
             displayName: Add comment
             env:

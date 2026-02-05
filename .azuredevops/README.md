@@ -88,6 +88,20 @@ The plan job will build and test the code. If no issues are found in the code, a
 
 The PSRule steps will only run if **"rule_option"** is specified and points to a file that exist.
 
+**Plan job steps:**
+
+1. **Tool Installation** - Downloads and installs required CLI tools (Bicep, PSRule modules)
+2. **Bicep Build** - Compiles `.bicep` files to ARM JSON templates
+3. **Bicep Build Params** - Compiles `.bicepparam` files to ARM parameter JSON
+4. **Deployment Validation** - Validates the deployment without making changes
+5. **What-If Analysis** - Generates a report showing what changes would be deployed
+6. **PSRule Analysis** - Runs policy and best practice checks (if configured)
+7. **Cost Estimation** - Estimates deployment costs using Azure Cost Estimator (if configured)
+8. **Debug Information** - Collects diagnostic information (on failure or verbose logging)
+9. **Pipeline Summary** - Displays a formatted summary of execution results
+10. **PR Comment** - Posts results as a comment on the pull request (for PR builds)
+11. **Upload Logs** - Publishes all logs and reports as pipeline artifacts
+
 For more information about PSRule configuration, see:
 
 - [Sample ps-rule.yaml](../ps-rule.yaml)
@@ -103,6 +117,50 @@ The deploy job will only run when the plan job was successful.
 It targets a specific [environment](#get-started).
 
 If the environment is configured with **Approvers**, the job will require manual approval.
+
+**Deploy job steps:**
+
+1. **Tool Installation** - Downloads required CLI tools
+2. **Provider Registration** - Registers Azure resource providers needed by the deployment
+3. **Infrastructure Deployment** - Executes the actual deployment to Azure
+4. **Debug Information** - Collects diagnostic information (on failure or verbose logging)
+5. **Pipeline Summary** - Displays a formatted summary of deployment results
+6. **PR Comment** - Posts deployment results as a comment (for PR builds)
+7. **Upload Logs** - Publishes deployment logs as pipeline artifacts
+
+### Troubleshooting
+
+**Debug Information**
+
+The pipeline automatically collects debug information when:
+- A step fails
+- `IN_SEVERITY` is set to `VERBOSE` or `DEBUG`
+
+Debug information includes:
+- Pipeline context (build ID, branch, commit)
+- Infrastructure configuration (template, scope, location)
+- Tool versions (Bicep, Azure CLI, PSRule)
+- File system contents
+- Azure account information
+- System resources (disk, memory)
+- Environment variables (filtered for security)
+
+**Pipeline Summary**
+
+Each stage ends with a formatted summary showing:
+- Overall execution status
+- Infrastructure configuration
+- Completed steps with status indicators
+- Available artifacts
+- Build and branch information
+
+**Viewing Logs**
+
+All execution logs and reports are published as pipeline artifacts:
+- `plan_logs_1` - Plan stage outputs (what-if, PSRule, cost estimate)
+- `deploy_logs_1` - Deploy stage outputs (deployment results)
+
+Access artifacts through: **Pipeline Run → Summary → Published Artifacts**
 
 ### Variable Group
 
