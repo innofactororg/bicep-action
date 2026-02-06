@@ -1,16 +1,73 @@
+# ============================================================================
+# Deploy Stage Template - Multi-Environment Support
+# ============================================================================
+# This template performs infrastructure deployment after successful planning.
+# Supports multiple environments via parameterization.
+#
+# Parameters:
+#   stageName        - Unique stage identifier (default: Deploy)
+#   displayName      - Custom display name (default: Deploy)
+#   dependsOn        - Array of stage dependencies (default: [Plan])
+#   condition        - Stage execution condition (default: succeeded())
+#   environmentName  - Environment name for labeling (optional)
+#   planStageName    - Name of the plan stage to depend on (default: Plan)
+#   planJobName      - Name of the plan job for outputs (default: plan)
+#
+# Required Variables (set by caller):
+#   SERVICE_CONNECTION    - Azure service connection
+#   SUBSCRIPTION_ID       - Target Azure subscription
+#   IN_TEMPLATE          - Bicep template file
+#   IN_TEMPLATE_PARAMS   - Bicep parameters file
+#   ENVIRONMENT          - Azure DevOps Environment (for approvals)
+#   WORKFLOW_VERSION     - bicep-action version/branch
+# ============================================================================
+
+parameters:
+  - name: stageName
+    type: string
+    default: Deploy
+  - name: displayName
+    type: string
+    default: Deploy
+  - name: dependsOn
+    type: object
+    default:
+      - Plan
+  - name: condition
+    type: string
+    default: succeeded()
+  - name: environmentName
+    type: string
+    default: ''
+  - name: planStageName
+    type: string
+    default: Plan
+  - name: planJobName
+    type: string
+    default: plan
+  - name: variables
+    type: object
+    default: {}
+
 stages:
-  - stage: Deploy
-    dependsOn: Plan
+  - stage: ${{ parameters.stageName }}
+    displayName: ${{ parameters.displayName }}
+    dependsOn: ${{ parameters.dependsOn }}
+    ${{ if ne(parameters.condition, 'succeeded()') }}:
+      condition: ${{ parameters.condition }}
     variables:
       LOG_PATH: $(Pipeline.Workspace)/logs
       RUN_ID: $(Build.BuildId)
       SOURCE_PATH: $(Build.SourcesDirectory)
+      # Merge caller-provided variables
+      ${{ each var in parameters.variables }}:
+        ${{ var.key }}: ${{ var.value }}
     jobs:
       - deployment: create
         displayName: Create deployment
         environment: $(ENVIRONMENT)
         variables:
-          IN_PROVIDERS: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
+          IN_PROVIDERS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['validate.providers'] ]
         strategy:
           runOnce:
             deploy:

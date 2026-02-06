@@ -1,9 +1,59 @@
+# ============================================================================
+# Plan Stage Template - Multi-Environment Support
+# ============================================================================
+# This template performs infrastructure validation and What-If analysis.
+# Supports multiple environments via parameterization.
+#
+# Parameters:
+#   stageName        - Unique stage identifier (default: Plan)
+#   displayName      - Custom display name (default: Plan)
+#   dependsOn        - Array of stage dependencies (default: [])
+#   condition        - Stage execution condition (default: succeeded())
+#   environmentName  - Environment name for labeling (optional)
+#
+# Required Variables (set by caller):
+#   SERVICE_CONNECTION    - Azure service connection
+#   SUBSCRIPTION_ID       - Target Azure subscription
+#   IN_TEMPLATE          - Bicep template file
+#   IN_TEMPLATE_PARAMS   - Bicep parameters file
+#   ENVIRONMENT          - Environment identifier
+#   WORKFLOW_VERSION     - bicep-action version/branch
+# ============================================================================
+
+parameters:
+  - name: stageName
+    type: string
+    default: Plan
+  - name: displayName
+    type: string
+    default: Plan
+  - name: dependsOn
+    type: object
+    default: []
+  - name: condition
+    type: string
+    default: succeeded()
+  - name: environmentName
+    type: string
+    default: ''
+  - name: variables
+    type: object
+    default: {}
+
 stages:
-  - stage: Plan
+  - stage: ${{ parameters.stageName }}
+    displayName: ${{ parameters.displayName }}
+    ${{ if ne(length(parameters.dependsOn), 0) }}:
+      dependsOn: ${{ parameters.dependsOn }}
+    ${{ if ne(parameters.condition, 'succeeded()') }}:
+      condition: ${{ parameters.condition }}
     variables:
       LOG_PATH: $(Pipeline.Workspace)/logs
       RUN_ID: $(Build.BuildId)
       SOURCE_PATH: $(Build.SourcesDirectory)
+      # Merge caller-provided variables
+      ${{ each var in parameters.variables }}:
+        ${{ var.key }}: ${{ var.value }}
     jobs:
       - job: plan
         displayName: Plan deployment
