@@ -48,6 +48,8 @@ parameters:
   - name: variables
     type: object
     default: {}
+  - name: serviceConnection
+    type: string
 
 stages:
   - stage: ${{ parameters.stageName }}
@@ -84,7 +86,7 @@ stages:
                     LOG_NAME: install_tools
                     LOG_ORDER: b1
                   inputs:
-                    azureSubscription: $(SERVICE_CONNECTION)
+                    azureSubscription: ${{ parameters.serviceConnection }}
                     scriptLocation: inlineScript
                     scriptType: bash
                     inlineScript: |
@@ -115,7 +117,7 @@ stages:
                     LOG_NAME: check_providers
                     LOG_ORDER: b3
                   inputs:
-                    azureSubscription: $(SERVICE_CONNECTION)
+                    azureSubscription: ${{ parameters.serviceConnection }}
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: |
@@ -131,7 +133,7 @@ stages:
                     LOG_NAME: deploy
                     LOG_ORDER: a1
                   inputs:
-                    azureSubscription: $(SERVICE_CONNECTION)
+                    azureSubscription: ${{ parameters.serviceConnection }}
                     scriptType: bash
                     scriptLocation: inlineScript
                     inlineScript: ./az-deploy.sh create

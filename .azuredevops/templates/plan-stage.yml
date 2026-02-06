@@ -39,6 +39,8 @@ parameters:
   - name: variables
     type: object
     default: {}
+  - name: serviceConnection
+    type: string
 
 stages:
   - stage: ${{ parameters.stageName }}
@@ -69,7 +71,7 @@ stages:
               LOG_NAME: install_tools
               LOG_ORDER: b1
             inputs:
-              azureSubscription: $(SERVICE_CONNECTION)
+              azureSubscription: ${{ parameters.serviceConnection }}
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: |
@@ -104,7 +106,7 @@ stages:
               LOG_ORDER: b3
             name: bicep_build
             inputs:
-              azureSubscription: $(SERVICE_CONNECTION)
+              azureSubscription: ${{ parameters.serviceConnection }}
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: ./az-bicep.sh build
@@ -117,7 +119,7 @@ stages:
               LOG_ORDER: b4
             name: bicep_build_params
             inputs:
-              azureSubscription: $(SERVICE_CONNECTION)
+              azureSubscription: ${{ parameters.serviceConnection }}
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: ./az-bicep.sh build-params
@@ -129,7 +131,7 @@ stages:
               LOG_ORDER: b5
             name: validate
             inputs:
-              azureSubscription: $(SERVICE_CONNECTION)
+              azureSubscription: ${{ parameters.serviceConnection }}
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: ./az-deploy.sh validate
@@ -140,7 +142,7 @@ stages:
               LOG_NAME: what-if
               LOG_ORDER: a1
             inputs:
-              azureSubscription: $(SERVICE_CONNECTION)
+              azureSubscription: ${{ parameters.serviceConnection }}
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: ./az-deploy.sh what-if
