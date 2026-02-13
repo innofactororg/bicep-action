@@ -38,7 +38,7 @@ parameters:
     default: succeeded()
   - name: environmentName
     type: string
-    default: ''
+    default: 'Deploy'
   - name: planStageName
     type: string
     default: Plan
@@ -67,7 +67,7 @@ stages:
     jobs:
       - deployment: create
         displayName: Create deployment
-        environment: $(ENVIRONMENT)
+        environment: ${{ parameters.environmentName }}
         variables:
           IN_PROVIDERS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['validate.providers'] ]
         strategy:
