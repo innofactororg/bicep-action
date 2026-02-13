@@ -9,7 +9,7 @@
 #   displayName      - Custom display name (default: Deploy)
 #   dependsOn        - Array of stage dependencies (default: [Plan])
 #   condition        - Stage execution condition (default: succeeded())
-#   environmentName  - Environment name for labeling (optional)
+#   environmentName  - ADO Environment name for deployment gate/approvals (required)
 #   planStageName    - Name of the plan stage to depend on (default: Plan)
 #   planJobName      - Name of the plan job for outputs (default: plan)
 #
@@ -18,7 +18,6 @@
 #   SUBSCRIPTION_ID       - Target Azure subscription
 #   IN_TEMPLATE          - Bicep template file
 #   IN_TEMPLATE_PARAMS   - Bicep parameters file
-#   ENVIRONMENT          - Azure DevOps Environment (for approvals)
 #   WORKFLOW_VERSION     - bicep-action version/branch
 # ============================================================================
 
