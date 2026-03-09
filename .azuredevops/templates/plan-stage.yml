@@ -282,6 +282,7 @@ stages:
 
           - task: Bash@3
             condition: and(always(), eq(variables['Build.Reason'], 'PullRequest'))
+            continueOnError: true
             displayName: Add comment
             env:
               COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
