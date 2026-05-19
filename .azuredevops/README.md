@@ -88,6 +88,20 @@ The plan job will build and test the code. If no issues are found in the code, a
 
 The PSRule steps will only run if **"rule_option"** is specified and points to a file that exist.
 
+**Plan job steps:**
+
+1. **Tool Installation** - Downloads and installs required CLI tools (Bicep, PSRule modules)
+2. **Bicep Build** - Compiles `.bicep` files to ARM JSON templates
+3. **Bicep Build Params** - Compiles `.bicepparam` files to ARM parameter JSON
+4. **Deployment Validation** - Validates the deployment without making changes
+5. **What-If Analysis** - Generates a report showing what changes would be deployed
+6. **PSRule Analysis** - Runs policy and best practice checks (if configured)
+7. **Cost Estimation** - Estimates deployment costs using Azure Cost Estimator (if configured)
+8. **Debug Information** - Collects diagnostic information (on failure or verbose logging)
+9. **Pipeline Summary** - Displays a formatted summary of execution results
+10. **PR Comment** - Posts results as a comment on the pull request (for PR builds)
+11. **Upload Logs** - Publishes all logs and reports as pipeline artifacts
+
 For more information about PSRule configuration, see:
 
 - [Sample ps-rule.yaml](../ps-rule.yaml)
@@ -103,6 +117,89 @@ The deploy job will only run when the plan job was successful.
 It targets a specific [environment](#get-started).
 
 If the environment is configured with **Approvers**, the job will require manual approval.
+
+**Deploy job steps:**
+
+1. **Tool Installation** - Downloads required CLI tools
+2. **Provider Registration** - Registers Azure resource providers needed by the deployment
+3. **Infrastructure Deployment** - Executes the actual deployment to Azure
+4. **Debug Information** - Collects diagnostic information (on failure or verbose logging)
+5. **Pipeline Summary** - Displays a formatted summary of deployment results
+6. **PR Comment** - Posts deployment results as a comment (for PR builds)
+7. **Upload Logs** - Publishes deployment logs as pipeline artifacts
+
+### Troubleshooting
+
+**Debug Information**
+
+The pipeline automatically collects debug information when:
+- A step fails
+- `IN_SEVERITY` is set to `VERBOSE` or `DEBUG`
+
+Debug information includes:
+- Pipeline context (build ID, branch, commit)
+- Infrastructure configuration (template, scope, location)
+- Tool versions (Bicep, Azure CLI, PSRule)
+- File system contents
+- Azure account information
+- System resources (disk, memory)
+- Environment variables (filtered for security)
+
+**Pipeline Summary**
+
+Each stage ends with a formatted summary showing:
+- Overall execution status
+- Infrastructure configuration
+- Completed steps with status indicators
+- Available artifacts
+- Build and branch information
+
+**Viewing Logs**
+
+All execution logs and reports are published as pipeline artifacts:
+- `plan_logs_$(ARTIFACT_IDENTIFIER)` - Plan stage outputs (what-if, PSRule, cost estimate)
+- `deploy_logs_$(ARTIFACT_IDENTIFIER)` - Deploy stage outputs (deployment results)
+
+Access artifacts through: **Pipeline Run → Summary → Published Artifacts**
+
+**Note:** Artifact names include the `ARTIFACT_IDENTIFIER` variable to ensure uniqueness when jobs are retried within the same build run.
+
+**Cross-Subscription Permissions**
+
+When deploying infrastructure that references resources in other Azure subscriptions, the service principal requires additional RBAC permissions:
+
+**Common scenarios:**
+- **Private DNS Zones** - If creating private endpoints with DNS integration in a centralized DNS subscription:
+  - Grant `Private DNS Zone Contributor` role on the target private DNS zone
+  - Required for `Microsoft.Network/privateDnsZones/join/action`
+
+- **Central Log Analytics** - If configuring diagnostic settings to send logs to a centralized monitoring workspace:
+  - Grant `Log Analytics Contributor` role on the target Log Analytics workspace
+  - Required for `Microsoft.OperationalInsights/workspaces/sharedKeys/action`
+
+**Example permission grant:**
+```bash
+# Grant Private DNS Zone Contributor
+az role assignment create \
+  --assignee-object-id <service-principal-object-id> \
+  --assignee-principal-type ServicePrincipal \
+  --role "Private DNS Zone Contributor" \
+  --scope "/subscriptions/<subscription-id>/resourceGroups/<rg-name>/providers/Microsoft.Network/privateDnsZones/<zone-name>"
+
+# Grant Log Analytics Contributor
+az role assignment create \
+  --assignee-object-id <service-principal-object-id> \
+  --assignee-principal-type ServicePrincipal \
+  --role "Log Analytics Contributor" \
+  --scope "/subscriptions/<subscription-id>/resourceGroups/<rg-name>/providers/Microsoft.OperationalInsights/workspaces/<workspace-name>"
+```
+
+**Finding the service principal object ID:**
+```bash
+# Get the service connection's application ID from Azure DevOps
+# Then query for the object ID:
+az ad sp show --id <application-id> --query id -o tsv
+```
 
 ### Variable Group
 

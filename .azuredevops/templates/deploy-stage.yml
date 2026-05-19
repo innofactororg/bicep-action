@@ -1,0 +1,249 @@
+# ============================================================================
+# Deploy Stage Template - Multi-Environment Support
+# ============================================================================
+# This template performs infrastructure deployment after successful planning.
+# Supports multiple environments via parameterization.
+#
+# Parameters:
+#   stageName        - Unique stage identifier (default: Deploy)
+#   displayName      - Custom display name (default: Deploy)
+#   dependsOn        - Array of stage dependencies (default: [Plan])
+#   condition        - Stage execution condition (default: succeeded())
+#   environmentName  - ADO Environment name for deployment gate/approvals (required)
+#   planStageName    - Name of the plan stage to depend on (default: Plan)
+#   planJobName      - Name of the plan job for outputs (default: plan)
+#
+# Required Variables (set by caller):
+#   SERVICE_CONNECTION    - Azure service connection
+#   SUBSCRIPTION_ID       - Target Azure subscription
+#   IN_TEMPLATE          - Bicep template file
+#   IN_TEMPLATE_PARAMS   - Bicep parameters file
+#   WORKFLOW_VERSION     - bicep-action version/branch
+# ============================================================================
+
+parameters:
+  - name: stageName
+    type: string
+    default: Deploy
+  - name: displayName
+    type: string
+    default: Deploy
+  - name: dependsOn
+    type: object
+    default:
+      - Plan
+  - name: condition
+    type: string
+    default: succeeded()
+  - name: environmentName
+    type: string
+    default: 'Deploy'
+  - name: planStageName
+    type: string
+    default: Plan
+  - name: planJobName
+    type: string
+    default: plan
+  - name: variables
+    type: object
+    default: {}
+  - name: serviceConnection
+    type: string
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    displayName: ${{ parameters.displayName }}
+    dependsOn: ${{ parameters.dependsOn }}
+    ${{ if ne(parameters.condition, 'succeeded()') }}:
+      condition: ${{ parameters.condition }}
+    variables:
+      LOG_PATH: $(Pipeline.Workspace)/logs
+      RUN_ID: $(Build.BuildId)
+      SOURCE_PATH: $(Build.SourcesDirectory)
+      # Merge caller-provided variables
+      ${{ each var in parameters.variables }}:
+        ${{ var.key }}: ${{ var.value }}
+    jobs:
+      - deployment: create
+        displayName: Create deployment
+        environment: ${{ parameters.environmentName }}
+        variables:
+          IN_PROVIDERS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['validate.providers'] ]
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: none
+                - checkout: self
+                  displayName: Checkout
+                  fetchDepth: 1
+                  persistCredentials: true
+
+                - task: AzureCLI@2
+                  displayName: Install tools
+                  env:
+                    LOG_NAME: install_tools
+                    LOG_ORDER: b1
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptLocation: inlineScript
+                    scriptType: bash
+                    inlineScript: |
+                      declare -a SCRIPTS=(
+                        "az-deploy"
+                        "azure-providers"
+                        "install-tools"
+                        "pr-comment"
+                      )
+                      for SCRIPT in "${SCRIPTS[@]}"; do
+                        uri="https://github.com/innofactororg/bicep-action/raw/${WORKFLOW_VERSION}/scripts/${SCRIPT}.sh"
+                        HTTP_CODE=$(curl -sSL --remote-name --retry 4 \
+                          --write-out "%{response_code}" \
+                          --header 'Accept: application/vnd.github.raw' "${uri}"
+                        )
+                        if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -gt 299 ]; then
+                          echo "##[error]Unable to get ${uri}! Response code: ${HTTP_CODE}"
+                          exit 1
+                        fi
+                        chmod +x "${SCRIPT}.sh"
+                      done
+                      ./install-tools.sh
+
+                - task: AzureCLI@2
+                  condition: and(succeeded(), not(eq(variables['IN_PROVIDERS'], '')))
+                  displayName: Check Azure providers
+                  env:
+                    LOG_NAME: check_providers
+                    LOG_ORDER: b3
+                    WAIT_COUNT: 30
+                    WAIT_SECONDS: 10
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      if [[ "${IN_PROVIDERS}" == *plan_providers* ]]; then
+                        echo 'Skip! The plan.validate.providers output has not been set!'
+                        exit
+                      fi
+                      ./azure-providers.sh
+
+                - task: AzureCLI@2
+                  displayName: Deploy
+                  env:
+                    LOG_NAME: deploy
+                    LOG_ORDER: a1
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: ./az-deploy.sh create
+
+                - task: Bash@3
+                  condition: or(failed(), and(succeeded(), not(eq(variables['IN_SEVERITY'], 'ERROR'))))
+                  displayName: Debug information
+                  env:
+                    ARTIFACT_IDENTIFIER: $(ARTIFACT_IDENTIFIER)
+                    BUILD_ID: $(Build.BuildId)
+                    BUILD_NUMBER: $(Build.BuildNumber)
+                    BUILD_REASON: $(Build.Reason)
+                    BUILD_REQUESTED_FOR: $(Build.RequestedFor)
+                    IN_LOCATION: $(IN_LOCATION)
+                    IN_MANAGEMENT_GROUP: $(IN_MANAGEMENT_GROUP)
+                    IN_RESOURCE_GROUP: $(IN_RESOURCE_GROUP)
+                    IN_SCOPE: $(IN_SCOPE)
+                    IN_SEVERITY: $(IN_SEVERITY)
+                    IN_TEMPLATE: $(IN_TEMPLATE)
+                    IN_TEMPLATE_PARAMS: $(IN_TEMPLATE_PARAMS)
+                    LOG_NAME: debug_info
+                    LOG_ORDER: z1
+                    LOG_PATH: $(Pipeline.Workspace)/logs
+                    REPOSITORY: $(Build.Repository.Name)
+                    SOURCE_BRANCH: $(Build.SourceBranch)
+                    SOURCE_PATH: $(Build.SourcesDirectory)
+                    SOURCE_VERSION: $(Build.SourceVersion)
+                    SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+                    VERSION_BICEP_CLI: $(VERSION_BICEP_CLI)
+                    WORKFLOW_VERSION: $(WORKFLOW_VERSION)
+                  inputs:
+                    targetType: inline
+                    script: |
+                      set -e
+                      url="https://raw.githubusercontent.com/innofactororg/bicep-action/${WORKFLOW_VERSION}/scripts/debug-info.sh"
+                      echo "Downloading debug-info.sh from: $url"
+
+                      if ! curl -sSLf --retry 4 "$url" -o debug-info.sh; then
+                        echo "##[error]Failed to download debug-info.sh from $url"
+                        echo "##[error]Check that WORKFLOW_VERSION '${WORKFLOW_VERSION}' contains this script"
+                        exit 1
+                      fi
+
+                      chmod +x debug-info.sh
+                      ./debug-info.sh
+
+                - task: Bash@3
+                  condition: always()
+                  displayName: Pipeline summary
+                  env:
+                    ARTIFACT_IDENTIFIER: $(ARTIFACT_IDENTIFIER)
+                    BUILD_NUMBER: $(Build.BuildNumber)
+                    BUILD_REQUESTED_FOR: $(Build.RequestedFor)
+                    IN_LOCATION: $(IN_LOCATION)
+                    IN_MANAGEMENT_GROUP: $(IN_MANAGEMENT_GROUP)
+                    IN_RESOURCE_GROUP: $(IN_RESOURCE_GROUP)
+                    IN_SCOPE: $(IN_SCOPE)
+                    IN_TEMPLATE: $(IN_TEMPLATE)
+                    IN_TEMPLATE_PARAMS: $(IN_TEMPLATE_PARAMS)
+                    JOB_STATUS: $(Agent.JobStatus)
+                    LOG_NAME: stage_summary
+                    LOG_ORDER: z2
+                    LOG_PATH: $(Pipeline.Workspace)/logs
+                    SOURCE_BRANCH: $(Build.SourceBranch)
+                    SOURCE_VERSION: $(Build.SourceVersion)
+                    STAGE_RESULT: $(Agent.JobStatus)
+                    WORKFLOW_VERSION: $(WORKFLOW_VERSION)
+                  inputs:
+                    targetType: inline
+                    script: |
+                      set -e
+                      url="https://raw.githubusercontent.com/innofactororg/bicep-action/${WORKFLOW_VERSION}/scripts/pipeline-summary.sh"
+                      echo "Downloading pipeline-summary.sh from: $url"
+
+                      if ! curl -sSLf --retry 4 "$url" -o pipeline-summary.sh; then
+                        echo "##[error]Failed to download pipeline-summary.sh from $url"
+                        echo "##[error]Check that WORKFLOW_VERSION '${WORKFLOW_VERSION}' contains this script"
+                        exit 1
+                      fi
+
+                      chmod +x pipeline-summary.sh
+                      ./pipeline-summary.sh
+
+                - task: Bash@3
+                  condition: and(always(), eq(variables['Build.Reason'], 'PullRequest'))
+                  displayName: Add comment
+                  env:
+                    COMMENTS_URL: $(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=7.1-preview.1
+                    COMMIT_SHA: $(System.PullRequest.SourceCommitId)
+                    COMMIT_URL: $(System.CollectionUri)$(System.TeamProject)/_git/$(Build.Repository.Name)/commit/$(System.PullRequest.SourceCommitId)
+                    EVENT_ACTION: $(Build.Reason)
+                    EVENT_ACTOR: $(Build.SourceVersionAuthor)
+                    EVENT_NO: "[$(System.PullRequest.PullRequestId)]($(Build.BuildUri))"
+                    JOB_NAME: $(Build.BuildNumber)
+                    JOB_STATUS: $(Agent.JobStatus)
+                    JOB_URL: $(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)
+                    LOG_NAME: deploy_comment
+                    RUN_NUMBER: $(Build.BuildId)
+                    TOKEN: $(System.AccessToken)
+                  inputs:
+                    targetType: inline
+                    script: |
+                      export COMMIT_SHA="[${COMMIT_SHA:0:8}](${COMMIT_URL})"
+                      ./pr-comment.sh
+
+                - task: PublishPipelineArtifact@1
+                  displayName: Upload logs
+                  condition: always()
+                  inputs:
+                    artifact: "deploy_logs_$(ARTIFACT_IDENTIFIER)"
+                    publishLocation: pipeline
+                    targetPath: $(Pipeline.Workspace)/logs
