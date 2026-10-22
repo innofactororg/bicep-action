@@ -41,17 +41,27 @@ if ! test -f "${snapshot}"; then
   exit 0
 fi
 
-# The Bicep CLI installed by `az bicep install`; fall back to one on PATH.
-az bicep version >/dev/null 2>&1 || true
-bicep="${AZURE_CONFIG_DIR:-${HOME}/.azure}/bin/bicep"
-if ! test -x "${bicep}"; then
-  bicep=$(command -v bicep || true)
-fi
-if test -z "${bicep}" || ! "${bicep}" --help 2>&1 | grep -q 'snapshot'; then
-  msg='The Bicep CLI has no snapshot command. Upgrade it with: az bicep upgrade'
-  print_error "${msg}"
-  echo -e "## Bicep snapshot\n\n${msg}❗" > "${md}"
-  exit 1
+# Use a Bicep CLI that has the snapshot command: the one managed by
+# `az bicep`, then one on PATH, then upgrade the managed one.
+find_bicep() {
+  local c
+  for c in "${AZURE_CONFIG_DIR:-${HOME}/.azure}/bin/bicep" "$(command -v bicep || true)"; do
+    if test -n "${c}" && test -x "${c}" && "${c}" --help 2>&1 | grep -q 'snapshot'; then
+      echo "${c}"
+      return 0
+    fi
+  done
+  return 1
+}
+if ! bicep=$(find_bicep); then
+  echo 'No Bicep CLI with the snapshot command found, running az bicep upgrade'
+  az bicep upgrade >/dev/null 2>&1 || az bicep install >/dev/null 2>&1 || true
+  if ! bicep=$(find_bicep); then
+    msg='No Bicep CLI with the snapshot command is available. Upgrade it with: az bicep upgrade'
+    print_error "${msg}"
+    echo -e "## Bicep snapshot\n\n${msg}❗" > "${md}"
+    exit 1
+  fi
 fi
 "${bicep}" --version | tee -a "${log}"
 

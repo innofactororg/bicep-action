@@ -130,6 +130,11 @@ The check works like a Terraform plan reviewed in a pull request:
 
 The snapshot depends on the scope values (subscription, resource group, management group, tenant and location), so create it with the same values the pipeline uses. The command in the PR comment already contains them.
 
+Notes:
+
+- Regenerate the snapshot only when the check reports a difference. Bicep does not write the `outputs` section in a stable order, so every regeneration can reorder it in the diff even when nothing changed. The check itself compares content, so a reordered file still matches.
+- Values of `@secure()` parameters are not written to the snapshot. They appear as `[parameters('name')]` expressions, so the file is safe to commit.
+
 ### Deploy job
 
 The deploy job will only run when the plan job was successful.
