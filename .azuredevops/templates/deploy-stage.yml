@@ -242,8 +242,9 @@ stages:
 
                 - task: PublishPipelineArtifact@1
                   displayName: Upload logs
+                  continueOnError: true
                   condition: always()
                   inputs:
-                    artifact: "deploy_logs_$(ARTIFACT_IDENTIFIER)"
+                    artifact: "deploy_logs_$(ARTIFACT_IDENTIFIER)_$(System.JobAttempt)"
                     publishLocation: pipeline
                     targetPath: $(Pipeline.Workspace)/logs

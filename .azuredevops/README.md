@@ -157,12 +157,12 @@ Each stage ends with a formatted summary showing:
 **Viewing Logs**
 
 All execution logs and reports are published as pipeline artifacts:
-- `plan_logs_$(ARTIFACT_IDENTIFIER)` - Plan stage outputs (what-if, PSRule, cost estimate)
-- `deploy_logs_$(ARTIFACT_IDENTIFIER)` - Deploy stage outputs (deployment results)
+- `plan_logs_$(ARTIFACT_IDENTIFIER)_$(System.JobAttempt)` - Plan stage outputs (what-if, PSRule, cost estimate)
+- `deploy_logs_$(ARTIFACT_IDENTIFIER)_$(System.JobAttempt)` - Deploy stage outputs (deployment results)
 
 Access artifacts through: **Pipeline Run → Summary → Published Artifacts**
 
-**Note:** Artifact names include the `ARTIFACT_IDENTIFIER` variable to ensure uniqueness when jobs are retried within the same build run.
+**Note:** Azure DevOps requires artifact names to be unique within a build. `ARTIFACT_IDENTIFIER` separates artifacts from different stages or environments in the same run, and `System.JobAttempt` (1 on the first run, incremented on each re-run of the job) keeps a re-run from colliding with the attempt before it, so each attempt keeps its own logs. The upload steps use `continueOnError: true`: log upload is diagnostic and never fails the stage.
 
 **Cross-Subscription Permissions**
 
