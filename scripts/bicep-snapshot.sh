@@ -14,6 +14,7 @@ set -e
 mkdir -p "${LOG_PATH}"
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 md="${log/.log/.md}"
+nl=$'\n'
 cleanup() {
   if test -z "${TF_BUILD-}"; then
     echo '::endgroup::'
@@ -59,7 +60,7 @@ if ! bicep=$(find_bicep); then
   if ! bicep=$(find_bicep); then
     msg='No Bicep CLI with the snapshot command is available. Upgrade it with: az bicep upgrade'
     print_error "${msg}"
-    echo -e "## Bicep snapshot\n\n${msg}❗" > "${md}"
+    printf '%s\n' "## Bicep snapshot${nl}${nl}${msg}❗" > "${md}"
     exit 1
   fi
 fi
@@ -104,13 +105,13 @@ echo "${output}" | tee -a "${log}"
 if [ "${code}" -eq 0 ]; then
   result="The template matches \`${snapshot}\`. No changes ✅"
   if test -n "${version_note}"; then
-    result+="\n\n${version_note} The output is unchanged."
+    result+="${nl}${nl}${version_note} The output is unchanged."
   fi
-  echo -e "## Bicep snapshot\n\n${result}" > "${md}"
+  printf '%s\n' "## Bicep snapshot${nl}${nl}${result}" > "${md}"
   exit 0
 fi
 regen="bicep snapshot ${params} --mode overwrite${args}"
-regen+="\njq --arg v \"\$(bicep --version | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1)\" '.metadata.bicepVersion = \$v' ${snapshot} > ${snapshot}.tmp && mv ${snapshot}.tmp ${snapshot}"
+regen+="${nl}jq --arg v \"\$(bicep --version | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1)\" '.metadata.bicepVersion = \$v' ${snapshot} > ${snapshot}.tmp && mv ${snapshot}.tmp ${snapshot}"
 if [[ "${output}" == *'Snapshot validation failed'* ]]; then
   diff=$(
     echo "${output}" | sed -n '/^Scope:/,$p' | grep -v '^Scope: <unknown>' | \
@@ -118,22 +119,16 @@ if [[ "${output}" == *'Snapshot validation failed'* ]]; then
   )
   summary="The template no longer matches \`${snapshot}\` ❗"
   if test -n "${version_note}"; then
-    summary+="\n\n${version_note} Some of these differences may come from the Bicep upgrade rather than from a change to the code."
+    summary+="${nl}${nl}${version_note} Some of these differences may come from the Bicep upgrade rather than from a change to the code."
   fi
-  summary+='\n\n```diff\n'
-  summary+="${diff}\n"
-  summary+='```'
-  summary+='\n\nIf these changes are intended, regenerate the snapshot, record the Bicep CLI version that made it, and commit it:'
-  summary+='\n\n```text\n'
-  summary+="${regen}\n"
-  summary+='```'
+  summary+="${nl}${nl}\`\`\`diff${nl}${diff}${nl}\`\`\`"
+  summary+="${nl}${nl}If these changes are intended, regenerate the snapshot, record the Bicep CLI version that made it, and commit it:"
+  summary+="${nl}${nl}\`\`\`text${nl}${regen}${nl}\`\`\`"
   print_error "The template no longer matches ${snapshot}."
 else
   summary="The snapshot validation failed (exit code ${code}) ❗"
-  summary+='\n\n```text\n'
-  summary+="${output}\n"
-  summary+='```'
+  summary+="${nl}${nl}\`\`\`text${nl}${output}${nl}\`\`\`"
   print_error "Bicep snapshot failed with exit code ${code}."
 fi
-echo -e "## Bicep snapshot\n\n${summary}" > "${md}"
+printf '%s\n' "## Bicep snapshot${nl}${nl}${summary}" > "${md}"
 exit 1
