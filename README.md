@@ -228,6 +228,8 @@ with:
 
   For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
 
+  When empty, PSRule uses `Azure.Default`, which picks up every new rule as soon as a new PSRule.Rules.Azure version is installed, so a plan that passed yesterday can fail today without any change to your code. To keep results stable, set a quarterly baseline such as `Azure.GA_2026_03` and move to a newer one when you are ready for the new rules. Older quarterly baselines still work but log an obsolete warning. A quarterly baseline ignores custom (local) rules unless `Rule.IncludeLocal: true` is set in the options file. To turn off a single rule instead, exclude it in the options file (`rule: exclude: [Azure.VNET.PrivateSubnet]`). See <https://azure.github.io/PSRule.Rules.Azure/working-with-baselines/>.
+
   Default: **Azure.Default**
 
 - **rule_modules**: A comma separated list of modules to use for analysis.
@@ -254,7 +256,9 @@ with:
 
   See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
 
-  Default: **"1.6"**
+  Version 1.6 cannot parse templates that Bicep compiles with `languageVersion` 2.0 (for example when user-defined types are used) and fails the step. Use 1.6.5 or later.
+
+  Default: **"1.6.5"**
 
 ### Usage
 
@@ -288,7 +292,7 @@ env:
   scope: sub
   template: main.bicep
   template_parameters: main.bicepparam # parameters can be passed inline too, like this: namePrefix=t serviceShort=tstsp3
-  version_ace_tool: "1.6"
+  version_ace_tool: "1.6.5"
 
 jobs:
   plan:

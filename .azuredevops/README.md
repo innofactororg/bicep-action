@@ -262,7 +262,7 @@ stages:
 
 - **PSRULE_AZURE_RESOURCE_MODULE_NOWARN**: Suppresses a warning when the minimum version of Az.Resources module is not installed.
 
-- **RULE_BASELINE**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
+- **RULE_BASELINE**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>. When empty, PSRule uses `Azure.Default`, which picks up every new rule as soon as a new PSRule.Rules.Azure version is installed. To keep results stable, set a quarterly baseline such as `Azure.GA_2026_03` and move to a newer one when you are ready for the new rules. Older quarterly baselines still work but log an obsolete warning. A quarterly baseline ignores custom (local) rules unless `Rule.IncludeLocal: true` is set in the options file. To turn off a single rule instead, exclude it in the options file (`rule: exclude: [Azure.VNET.PrivateSubnet]`). See <https://azure.github.io/PSRule.Rules.Azure/working-with-baselines/>.
 
 - **RULE_MODULES**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
 
@@ -272,7 +272,7 @@ stages:
 
 - **SUBSCRIPTION_ID**: The subscription ID in which to deploy the resources.
 
-- **VERSION_ACE**: Azure Cost Estimator version. If empty, cost estimator will be skipped. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
+- **VERSION_ACE**: Azure Cost Estimator version. If empty, cost estimator will be skipped. See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>. Version 1.6 cannot parse templates that Bicep compiles with `languageVersion` 2.0 (for example when user-defined types are used) and fails the step. Use 1.6.5 or later.
 
 - **WAIT_SECONDS**: Seconds to wait between each provider status check.
 
