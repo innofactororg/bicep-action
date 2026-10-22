@@ -110,6 +110,16 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
+#### Bicep CLI version
+
+The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The version is shown in the plan logs and in the PR comment.
+
+The deployment then uses **the same version the plan used**, so it compiles exactly the template that the what-if showed, even if a newer Bicep was released while the deployment waited for approval. This works like Atlantis, which applies a Terraform plan only with the Terraform version that made it. If that version cannot be installed, the deployment stops with a message to run the plan again, because the reviewed what-if no longer describes what would be deployed.
+
+A new Bicep release can change the compiled output. When it does, the next plan shows that change in the what-if (and in the Bicep snapshot, if one is used) for review like any other change.
+
+In the Azure DevOps templates this is automatic: the deploy stage reads the plan stage's version (`what_if.bicep_version`).
+
 ### Deploy job
 
 The deploy job will only run when the plan job was successful.

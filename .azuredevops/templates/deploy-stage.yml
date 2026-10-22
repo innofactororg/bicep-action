@@ -69,6 +69,7 @@ stages:
         environment: ${{ parameters.environmentName }}
         variables:
           IN_PROVIDERS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['validate.providers'] ]
+          BICEP_VERSION: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['what_if.bicep_version'] ]
         strategy:
           runOnce:
             deploy:

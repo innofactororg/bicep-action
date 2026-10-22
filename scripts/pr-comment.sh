@@ -46,6 +46,9 @@ summary+='\n\nPR | Commit | Run | Actor | Action\n'
 summary+='---|---|---|---|---\n'
 summary+="${EVENT_NO} | ${COMMIT_SHA} | [${RUN_NUMBER}](${JOB_URL}) |"
 summary+=" ${EVENT_ACTOR} | ${EVENT_ACTION}\n\n"
+if test -n "${VERSION_BICEP_CLI-}" && [[ "${VERSION_BICEP_CLI}" != *'$('* ]]; then
+  summary+="Bicep CLI ${VERSION_BICEP_CLI}\n\n"
+fi
 if [ "${LOG_NAME}" = 'plan_comment' ]; then
   output="# Plan for ${JOB_NAME}\n\n${summary}${output}"
 else

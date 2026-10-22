@@ -146,6 +146,7 @@ stages:
             env:
               LOG_NAME: what-if
               LOG_ORDER: a1
+            name: what_if
             inputs:
               azureSubscription: $(SERVICE_CONNECTION)
               scriptType: bash
@@ -256,6 +257,7 @@ stages:
         environment: $(ENVIRONMENT)
         variables:
           IN_PROVIDERS: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
+          BICEP_VERSION: $[ stageDependencies.Plan.plan.outputs['what_if.bicep_version'] ]
         strategy:
           runOnce:
             deploy:

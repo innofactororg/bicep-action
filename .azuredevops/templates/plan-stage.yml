@@ -141,6 +141,7 @@ stages:
             env:
               LOG_NAME: what-if
               LOG_ORDER: a1
+            name: what_if
             inputs:
               azureSubscription: ${{ parameters.serviceConnection }}
               scriptType: bash
