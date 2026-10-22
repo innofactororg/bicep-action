@@ -174,46 +174,21 @@ if [[ "${IN_TEMPLATE_PARAMS}" == 'http'* ]]; then
   fi
   IN_TEMPLATE_PARAMS="${file}"
 fi
-# Bicep CLI version. az uses the Bicep CLI on PATH in CI unless told not to,
-# so pin it to the binary az manages. A plan uses the latest release. A
-# deployment uses the version its plan used (BICEP_VERSION), so it compiles
-# exactly what the what-if showed. If that version cannot be installed, the
-# reviewed plan no longer describes the deployment and a new plan is needed.
-bicep_installed() {
-  az bicep version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true
-}
+# Bicep CLI version: see bicep-version.sh. A plan uses the latest release; a
+# deployment uses the version its plan used, or stops and asks for a new plan.
 if [[ "${IN_TEMPLATE}" == *'.bicep' ]] || [[ "${IN_TEMPLATE_PARAMS%% *}" == *'.bicepparam' ]]; then
-  az config set bicep.use_binary_from_path=False >/dev/null 2>&1 || true
-  if test -n "${BICEP_VERSION-}"; then
-    if [ "$(bicep_installed)" != "${BICEP_VERSION}" ]; then
-      echo "Install Bicep CLI ${BICEP_VERSION}, the version used by the plan"
-      az bicep install --version "v${BICEP_VERSION}" >/dev/null 2>&1 || true
-    fi
-    found=$(bicep_installed)
-    if [ "${found}" != "${BICEP_VERSION}" ]; then
-      msg="The plan was made with Bicep CLI ${BICEP_VERSION}, but that version could not be installed (found ${found:-none}). The reviewed what-if no longer describes this deployment. Run the plan again."
-      if test -n "${TF_BUILD-}"; then
-        echo "##[error]${msg}"
-      else
-        echo "::error::${msg}"
-      fi
-      echo -e "## Bicep CLI\n\n${msg}❗" > "${log/.log/.md}"
-      exit 1
-    fi
-  else
-    az bicep upgrade >/dev/null 2>&1 || az bicep install >/dev/null 2>&1 || true
-  fi
-  bicep_version=$(bicep_installed)
-  echo "Bicep CLI ${bicep_version:-not found}" | tee -a "${log}"
-  if test -n "${bicep_version}"; then
+  # shellcheck source=bicep-version.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/bicep-version.sh"
+  if ! select_bicep; then
     if test -n "${TF_BUILD-}"; then
-      echo "##vso[task.setvariable variable=bicep_version;isOutput=true]${bicep_version}"
-      echo "##vso[task.setvariable variable=VERSION_BICEP_CLI]${bicep_version}"
+      echo "##[error]${BICEP_ERROR}"
     else
-      echo "bicep_version=${bicep_version}" >> "$GITHUB_OUTPUT"
-      echo "VERSION_BICEP_CLI=${bicep_version}" >> "$GITHUB_ENV"
+      echo "::error::${BICEP_ERROR}"
     fi
+    printf '%s\n' "## Bicep CLI" "" "${BICEP_ERROR}❗" > "${log/.log/.md}"
+    exit 1
   fi
+  echo "Bicep CLI ${BICEP_SELECTED}" >> "${log}"
 fi
 cmd="az deployment ${IN_SCOPE} ${SCRIPT_ACTION} --name ${LOG_NAME}_${RUN_ID}"
 if [[ "${IN_TEMPLATE}" == 'http'* ]]; then

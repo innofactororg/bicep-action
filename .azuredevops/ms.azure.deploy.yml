@@ -83,6 +83,7 @@ stages:
                 declare -a SCRIPTS=(
                   "az-bicep"
                   "az-deploy"
+                  "bicep-version"
                   "azure-cost"
                   "install-tools"
                   "pr-comment"
@@ -280,6 +281,7 @@ stages:
                     inlineScript: |
                       declare -a SCRIPTS=(
                         "az-deploy"
+                        "bicep-version"
                         "azure-providers"
                         "install-tools"
                         "pr-comment"

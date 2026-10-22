@@ -108,6 +108,20 @@ if [[ "${IN_TEMPLATE}" == *".${src_file_extension}" ]]; then
   else
     echo "file=${out_file}" >> "$GITHUB_OUTPUT"
   fi
+  # Bicep CLI version: see bicep-version.sh. The first compile of a plan picks
+  # the latest release; every later step of the job reuses that version.
+  # shellcheck source=bicep-version.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/bicep-version.sh"
+  if ! select_bicep; then
+    if test -n "${TF_BUILD-}"; then
+      echo "##[error]${BICEP_ERROR}"
+    else
+      echo "::error::${BICEP_ERROR}"
+    fi
+    log_output "${log}" "${BICEP_ERROR}" ''
+    exit 1
+  fi
+  echo "Bicep CLI ${BICEP_SELECTED}" >> "${log}"
   cmd="az bicep ${SCRIPT_ACTION} --file ${IN_TEMPLATE} --outfile ${out_file}"
   case "${IN_SEVERITY}" in
     ERROR)   cmd+=' --only-show-errors';;

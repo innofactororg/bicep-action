@@ -22,12 +22,12 @@ add_output() {
       name=${name/.md/}
       name="$(tr '[:lower:]' '[:upper:]' <<< "${name:0:1}")${name:1}"
       if [ $(( ${#output} + ${#data} + 2 )) -gt ${MAX_SECTIONS} ]; then
-        data=$(echo -e "## ${name}\n\nThe ${name} output is too long for a comment. See the job summary or the logs artifact.")
+        data="## ${name}"$'\n\n'"The ${name} output is too long for a comment. See the job summary or the logs artifact."
       fi
       if test -z "${output}"; then
         output="${data}"
       else
-        output+="$(echo -e "\n\n${data}")"
+        output+=$'\n\n'"${data}"
       fi
     fi
   done
@@ -49,12 +49,19 @@ summary+=" ${EVENT_ACTOR} | ${EVENT_ACTION}\n\n"
 if test -n "${VERSION_BICEP_CLI-}" && [[ "${VERSION_BICEP_CLI}" != *'$('* ]]; then
   summary+="Bicep CLI ${VERSION_BICEP_CLI}\n\n"
 fi
+# Only the heading and the run table are interpreted (printf %b); the step
+# sections are copied verbatim, so backslashes in plan output (for example a
+# Windows path containing \c) can no longer alter or truncate the comment.
 if [ "${LOG_NAME}" = 'plan_comment' ]; then
-  output="# Plan for ${JOB_NAME}\n\n${summary}${output}"
+  header=$(printf '%b' "# Plan for ${JOB_NAME}\n\n${summary}")
 else
-  output="# ${JOB_NAME}\n\n${summary}${output}"
+  header=$(printf '%b' "# ${JOB_NAME}\n\n${summary}")
 fi
-output=$(echo -e "${output}")
+if test -n "${output}"; then
+  output="${header}"$'\n\n'"${output}"
+else
+  output="${header}"
+fi
 if [ ${#output} -gt ${MAX_COMMENT} ]; then
   echo "Comment has ${#output} characters, truncating to ${MAX_COMMENT}."
   output="${output:0:$(( MAX_COMMENT - 200 ))}"

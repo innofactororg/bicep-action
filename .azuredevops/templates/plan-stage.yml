@@ -78,6 +78,7 @@ stages:
                 declare -a SCRIPTS=(
                   "az-bicep"
                   "az-deploy"
+                  "bicep-version"
                   "azure-cost"
                   "install-tools"
                   "pr-comment"

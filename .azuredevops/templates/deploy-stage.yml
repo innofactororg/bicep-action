@@ -92,6 +92,7 @@ stages:
                     inlineScript: |
                       declare -a SCRIPTS=(
                         "az-deploy"
+                        "bicep-version"
                         "azure-providers"
                         "install-tools"
                         "pr-comment"
