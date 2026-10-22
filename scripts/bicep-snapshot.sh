@@ -64,6 +64,14 @@ if ! bicep=$(find_bicep); then
   fi
 fi
 "${bicep}" --version | tee -a "${log}"
+bicep_version=$("${bicep}" --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+# The Bicep CLI version that made the snapshot, recorded in metadata.bicepVersion
+# (bicep snapshot ignores the extra field when validating).
+snapshot_version=$(jq -r '.metadata.bicepVersion // empty' "${snapshot}" 2>/dev/null || true)
+version_note=''
+if test -n "${snapshot_version}" && [ "${snapshot_version}" != "${bicep_version}" ]; then
+  version_note="The snapshot was made with Bicep CLI ${snapshot_version} and this plan uses ${bicep_version}."
+fi
 
 args=''
 case "${IN_SCOPE}" in
@@ -94,20 +102,28 @@ if test -n "${SOURCE_PATH-}"; then
 fi
 echo "${output}" | tee -a "${log}"
 if [ "${code}" -eq 0 ]; then
-  echo -e "## Bicep snapshot\n\nThe template matches \`${snapshot}\`. No changes ✅" > "${md}"
+  result="The template matches \`${snapshot}\`. No changes ✅"
+  if test -n "${version_note}"; then
+    result+="\n\n${version_note} The output is unchanged."
+  fi
+  echo -e "## Bicep snapshot\n\n${result}" > "${md}"
   exit 0
 fi
 regen="bicep snapshot ${params} --mode overwrite${args}"
+regen+="\njq --arg v \"\$(bicep --version | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1)\" '.metadata.bicepVersion = \$v' ${snapshot} > ${snapshot}.tmp && mv ${snapshot}.tmp ${snapshot}"
 if [[ "${output}" == *'Snapshot validation failed'* ]]; then
   diff=$(
     echo "${output}" | sed -n '/^Scope:/,$p' | grep -v '^Scope: <unknown>' | \
       sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | sed -e 's/^~/!/g'
   )
   summary="The template no longer matches \`${snapshot}\` ❗"
+  if test -n "${version_note}"; then
+    summary+="\n\n${version_note} Some of these differences may come from the Bicep upgrade rather than from a change to the code."
+  fi
   summary+='\n\n```diff\n'
   summary+="${diff}\n"
   summary+='```'
-  summary+='\n\nIf these changes are intended, regenerate the snapshot and commit it:'
+  summary+='\n\nIf these changes are intended, regenerate the snapshot, record the Bicep CLI version that made it, and commit it:'
   summary+='\n\n```text\n'
   summary+="${regen}\n"
   summary+='```'

@@ -134,6 +134,7 @@ Notes:
 
 - Regenerate the snapshot only when the check reports a difference. Bicep does not write the `outputs` section in a stable order, so every regeneration can reorder it in the diff even when nothing changed. The check itself compares content, so a reordered file still matches.
 - Values of `@secure()` parameters are not written to the snapshot. They appear as `[parameters('name')]` expressions, so the file is safe to commit.
+- The regenerate command in the PR comment also records the Bicep CLI version that made the snapshot (`metadata.bicepVersion`, which the check ignores when comparing). When the plan uses a newer Bicep, the comment says so, and on a difference it notes that the change may come from the Bicep upgrade rather than from the code. A new Bicep release that changes the output still fails the check, so the new snapshot is reviewed like any other change.
 
 ### Deploy job
 
