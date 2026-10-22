@@ -228,7 +228,7 @@ with:
 
   For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
 
-  When empty, PSRule uses `Azure.Default`, which picks up every new rule as soon as a new PSRule.Rules.Azure version is installed, so a plan that passed yesterday can fail today without any change to your code. To keep results stable, set a quarterly baseline such as `Azure.GA_2026_03` and move to a newer one when you are ready for the new rules. Older quarterly baselines still work but log an obsolete warning. A quarterly baseline ignores custom (local) rules unless `Rule.IncludeLocal: true` is set in the options file. To turn off a single rule instead, exclude it in the options file (`rule: exclude: [Azure.VNET.PrivateSubnet]`). See <https://azure.github.io/PSRule.Rules.Azure/working-with-baselines/>.
+  When empty, PSRule uses `Azure.Default`, which picks up every new rule as soon as a new PSRule.Rules.Azure version is installed, so a plan that passed yesterday can fail today without any change to your code. To keep results stable, set a quarterly baseline such as `Azure.GA_2026_03` and move to a newer one when you are ready for the new rules. Older quarterly baselines still work but log an obsolete warning. A quarterly baseline ignores custom (local) rules unless `Rule.IncludeLocal: true` is set in the options file. To turn off a single rule instead, exclude it in the options file (`rule: { exclude: [Azure.VNET.PrivateSubnet] }`). See <https://azure.github.io/PSRule.Rules.Azure/working-with-baselines/>.
 
   Default: **Azure.Default**
 
