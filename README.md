@@ -118,6 +118,14 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
+### Deploy job
+
+The deploy job will only run when the plan job was successful.
+
+A specific [environment](#get-started) must be specified for this job.
+
+If the environment is configured with **required reviewers**, the job will require manual approval.
+
 #### Bicep CLI version
 
 The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The version is shown in the plan logs and in the PR comment.
@@ -127,14 +135,6 @@ The deployment then uses **the same version the plan used**, so it compiles exac
 A new Bicep release can change the compiled output. When it does, the next plan shows that change in the what-if (and in the Bicep snapshot, if one is used) for review like any other change.
 
 With the GitHub actions, pass the plan's `bicep_version` output to the deploy action's `bicep_version` input, as in the [usage](#usage) example. Without it, the deployment uses the latest version.
-
-### Deploy job
-
-The deploy job will only run when the plan job was successful.
-
-A specific [environment](#get-started) must be specified for this job.
-
-If the environment is configured with **required reviewers**, the job will require manual approval.
 
 ### Passing secrets
 
