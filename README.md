@@ -118,6 +118,18 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
+#### Bicep snapshot
+
+When the parameters file is a `.bicepparam` and a matching `<name>.snapshot.json` is committed next to it, the plan job checks the template against that snapshot. A snapshot lists every resource the template will produce, fully expanded, and is computed offline by the Bicep CLI (`bicep snapshot`).
+
+The check works like a Terraform plan reviewed in a pull request:
+
+- If the template produces the committed snapshot, the PR comment shows **No changes**.
+- If it does not, the PR comment shows the difference and the plan job **fails**, so the change cannot be merged or deployed until the snapshot is updated. When the change is intended, run the command shown in the comment (`bicep snapshot <file>.bicepparam --mode overwrite ...`) and commit the updated snapshot. Reviewers then see the exact change to the deployed resources in the pull request diff.
+- Without a snapshot file the step is skipped.
+
+The snapshot depends on the scope values (subscription, resource group, management group, tenant and location), so create it with the same values the pipeline uses. The command in the PR comment already contains them.
+
 ### Deploy job
 
 The deploy job will only run when the plan job was successful.

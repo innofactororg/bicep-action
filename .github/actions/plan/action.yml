@@ -245,6 +245,23 @@ runs:
       shell: bash
       run: azure-cost.sh
 
+    - name: Bicep snapshot
+      if: endsWith(inputs.template_parameters, '.bicepparam')
+      env:
+        IN_LOCATION: ${{ inputs.location }}
+        IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
+        IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
+        IN_SCOPE: ${{ inputs.scope }}
+        IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
+        LOG_NAME: bicep_snapshot
+        LOG_ORDER: a0
+        LOG_PATH: ${{ runner.workspace }}/logs
+        SOURCE_PATH: ${{ github.workspace }}
+        SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        TENANT_ID: ${{ inputs.azure_tenant_id }}
+      shell: bash
+      run: bicep-snapshot.sh
+
     - name: Job cancelled
       if: cancelled()
       shell: bash
