@@ -126,6 +126,20 @@ A specific [environment](#get-started) must be specified for this job.
 
 If the environment is configured with **required reviewers**, the job will require manual approval.
 
+#### Deployment stacks (opt-in)
+
+Set **deployment_mode** to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. The default is `deployment`, and nothing changes unless you opt in.
+
+- **Plan.** The what-if runs as a deployment stack what-if (`az stack-whatif`). The PR comment starts with a summary (to create, modify, delete, detach, unsupported, unchanged), lists any resource the stack would delete or detach, and then shows the full change set.
+- **Deploy.** The template is deployed with `az stack ... create`.
+- **Unmanaged resources.** **stack_action_on_unmanage** sets what happens to a resource that is removed from the template. The default `detachAll` never deletes anything: the resource is only released from the stack. `deleteResources` and `deleteAll` delete it.
+- **Delete gate.** When the stack would delete a resource, the plan **fails** unless that resource ID is listed in the JSON array file named by **stack_approved_deletes**, so every delete is approved in a reviewed commit. With a delete mode, the plan also fails when Azure reports the what-if result as not deterministic (some resource names are only known at deploy time), because then not every delete can be shown.
+- **Deny settings.** **stack_deny_settings_mode** (`none` by default, or `denyDelete` / `denyWriteAndDelete`).
+- **Stack name.** **stack_name**, by default the repository name. The stack is created at the deployment scope (resource group, subscription or management group).
+- **Adopting existing resources.** The first stack plan for resources that a standard deployment created shows them as adopted (`notManaged` => `managed`). Until the stack has been deployed once, that plan can also show property differences that Azure set itself, such as provider defaults or tags added by policy. Azure filters these out of later plans.
+- **Fallback.** Templates that use Bicep extensions, and tenant-scope deployments, are not supported by deployment stacks. They are deployed as a standard deployment, with a warning.
+- Requires an Azure CLI with the `stack-whatif` command.
+
 #### Bicep CLI version
 
 The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The first step that compiles picks the version and every later step of the plan uses the same one, so the build, PSRule, the cost estimate and the what-if all see the same compiled template. If the latest release cannot be installed, the plan stops rather than continue with an older compiler. The version is shown in the plan logs and in the PR comment.
@@ -208,6 +222,18 @@ with:
 - **bicep_version**: (Deploy action) The Bicep CLI version the plan used, from the plan action's `bicep_version` output. The deployment installs and uses this version so it compiles exactly what the plan showed. If the version cannot be installed, the deployment fails and asks for a new plan. See [Bicep CLI version](#bicep-cli-version).
 
   Default: **""** (use the latest version)
+
+- **deployment_mode**: (Plan and deploy actions) `deployment` or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in). Use the same value and the stack inputs below in both actions.
+
+  Default: **"deployment"**
+
+- **stack_action_on_unmanage**, **stack_deny_settings_mode**, **stack_name**: (Plan and deploy actions) Stack settings, used when deployment_mode is `stack`.
+
+  Defaults: **"detachAll"**, **"none"**, **""** (the repository name)
+
+- **stack_approved_deletes**: (Plan action) Path to a JSON array of resource IDs the stack may delete.
+
+  Default: **""**
 
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 

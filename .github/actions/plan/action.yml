@@ -82,6 +82,26 @@ inputs:
     description: "Azure Cost Estimator version."
     required: false
     default: "1.6"
+  deployment_mode:
+    description: "How to deploy: 'deployment' (a standard deployment) or 'stack' (a deployment stack). Stacks are opt-in."
+    required: false
+    default: "deployment"
+  stack_name:
+    description: "Deployment stack name when deployment_mode is 'stack'. Defaults to the repository name."
+    required: false
+    default: ""
+  stack_action_on_unmanage:
+    description: "What a stack does with resources removed from the template: detachAll (default, never deletes), deleteResources or deleteAll."
+    required: false
+    default: "detachAll"
+  stack_deny_settings_mode:
+    description: "Deny settings for the stack: none (default), denyDelete or denyWriteAndDelete."
+    required: false
+    default: "none"
+  stack_approved_deletes:
+    description: "Path to a JSON array of resource IDs the stack may delete. With a delete mode, the plan fails on any delete not listed here."
+    required: false
+    default: ""
 outputs:
   providers:
     description: The Azure resource providers that should be registered.
@@ -179,6 +199,11 @@ runs:
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
         LOG_NAME: what-if
         LOG_ORDER: a1
+        DEPLOYMENT_MODE: ${{ inputs.deployment_mode }}
+        STACK_NAME: ${{ inputs.stack_name }}
+        STACK_ACTION_ON_UNMANAGE: ${{ inputs.stack_action_on_unmanage }}
+        STACK_DENY_SETTINGS_MODE: ${{ inputs.stack_deny_settings_mode }}
+        STACK_APPROVED_DELETES: ${{ inputs.stack_approved_deletes }}
         LOG_PATH: ${{ runner.workspace }}/logs
         RUN_ID: ${{ github.run_id }}
         SOURCE_PATH: ${{ github.workspace }}
