@@ -93,19 +93,22 @@ for provider in "${providers[@]}"; do
     checkProviders+=("${provider}")
   fi
 done
-if [ ${#checkProviders} -eq 0 ]; then
+if [ ${#checkProviders[@]} -eq 0 ]; then
   echo 'All providers registered!' | tee -a "${log}"
 else
   for provider in "${checkProviders[@]}"; do
     state='Registering'
     timesTried=0
-    while [ "${state}" != 'Registered' ] || \
-          [ "${timesTried}" -gt "${WAIT_COUNT}" ]
+    while [ "${state}" != 'Registered' ] && \
+          [ "${timesTried}" -lt "${WAIT_COUNT}" ]
     do
       echo "Waiting for ${provider} to register..."
       cmd='az provider show --query "registrationState" --namespace'
       cmd+=" ${provider}"
       cmd+=" ${out_option}"
+      # The tee inherits this command substitution's stdout, so the state is
+      # still captured; and unlike a pipe, an az error still fails the step.
+      # shellcheck disable=SC2327,SC2328
       state=$(
         eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
       )
