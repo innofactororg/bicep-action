@@ -31,7 +31,13 @@ select_bicep() {
      [[ "${VERSION_BICEP_CLI}" != *'$('* ]]; then
     target="${VERSION_BICEP_CLI}"
   fi
-  az config set bicep.use_binary_from_path=False >/dev/null 2>&1 || true
+  # Without this, az in CI compiles with the Bicep CLI on PATH, and every
+  # version check below would describe that binary instead of the managed one.
+  if ! az config set bicep.use_binary_from_path=False >/dev/null 2>&1 || \
+     [ "$(az config get bicep.use_binary_from_path --query value -o tsv 2>/dev/null)" != 'False' ]; then
+    BICEP_ERROR='Unable to make az use its managed Bicep CLI (az config set bicep.use_binary_from_path=False failed), so the Bicep version cannot be controlled.'
+    return 1
+  fi
   if test -n "${target}"; then
     if [ "$(bicep_installed)" != "${target}" ]; then
       echo "Install Bicep CLI ${target}"
