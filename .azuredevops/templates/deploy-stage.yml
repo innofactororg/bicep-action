@@ -70,6 +70,7 @@ stages:
         variables:
           IN_PROVIDERS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['validate.providers'] ]
           BICEP_VERSION: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['what_if.bicep_version'] ]
+          PLAN_STACK_SETTINGS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['what_if.stack_settings'] ]
         strategy:
           runOnce:
             deploy:

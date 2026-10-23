@@ -259,6 +259,7 @@ stages:
         variables:
           IN_PROVIDERS: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
           BICEP_VERSION: $[ stageDependencies.Plan.plan.outputs['what_if.bicep_version'] ]
+          PLAN_STACK_SETTINGS: $[ stageDependencies.Plan.plan.outputs['what_if.stack_settings'] ]
         strategy:
           runOnce:
             deploy:
