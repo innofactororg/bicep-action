@@ -80,6 +80,7 @@ stages:
                   "az-deploy"
                   "bicep-version"
                   "azure-cost"
+                  "bicep-snapshot"
                   "install-tools"
                   "pr-comment"
                   "psrule-config"
@@ -198,6 +199,18 @@ stages:
               scriptLocation: inlineScript
               scriptType: bash
               inlineScript: ./azure-cost.sh
+
+          - task: AzureCLI@2
+            condition: and(succeeded(), endsWith(variables['IN_TEMPLATE_PARAMS'], '.bicepparam'))
+            displayName: Bicep snapshot
+            env:
+              LOG_NAME: bicep_snapshot
+              LOG_ORDER: a0
+            inputs:
+              azureSubscription: ${{ parameters.serviceConnection }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: ./bicep-snapshot.sh
 
           - task: Bash@3
             condition: or(failed(), and(succeeded(), not(eq(variables['IN_SEVERITY'], 'ERROR'))))
