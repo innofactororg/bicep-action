@@ -128,6 +128,21 @@ If the environment is configured with **Approvers**, the job will require manual
 6. **PR Comment** - Posts deployment results as a comment (for PR builds)
 7. **Upload Logs** - Publishes deployment logs as pipeline artifacts
 
+#### Deployment stacks (opt-in)
+
+Set the **DEPLOYMENT_MODE** variable to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. The default is `deployment`, and nothing changes unless you opt in.
+
+- **Plan.** The what-if runs as a deployment stack what-if (`az stack-whatif`). The PR comment starts with a summary (to create, modify, delete, detach, unsupported, unchanged), lists any resource the stack would delete or detach, and then shows the full change set.
+- **Deploy.** The template is deployed with `az stack ... create`.
+- **Unmanaged resources.** **STACK_ACTION_ON_UNMANAGE** sets what happens to a resource that is removed from the template. The default `detachAll` never deletes anything: the resource is only released from the stack. `deleteResources` and `deleteAll` delete it.
+- **Delete gate.** When the stack would delete a resource, the plan **fails** unless that resource ID is listed in the JSON array file named by **STACK_APPROVED_DELETES**, so every delete is approved in a reviewed commit. With a delete mode, the plan also fails when Azure reports the what-if result as not deterministic (some resource names are only known at deploy time), because then not every delete can be shown.
+- **Deploy exactly what was planned.** The plan records its mode and stack settings, and the deploy stage reads them (`what_if.stack_settings`). A deployment with different settings, for example `deleteAll` after a plan with `detachAll`, fails and asks for a new plan. With a delete mode, the deployment also runs the delete gate again on the current state just before deploying, because the plan can be old. The gate also fails when the what-if result is missing or incomplete.
+- **Deny settings.** **STACK_DENY_SETTINGS_MODE** (`none` by default, or `denyDelete` / `denyWriteAndDelete`).
+- **Stack name.** **STACK_NAME**, by default the repository name. The stack is created at the deployment scope (resource group, subscription or management group).
+- **Adopting existing resources.** The first stack plan for resources that a standard deployment created shows them as adopted (`notManaged` => `managed`). That plan, and later ones, can also show property differences that Azure set itself, such as provider defaults or tags that a policy rewrites on every deployment. Azure's noise reduction for stack what-if is meant to filter many of these, but it does not remove all of them, so read them as possible noise. A template whose resource names are only known at deploy time also makes the what-if result non-deterministic: those resources can be listed as detached (or, with a delete mode, deleted) even though the deployment keeps them, which is why delete modes fail the plan in that case.
+- **Fallback.** Templates that use Bicep extensions, and tenant-scope deployments, are not supported by deployment stacks. They are deployed as a standard deployment, with a warning.
+- Requires an Azure CLI with the `stack-whatif` command.
+
 #### Bicep CLI version
 
 The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The first step that compiles picks the version and every later step of the plan uses the same one, so the build, PSRule, the cost estimate and the what-if all see the same compiled template. If the latest release cannot be installed, the plan stops rather than continue with an older compiler. The version is shown in the plan logs and in the PR comment.
@@ -277,6 +292,16 @@ stages:
 - **RULE_MODULES**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
 
 - **RULE_OPTION**: The path to an options file. If empty, PSRule will be skipped.
+
+- **DEPLOYMENT_MODE**: `deployment` (default) or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in).
+
+- **STACK_ACTION_ON_UNMANAGE**: With `stack`: `detachAll` (default), `deleteResources` or `deleteAll`.
+
+- **STACK_APPROVED_DELETES**: With `stack`: path to a JSON array of resource IDs the stack may delete.
+
+- **STACK_DENY_SETTINGS_MODE**: With `stack`: `none` (default), `denyDelete` or `denyWriteAndDelete`.
+
+- **STACK_NAME**: With `stack`: the stack name. Defaults to the repository name.
 
 - **SERVICE_CONNECTION**: The Azure Resource Manager service connection name.
 

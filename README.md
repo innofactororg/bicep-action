@@ -126,6 +126,21 @@ A specific [environment](#get-started) must be specified for this job.
 
 If the environment is configured with **required reviewers**, the job will require manual approval.
 
+#### Deployment stacks (opt-in)
+
+Set **deployment_mode** to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. The default is `deployment`, and nothing changes unless you opt in.
+
+- **Plan.** The what-if runs as a deployment stack what-if (`az stack-whatif`). The PR comment starts with a summary (to create, modify, delete, detach, unsupported, unchanged), lists any resource the stack would delete or detach, and then shows the full change set.
+- **Deploy.** The template is deployed with `az stack ... create`.
+- **Unmanaged resources.** **stack_action_on_unmanage** sets what happens to a resource that is removed from the template. The default `detachAll` never deletes anything: the resource is only released from the stack. `deleteResources` and `deleteAll` delete it.
+- **Delete gate.** When the stack would delete a resource, the plan **fails** unless that resource ID is listed in the JSON array file named by **stack_approved_deletes**, so every delete is approved in a reviewed commit. With a delete mode, the plan also fails when Azure reports the what-if result as not deterministic (some resource names are only known at deploy time), because then not every delete can be shown.
+- **Deploy exactly what was planned.** The plan records its mode and stack settings (the `stack_settings` output; pass it to the deploy action as **plan_stack_settings**). A deployment with different settings, for example `deleteAll` after a plan with `detachAll`, fails and asks for a new plan. With a delete mode, the deployment also runs the delete gate again on the current state just before deploying, because the plan can be old. The gate also fails when the what-if result is missing or incomplete.
+- **Deny settings.** **stack_deny_settings_mode** (`none` by default, or `denyDelete` / `denyWriteAndDelete`).
+- **Stack name.** **stack_name**, by default the repository name. The stack is created at the deployment scope (resource group, subscription or management group).
+- **Adopting existing resources.** The first stack plan for resources that a standard deployment created shows them as adopted (`notManaged` => `managed`). That plan, and later ones, can also show property differences that Azure set itself, such as provider defaults or tags that a policy rewrites on every deployment. Azure's noise reduction for stack what-if is meant to filter many of these, but it does not remove all of them, so read them as possible noise. A template whose resource names are only known at deploy time also makes the what-if result non-deterministic: those resources can be listed as detached (or, with a delete mode, deleted) even though the deployment keeps them, which is why delete modes fail the plan in that case.
+- **Fallback.** Templates that use Bicep extensions, and tenant-scope deployments, are not supported by deployment stacks. They are deployed as a standard deployment, with a warning.
+- Requires an Azure CLI with the `stack-whatif` command.
+
 #### Bicep CLI version
 
 The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The first step that compiles picks the version and every later step of the plan uses the same one, so the build, PSRule, the cost estimate and the what-if all see the same compiled template. If the latest release cannot be installed, the plan stops rather than continue with an older compiler. The version is shown in the plan logs and in the PR comment.
@@ -208,6 +223,22 @@ with:
 - **bicep_version**: (Deploy action) The Bicep CLI version the plan used, from the plan action's `bicep_version` output. The deployment installs and uses this version so it compiles exactly what the plan showed. If the version cannot be installed, the deployment fails and asks for a new plan. See [Bicep CLI version](#bicep-cli-version).
 
   Default: **""** (use the latest version)
+
+- **deployment_mode**: (Plan and deploy actions) `deployment` or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in). Use the same value and the stack inputs below in both actions.
+
+  Default: **"deployment"**
+
+- **stack_action_on_unmanage**, **stack_deny_settings_mode**, **stack_name**: (Plan and deploy actions) Stack settings, used when deployment_mode is `stack`.
+
+  Defaults: **"detachAll"**, **"none"**, **""** (the repository name)
+
+- **stack_approved_deletes**: (Plan and deploy actions) Path to a JSON array of resource IDs the stack may delete. The deploy action uses it to check deletes again before deploying with a delete mode.
+
+  Default: **""**
+
+- **plan_stack_settings**: (Deploy action) The plan action's `stack_settings` output. Required for a stack deployment; a deployment whose settings differ from the plan fails.
+
+  Default: **""**
 
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
@@ -318,6 +349,7 @@ jobs:
     outputs:
       providers: ${{ steps.plan.outputs.providers }}
       bicep_version: ${{ steps.plan.outputs.bicep_version }}
+      stack_settings: ${{ steps.plan.outputs.stack_settings }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -364,6 +396,7 @@ jobs:
           # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
           azure_providers: ${{ needs.plan.outputs.providers }}
           bicep_version: ${{ needs.plan.outputs.bicep_version }}
+          plan_stack_settings: ${{ needs.plan.outputs.stack_settings }}
           azure_provider_wait_count: ${{ env.azure_provider_wait_count }}
           azure_provider_wait_seconds: ${{ env.azure_provider_wait_seconds }}
           azure_subscription_id: ${{ env.azure_subscription_id }} # for secret, use ${{ secrets.AZURE_SUBSCRIPTION_ID }}
