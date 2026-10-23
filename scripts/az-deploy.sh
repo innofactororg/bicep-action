@@ -318,8 +318,11 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
     if test -n "${detaches}"; then
       notes+="${nl}${nl}:warning: **Resources the stack would stop managing (detach, not deleted):**${nl}${nl}$(sed 's/^/- `/; s/$/`/' <<< "${detaches}")"
     fi
+    if [ "${nondeterministic}" -gt 0 ] && { test -n "${deletes}" || test -n "${detaches}"; }; then
+      notes+="${nl}${nl}:information_source: These lists can include resources whose names are only known at deploy time (${n_unsupported} unsupported in this plan). The what-if cannot match them to the template, so it reports them as leaving the stack even when the deployment keeps managing them."
+    fi
     if [ "${n_adopt}" -gt 0 ]; then
-      notes+="${nl}${nl}:information_source: ${n_adopt} existing resources will be adopted into the stack. Until the stack has been deployed once, the property changes below can include values that Azure set itself (defaults, tags added by policy); Azure filters these out of later plans."
+      notes+="${nl}${nl}:information_source: ${n_adopt} existing resources will be adopted into the stack. Until the stack has been deployed once, the property changes below can include values that Azure set itself, such as provider defaults or tags added by policy."
     fi
     gate=''
     if test -n "${unapproved}"; then
