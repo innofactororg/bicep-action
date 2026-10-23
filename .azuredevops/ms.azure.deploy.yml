@@ -83,6 +83,7 @@ stages:
                 declare -a SCRIPTS=(
                   "az-bicep"
                   "az-deploy"
+                  "bicep-version"
                   "azure-cost"
                   "install-tools"
                   "pr-comment"
@@ -146,6 +147,7 @@ stages:
             env:
               LOG_NAME: what-if
               LOG_ORDER: a1
+            name: what_if
             inputs:
               azureSubscription: $(SERVICE_CONNECTION)
               scriptType: bash
@@ -256,6 +258,7 @@ stages:
         environment: $(ENVIRONMENT)
         variables:
           IN_PROVIDERS: $[ stageDependencies.Plan.plan.outputs['validate.providers'] ]
+          BICEP_VERSION: $[ stageDependencies.Plan.plan.outputs['what_if.bicep_version'] ]
         strategy:
           runOnce:
             deploy:
@@ -278,6 +281,7 @@ stages:
                     inlineScript: |
                       declare -a SCRIPTS=(
                         "az-deploy"
+                        "bicep-version"
                         "azure-providers"
                         "install-tools"
                         "pr-comment"

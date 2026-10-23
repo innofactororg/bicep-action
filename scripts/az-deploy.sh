@@ -174,6 +174,22 @@ if [[ "${IN_TEMPLATE_PARAMS}" == 'http'* ]]; then
   fi
   IN_TEMPLATE_PARAMS="${file}"
 fi
+# Bicep CLI version: see bicep-version.sh. A plan uses the latest release; a
+# deployment uses the version its plan used, or stops and asks for a new plan.
+if [[ "${IN_TEMPLATE}" == *'.bicep' ]] || [[ "${IN_TEMPLATE_PARAMS%% *}" == *'.bicepparam' ]]; then
+  # shellcheck source=bicep-version.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/bicep-version.sh"
+  if ! select_bicep; then
+    if test -n "${TF_BUILD-}"; then
+      echo "##[error]${BICEP_ERROR}"
+    else
+      echo "::error::${BICEP_ERROR}"
+    fi
+    printf '%s\n' "## Bicep CLI" "" "${BICEP_ERROR}❗" > "${log/.log/.md}"
+    exit 1
+  fi
+  echo "Bicep CLI ${BICEP_SELECTED}" >> "${log}"
+fi
 cmd="az deployment ${IN_SCOPE} ${SCRIPT_ACTION} --name ${LOG_NAME}_${RUN_ID}"
 if [[ "${IN_TEMPLATE}" == 'http'* ]]; then
   cmd+=" --template-uri ${IN_TEMPLATE}"

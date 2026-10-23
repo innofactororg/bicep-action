@@ -27,6 +27,10 @@ inputs:
     description: "A comma separated list of Azure resource providers."
     required: false
     default: ""
+  bicep_version:
+    description: "The Bicep CLI version the plan used (the plan action's bicep_version output). The deployment installs and uses this version so it compiles exactly what the plan showed. If empty, the latest version is used."
+    required: false
+    default: ""
   azure_provider_wait_count:
     description: "Times to check provider status before giving up."
     required: false
@@ -125,6 +129,7 @@ runs:
         IN_SEVERITY: ${{ inputs.log_severity }}
         IN_TEMPLATE: ${{ inputs.template }}
         IN_TEMPLATE_PARAMS: ${{ inputs.template_parameters }}
+        BICEP_VERSION: ${{ inputs.bicep_version }}
         LOG_NAME: create_deployment
         LOG_ORDER: a1
         LOG_PATH: ${{ runner.workspace }}/logs

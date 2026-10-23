@@ -86,6 +86,9 @@ outputs:
   providers:
     description: The Azure resource providers that should be registered.
     value: ${{ steps.validate.outputs.providers }}
+  bicep_version:
+    description: The Bicep CLI version the plan used. Pass it to the deploy action so the deployment compiles with the same version.
+    value: ${{ steps.what_if.outputs.bicep_version }}
 runs:
   using: composite
   steps:
@@ -165,6 +168,7 @@ runs:
       run: az-deploy.sh validate
 
     - name: What-if
+      id: what_if
       env:
         IN_LOCATION: ${{ inputs.location }}
         IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}

@@ -126,6 +126,16 @@ A specific [environment](#get-started) must be specified for this job.
 
 If the environment is configured with **required reviewers**, the job will require manual approval.
 
+#### Bicep CLI version
+
+The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The first step that compiles picks the version and every later step of the plan uses the same one, so the build, PSRule, the cost estimate and the what-if all see the same compiled template. If the latest release cannot be installed, the plan stops rather than continue with an older compiler. The version is shown in the plan logs and in the PR comment.
+
+The deployment then uses **the same version the plan used**, so it compiles exactly the template that the what-if showed, even if a newer Bicep was released while the deployment waited for approval. This works like Atlantis, which applies a Terraform plan only with the Terraform version that made it. If that version cannot be installed, the deployment stops with a message to run the plan again, because the reviewed what-if no longer describes what would be deployed.
+
+A new Bicep release can change the compiled output. When it does, the next plan shows that change in the what-if (and in the Bicep snapshot, if one is used) for review like any other change.
+
+With the GitHub actions, pass the plan's `bicep_version` output to the deploy action's `bicep_version` input, as in the [usage](#usage) example. Without it, the deployment uses the latest version.
+
 ### Passing secrets
 
 It is optional to pass **"azure_client_id"**, **"azure_subscription_id"** and **"azure_tenant_id"** as secret.
@@ -194,6 +204,10 @@ with:
 - **azure_provider_wait_seconds**: Seconds to wait between each provider status check.
 
   Default: **"10"**
+
+- **bicep_version**: (Deploy action) The Bicep CLI version the plan used, from the plan action's `bicep_version` output. The deployment installs and uses this version so it compiles exactly what the plan showed. If the version cannot be installed, the deployment fails and asks for a new plan. See [Bicep CLI version](#bicep-cli-version).
+
+  Default: **""** (use the latest version)
 
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
@@ -303,6 +317,7 @@ jobs:
       pull-requests: write # for pull request comment
     outputs:
       providers: ${{ steps.plan.outputs.providers }}
+      bicep_version: ${{ steps.plan.outputs.bicep_version }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -348,6 +363,7 @@ jobs:
           azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
           # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
           azure_providers: ${{ needs.plan.outputs.providers }}
+          bicep_version: ${{ needs.plan.outputs.bicep_version }}
           azure_provider_wait_count: ${{ env.azure_provider_wait_count }}
           azure_provider_wait_seconds: ${{ env.azure_provider_wait_seconds }}
           azure_subscription_id: ${{ env.azure_subscription_id }} # for secret, use ${{ secrets.AZURE_SUBSCRIPTION_ID }}
