@@ -286,6 +286,12 @@ stages:
 
 - **PSRULE_AZURE_RESOURCE_MODULE_NOWARN**: Suppresses a warning when the minimum version of Az.Resources module is not installed.
 
+- **RULE_BASELINE**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
+
+- **RULE_MODULES**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
+
+- **RULE_OPTION**: The path to an options file. If empty, PSRule will be skipped.
+
 - **DEPLOYMENT_MODE**: `deployment` (default) or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in).
 
 - **STACK_ACTION_ON_UNMANAGE**: With `stack`: `detachAll` (default), `deleteResources` or `deleteAll`.
@@ -295,12 +301,6 @@ stages:
 - **STACK_DENY_SETTINGS_MODE**: With `stack`: `none` (default), `denyDelete` or `denyWriteAndDelete`.
 
 - **STACK_NAME**: With `stack`: the stack name. Defaults to the repository name.
-
-- **RULE_BASELINE**: The name of a PSRule baseline to use. For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
-
-- **RULE_MODULES**: A comma separated list of modules to use for analysis. For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
-
-- **RULE_OPTION**: The path to an options file. If empty, PSRule will be skipped.
 
 - **SERVICE_CONNECTION**: The Azure Resource Manager service connection name.
 
