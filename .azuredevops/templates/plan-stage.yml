@@ -201,7 +201,7 @@ stages:
               inlineScript: ./azure-cost.sh
 
           - task: AzureCLI@2
-            condition: and(succeeded(), endsWith(variables['IN_TEMPLATE_PARAMS'], '.bicepparam'))
+            condition: and(succeeded(), contains(variables['IN_TEMPLATE_PARAMS'], '.bicepparam'))
             displayName: Bicep snapshot
             env:
               LOG_NAME: bicep_snapshot

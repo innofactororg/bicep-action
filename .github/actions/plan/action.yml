@@ -246,7 +246,7 @@ runs:
       run: azure-cost.sh
 
     - name: Bicep snapshot
-      if: endsWith(inputs.template_parameters, '.bicepparam')
+      if: contains(inputs.template_parameters, '.bicepparam')
       env:
         IN_LOCATION: ${{ inputs.location }}
         IN_MANAGEMENT_GROUP: ${{ inputs.management_group }}
