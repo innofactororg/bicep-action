@@ -190,6 +190,22 @@ if [[ "${IN_TEMPLATE}" == *'.bicep' ]] || [[ "${IN_TEMPLATE_PARAMS%% *}" == *'.b
   fi
   echo "Bicep CLI ${BICEP_SELECTED}" >> "${log}"
 fi
+# Select the subscription before anything uses it (see azure-subscription.sh).
+# With a service connection scoped to a management group, AzureCLI@2 signs in
+# at tenant level and this is where the subscription is selected.
+if test -n "${SUBSCRIPTION_ID-}"; then
+  # shellcheck source=azure-subscription.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/azure-subscription.sh"
+  if ! select_subscription "${SUBSCRIPTION_ID}"; then
+    if test -n "${TF_BUILD-}"; then
+      echo "##[error]${SUBSCRIPTION_ERROR}"
+    else
+      echo "::error::${SUBSCRIPTION_ERROR}"
+    fi
+    printf '%s\n' "## Azure subscription" "" "${SUBSCRIPTION_ERROR}❗" > "${log/.log/.md}"
+    exit 1
+  fi
+fi
 # Deployment stacks (opt-in: DEPLOYMENT_MODE=stack). The what-if and the
 # deployment run as a stack; validate (and provider discovery) is unchanged.
 # Unmanaged resources are detached by default (STACK_ACTION_ON_UNMANAGE),
@@ -456,9 +472,6 @@ case "${SCRIPT_ACTION}" in
   validate) cmd+=' --no-prompt true -o json';;
   what-if)  cmd+=' --exclude-change-types Ignore NoChange --no-prompt true';;
 esac
-if test -n "${TF_BUILD-}"; then
-  az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
-fi
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 log_output "${log}" '' ''

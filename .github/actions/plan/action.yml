@@ -57,6 +57,10 @@ inputs:
     description: "Path to a JSON array of resource IDs the stack may delete. With a delete mode, the plan fails on any delete not listed here."
     required: false
     default: ""
+  subscription_wait_minutes:
+    description: "Minutes to wait for the subscription to become visible to the signed-in identity (a new role assignment or a newly moved subscription can take a while). Only that error is retried."
+    required: false
+    default: "30"
   location:
     description: "The Azure location to store the deployment metadata."
     required: true
@@ -138,6 +142,7 @@ runs:
         CLIENT_ID: ${{ inputs.azure_client_id }}
         CLIENT_SECRET: ${{ inputs.azure_client_secret }}
         LOG_NAME: azure_login
+        SUBSCRIPTION_WAIT_MINUTES: ${{ inputs.subscription_wait_minutes }}
         LOG_ORDER: b2
         LOG_PATH: ${{ runner.workspace }}/logs
         SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}

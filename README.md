@@ -118,6 +118,12 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
+#### Service connections for new subscriptions
+
+A role assignment that was just created, or a subscription that was just created or moved between management groups, can be invisible to the pipeline identity for a while, and can come back invisible after a successful sign-in ("The subscription of '&lt;id&gt;' doesn't exist in cloud 'AzureCloud'"). In observed runs this lasted more than an hour.
+
+The scripts select the subscription themselves and retry **only that error**: each attempt refreshes and logs the subscriptions the identity can see, for up to **subscription_wait_minutes** minutes (default 30). Any other error, such as a missing permission, fails at once.
+
 ### Deploy job
 
 The deploy job will only run when the plan job was successful.
@@ -239,6 +245,10 @@ with:
 - **plan_stack_settings**: (Deploy action) The plan action's `stack_settings` output. Required for a stack deployment; a deployment whose settings differ from the plan fails.
 
   Default: **""**
+
+- **subscription_wait_minutes**: (Plan and deploy actions) Minutes to wait for the subscription to become visible to the signed-in identity. Only the "doesn't exist in cloud" error is retried. See [Service connections for new subscriptions](#service-connections-for-new-subscriptions).
+
+  Default: **"30"**
 
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 

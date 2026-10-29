@@ -110,6 +110,14 @@ For more information about PSRule configuration, see:
 - [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
 - [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
 
+#### Service connections for new subscriptions
+
+A role assignment that was just created, or a subscription that was just created or moved between management groups, can be invisible to the pipeline identity for a while, and can come back invisible after a successful sign-in ("The subscription of '&lt;id&gt;' doesn't exist in cloud 'AzureCloud'"). In observed runs this lasted more than an hour.
+
+In Azure DevOps, an `AzureCLI@2` task whose service connection is scoped to a **subscription** selects that subscription during its own sign-in, before the script runs, so a failure there cannot be retried. Scope the service connection to a **management group** instead (the role assignment on the subscription is unchanged: a connection's scope does not grant access). The task then signs in at tenant level and the scripts select `SUBSCRIPTION_ID`.
+
+The scripts select the subscription themselves and retry **only that error**: each attempt refreshes and logs the subscriptions the identity can see, for up to the **SUBSCRIPTION_WAIT_MINUTES** variable minutes (default 30). Any other error, such as a missing permission, fails at once.
+
 ### Deploy job
 
 The deploy job will only run when the plan job was successful.
@@ -304,6 +312,8 @@ stages:
 - **STACK_NAME**: With `stack`: the stack name. Defaults to the repository name.
 
 - **SERVICE_CONNECTION**: The Azure Resource Manager service connection name.
+
+- **SUBSCRIPTION_WAIT_MINUTES**: Minutes to wait for the subscription to become visible to the pipeline identity (default 30). Only the "doesn't exist in cloud" error is retried. See [Service connections for new subscriptions](#service-connections-for-new-subscriptions).
 
 - **SUBSCRIPTION_ID**: The subscription ID in which to deploy the resources.
 

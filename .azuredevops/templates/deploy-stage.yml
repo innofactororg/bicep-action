@@ -93,6 +93,7 @@ stages:
                     inlineScript: |
                       declare -a SCRIPTS=(
                         "az-deploy"
+                        "azure-subscription"
                         "bicep-version"
                         "azure-providers"
                         "install-tools"
