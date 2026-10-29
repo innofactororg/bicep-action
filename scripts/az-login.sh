@@ -89,4 +89,14 @@ fi
 cmd+=" --allow-no-subscriptions${log_severity}"
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
-az account set -s "${SUBSCRIPTION_ID}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+# shellcheck source=azure-subscription.sh
+source "$(dirname "${BASH_SOURCE[0]}")/azure-subscription.sh"
+if ! select_subscription "${SUBSCRIPTION_ID}"; then
+  if test -n "${TF_BUILD-}"; then
+    echo "##[error]${SUBSCRIPTION_ERROR}"
+  else
+    echo "::error::${SUBSCRIPTION_ERROR}"
+  fi
+  log_output "${log}" "${SUBSCRIPTION_ERROR}" ''
+  exit 1
+fi

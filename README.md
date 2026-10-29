@@ -146,6 +146,12 @@ A specific [environment](#get-started) must be specified for this job.
 
 If the environment is configured with **required reviewers**, the job will require manual approval.
 
+#### Service connections for new subscriptions
+
+A role assignment that was just created, or a subscription that was just created or moved between management groups, can be invisible to the pipeline identity for a while, and can come back invisible after a successful sign-in ("The subscription of '&lt;id&gt;' doesn't exist in cloud 'AzureCloud'"). In observed runs this lasted more than an hour.
+
+The scripts select the subscription themselves and retry **only that error**: each attempt refreshes and logs the subscriptions the identity can see, for up to the number of minutes in **subscription_wait_minutes** (default 30). Any other error, such as a missing permission, fails at once.
+
 #### Deployment stacks (opt-in)
 
 Set **deployment_mode** to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. The default is `deployment`, and nothing changes unless you opt in.
@@ -259,6 +265,10 @@ with:
 - **plan_stack_settings**: (Deploy action) The plan action's `stack_settings` output. Required for a stack deployment; a deployment whose settings differ from the plan fails.
 
   Default: **""**
+
+- **subscription_wait_minutes**: (Plan and deploy actions) Minutes to wait for the subscription to become visible to the signed-in identity. Only the "doesn't exist in cloud" error is retried. See [Service connections for new subscriptions](#service-connections-for-new-subscriptions).
+
+  Default: **"30"**
 
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
