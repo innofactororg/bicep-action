@@ -2,6 +2,40 @@
 
 This repository includes GitHub actions and a Azure DevOps [pipeline](./.azuredevops/README.md) to plan and deploy Azure infrastructure.
 
+Bicep is planned and reviewed in the pull request, and deployed only after it has been approved, like a Terraform plan reviewed with Atlantis:
+
+- **The plan is posted in the pull request.** Validation, the what-if, a PSRule analysis and a cost estimate are posted as one comment, and the deployment waits for an approval.
+- **Deployment stacks (recommended).** The template is deployed as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks), so Azure tracks which resources belong to it. The plan counts what will be created, modified, deleted or detached. A delete fails the plan unless that resource is approved in a reviewed file.
+- **The cost estimate.** It shows the cost change of each pull request, and can fail the plan above a threshold.
+- **The Bicep snapshot.** A committed `main.snapshot.json` puts the change to the deployed resources into the pull request diff, and the plan fails when the code no longer matches it.
+- **Deploy exactly what was planned.** The deployment uses the Bicep version and the stack settings that the plan used.
+- **Built for new subscriptions.** When a subscription or role assignment was just created, the scripts wait for it to become visible instead of failing.
+- **GitHub Actions and Azure DevOps**, from the same scripts and with the same pull request comments.
+
+### What the pull request looks like
+
+The plan for a change: the snapshot matches, the stack will modify one resource and delete none, and the cost estimate reports no change. See the [live example](https://github.com/DamianFlynn/bicep-action-demo/pull/2).
+
+![Plan comment in a pull request](./images/pr-plan-comment.png)
+
+After approval, the deployment reports back to the same pull request:
+
+![Deploy comment in a pull request](./images/pr-deploy-comment.png)
+
+The Azure DevOps pipeline posts the same comments on the pull request in Azure Repos.
+
+### Recommended settings
+
+Deployment stacks and the cost estimate are off by default, so existing workflows do not change. For a new workflow, turn them on:
+
+```yaml
+deployment_mode: stack     # plan and deploy actions
+version_ace_tool: "1.6.5"  # plan action; an empty value skips the cost estimate
+cost_threshold: 1000       # plan action; -1 reports the cost without a limit
+```
+
+Then commit a [Bicep snapshot](#bicep-snapshot) next to the parameters file. The [usage](#usage) example uses these settings.
+
 ## Overview
 
 ![Flow overview](./images/deploy-flow.drawio.png)
@@ -36,6 +70,8 @@ To set up a bicep deploy workflow, several prerequisite steps are required:
      - Specify the environment name that was created in step 1.
      - Save the credential.
 
+     The subject must match the claim GitHub sends. Repositories created recently use the immutable format `repo:<owner>@<owner-id>/<repo>@<repo-id>:pull_request` instead of `repo:<owner>/<repo>:pull_request`. To see which one a repository uses, run `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` (`sub_claim_prefix`). If the login fails with `AADSTS700213: No matching federated identity record found`, the error message shows the subject that was sent.
+
      Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
 
    - **Option 2**: Add [client secret](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-a-client-secret)
@@ -49,7 +85,7 @@ To allow pull requests to merge automatically once all required reviews and stat
 
 To clean up the head branch after merge, enable **"Automatically delete head branches"** on the same page.
 
-For auto merge to work as intended, enable [branch protection](#branch-protection).
+For auto merge to work as intended, enable [branch protection](#branch-protection) with at least one required status check. Without one, GitHub refuses to enable auto merge ("Pull request is in unstable status") and the deploy job fails after a successful deployment. To turn auto merge off, set **auto_merge** to an empty value.
 
 ### Branch protection
 
@@ -75,7 +111,7 @@ This ensures that no changes to the pull request are possible between the approv
 
 The workflow is designed to run when a pull request is created or updated.
 
-It has been tested on a [standard GitHub-hosted runner](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories) with workflow label **"ubuntu-22.04"**.
+It has been tested on a [standard GitHub-hosted runner](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories) with workflow label **"ubuntu-24.04"**.
 
 The concurrency setting is configured to ensure that only one workflow runs at any given time. If a new workflow starts with the same name, GitHub Actions will cancel any workflow already running with that name.
 
@@ -154,7 +190,7 @@ The scripts select the subscription themselves and retry **only that error**: ea
 
 #### Deployment stacks (opt-in)
 
-Set **deployment_mode** to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. The default is `deployment`, and nothing changes unless you opt in.
+Set **deployment_mode** to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. This is the recommended setting for new workflows. The default is `deployment`, so existing workflows do not change unless they opt in.
 
 - **Plan.** The what-if runs as a deployment stack what-if (`az stack-whatif`). The PR comment starts with a summary (to create, modify, delete, detach, unsupported, unchanged), lists any resource the stack would delete or detach, and then shows the full change set.
 - **Deploy.** The template is deployed with `az stack ... create`.
@@ -361,6 +397,7 @@ env:
   azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4 # when using a secret, remove this line and add the secret to each job below
   cost_threshold: 1000
   currency: EUR
+  deployment_mode: stack
   location: westeurope
   log_severity: INFO
   rule_option: ps-rule.yaml
@@ -380,7 +417,7 @@ jobs:
       providers: ${{ steps.plan.outputs.providers }}
       bicep_version: ${{ steps.plan.outputs.bicep_version }}
       stack_settings: ${{ steps.plan.outputs.stack_settings }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -396,6 +433,7 @@ jobs:
           azure_tenant_id: ${{ env.azure_tenant_id }} # for secret, use ${{ secrets.AZURE_TENANT_ID }}
           cost_threshold: ${{ env.cost_threshold }}
           currency: ${{ env.currency }}
+          deployment_mode: ${{ env.deployment_mode }}
           location: ${{ env.location }}
           log_severity: ${{ env.log_severity }}
           rule_option: ${{ env.rule_option }}
@@ -412,7 +450,7 @@ jobs:
       contents: write # for auto merge
       id-token: write # for Azure login with open id
       pull-requests: write # for pull request comment
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -426,6 +464,7 @@ jobs:
           # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
           azure_providers: ${{ needs.plan.outputs.providers }}
           bicep_version: ${{ needs.plan.outputs.bicep_version }}
+          deployment_mode: ${{ env.deployment_mode }}
           plan_stack_settings: ${{ needs.plan.outputs.stack_settings }}
           azure_provider_wait_count: ${{ env.azure_provider_wait_count }}
           azure_provider_wait_seconds: ${{ env.azure_provider_wait_seconds }}

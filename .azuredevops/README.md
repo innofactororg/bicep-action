@@ -2,6 +2,29 @@
 
 A [pipeline](ms.azure.deploy.yml) to plan and deploy Azure infrastructure.
 
+Bicep is planned and reviewed in the pull request, and deployed only after the environment approval. The plan comment holds the validation, the what-if (or the deployment stack what-if), a PSRule analysis, the cost estimate and the [Bicep snapshot](#bicep-snapshot) check. The deployment uses the Bicep version and the stack settings that the plan used. See the [overview](../README.md) for the full list of features.
+
+### What the pull request looks like
+
+![Plan comment in a pull request](../images/pr-plan-comment.png)
+
+The comment above is from the GitHub actions ([live example](https://github.com/DamianFlynn/bicep-action-demo/pull/2)). The pipeline posts the same comment on the pull request in Azure Repos, from the same scripts.
+
+### Recommended settings
+
+Deployment stacks and the cost estimate are opt-in in the stage templates, so existing pipelines do not change. The [ms.azure.deploy.yml](./ms.azure.deploy.yml) starter turns both on:
+
+```yaml
+- name: DEPLOYMENT_MODE
+  value: stack       # see "Deployment stacks (opt-in)"
+- name: VERSION_ACE
+  value: 1.6.5       # an empty value skips the cost estimate
+- name: COST_THRESHOLD
+  value: -1          # report the cost without a limit, or set a maximum
+```
+
+Then commit a [Bicep snapshot](#bicep-snapshot) next to the parameters file.
+
 ## Overview
 
 ![Flow overview](../images/deploy-flow.azdo.drawio.png)
@@ -322,7 +345,7 @@ stages:
 
 - **RULE_OPTION**: The path to an options file. If empty, PSRule will be skipped.
 
-- **DEPLOYMENT_MODE**: `deployment` (default) or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in).
+- **DEPLOYMENT_MODE**: `deployment` (default) or `stack` (recommended for new pipelines; the starter uses it). See [Deployment stacks (opt-in)](#deployment-stacks-opt-in).
 
 - **STACK_ACTION_ON_UNMANAGE**: With `stack`: `detachAll` (default), `deleteResources` or `deleteAll`.
 
