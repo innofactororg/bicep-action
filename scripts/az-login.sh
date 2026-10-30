@@ -29,7 +29,9 @@ log_output() {
   local summary="${2}❗"
   if test -n "${3}"; then
     summary+='\n\nCommand that failed:\n\n```text\n'
-    summary+="$(eval echo "${3}")"
+    # Never expand the command: it can hold the client secret or the
+    # federated token, and this text is posted as a pull request comment.
+    summary+="${shown:-${3}}"
     summary+='\n```'
   fi
   if test -f "${1}"; then
@@ -62,8 +64,10 @@ case "${IN_SEVERITY}" in
   *)       log_severity='';;
 esac
 cmd="az login --service-principal -t ${TENANT_ID} -u ${CLIENT_ID}"
+shown="${cmd}"
 if test -n "${CLIENT_SECRET//[$'\t\r\n']}"; then
   cmd+=" -p ${CLIENT_SECRET//[$'\t\r\n']}"
+  shown+=" -p ***"
 else
   HTTP_CODE=$(curl -sSL --retry 4 --output token.txt \
     --write-out "%{response_code}" \
@@ -85,9 +89,11 @@ else
   rm -f token.txt
   echo "::add-mask::${token}"
   cmd+=" --federated-token ${token}"
+  shown+=" --federated-token ***"
 fi
 cmd+=" --allow-no-subscriptions${log_severity}"
-echo "Run: ${cmd}"
+shown+=" --allow-no-subscriptions${log_severity}"
+echo "Run: ${shown}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 # shellcheck source=azure-subscription.sh
 source "$(dirname "${BASH_SOURCE[0]}")/azure-subscription.sh"
