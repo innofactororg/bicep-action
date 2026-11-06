@@ -89,6 +89,7 @@ stages:
                   "bicep-snapshot"
                   "install-tools"
                   "pr-comment"
+                  "psrule-analysis"
                   "psrule-config"
                   "psrule-report"
                 )
@@ -168,18 +169,15 @@ stages:
               targetType: inline
               script: ./psrule-config.sh
 
-          - task: ps-rule-assert@2
+          - task: Bash@3
             condition: and(succeeded(), not(eq(variables['RULE_OPTION'], '')), eq(variables['psrule_config.error'], ''))
             displayName: PSRule analysis
+            env:
+              INPUT_PATH: $(Build.SourcesDirectory)
+              OUTPUT_PATH: $(Pipeline.Workspace)/logs/psrule_analysis.md
             inputs:
-              baseline: $(RULE_BASELINE)
-              inputPath: $(Build.SourcesDirectory)
-              inputType: repository
-              modules: $(RULE_MODULES)
-              option: $(RULE_OPTION)
-              outputFormat: Markdown
-              outputPath: $(Pipeline.Workspace)/logs/psrule_analysis.md
-              summary: false
+              targetType: inline
+              script: ./psrule-analysis.sh
 
           - task: Bash@3
             condition: and(not(eq(variables['RULE_OPTION'], '')), or(succeeded(), failed()))
