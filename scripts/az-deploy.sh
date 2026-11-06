@@ -337,7 +337,7 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
     count() { jq -r --arg t "${1}" '[.properties.changes.resourceChanges[]? | select(.changeType == $t)] | length' <<< "${json}"; }
     n_create=$(count create); n_modify=$(count modify); n_delete=$(count delete)
     n_detach=$(count detach); n_unsupported=$(count unsupported); n_nochange=$(count noChange)
-    n_adopt=$(jq -r '[.properties.changes.resourceChanges[]? | select(.managementStatusChange.before == "notManaged" and .managementStatusChange.after == "managed")] | length' <<< "${json}")
+    n_adopt=$(jq -r '[.properties.changes.resourceChanges[]? | select(.changeType != "create" and .managementStatusChange.before == "notManaged" and .managementStatusChange.after == "managed")] | length' <<< "${json}")
     nondeterministic=$(jq -r '[.properties.diagnostics[]? | select(.code == "ShortCircuitedResourceId")] | length' <<< "${json}")
     deletes=$(jq -r '.properties.changes.resourceChanges[]? | select(.changeType == "delete") | .id' <<< "${json}")
     detaches=$(jq -r '.properties.changes.resourceChanges[]? | select(.changeType == "detach") | .id' <<< "${json}")
