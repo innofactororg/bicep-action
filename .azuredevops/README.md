@@ -16,8 +16,6 @@ A [pipeline](ms.azure.deploy.yml) to plan and deploy Azure infrastructure.
 
 To use the pipeline, several prerequisite steps are required:
 
-1. Install the [PSRule](https://marketplace.visualstudio.com/items?itemName=bewhite.ps-rule) Azure DevOps extension.
-
 1. Create an [environment](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/environments?view=azure-devops).
 
 1. To prevent unapproved deployments, add the [**"Approvals"**](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/approvals?view=azure-devops&tabs=check-pass#approvals) check to the environment.
