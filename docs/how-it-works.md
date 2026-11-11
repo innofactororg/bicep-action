@@ -6,6 +6,7 @@ bicep-action runs Bicep the way Terraform teams use Atlantis. Every change is **
 - [The plan job](#the-plan-job)
 - [The deploy job](#the-deploy-job)
 - [Deploy exactly what was planned](#deploy-exactly-what-was-planned)
+- [The what-if](#the-what-if)
 - [Deployment stacks and the delete gate](#deployment-stacks-and-the-delete-gate)
 - [Bicep snapshot](#bicep-snapshot)
 - [Cost estimate](#cost-estimate)
@@ -104,7 +105,37 @@ A reviewer approves a specific what-if. The deploy job makes sure that what-if i
 
 In Azure DevOps the deploy stage reads these values from the plan stage automatically. With GitHub, pass the plan action's outputs to the deploy action, as in the [examples](./examples/github/).
 
+## The what-if
+
+![The what-if previews the change](./images/what-if.png)
+
+The what-if asks Azure what the deployment **would** change, without changing anything. It is the heart of the plan comment.
+
+- **Standard deployment.** `az deployment <scope> what-if`. Resources that would not change, or that Azure ignores, are left out, so the comment shows only real changes.
+- **Deployment stack.** `az stack-whatif`. It also shows which resources the stack would **detach** or **delete** because they left the template. See the next section.
+
+The comment shows the result as a `diff` block, so the changes are coloured:
+
+| Line starts with | Meaning |
+|---|---|
+| `+` | Create |
+| `-` | Delete |
+| `!` | Modify. Azure prints `~`; it is shown as `!` so the diff highlights it. |
+| `=` | No change (stack what-if) |
+| `x`, `v` | Property-level markers that Azure uses, for example a value with no effect |
+
+Property changes are listed under each resource. Long results are folded under **Click for details**.
+
+What the what-if cannot know:
+
+- **Values only known at deploy time,** such as `reference()` output or a name built from a runtime value, show as unsupported or not deterministic.
+- **Changes Azure makes itself,** such as provider defaults or tags a policy adds, can appear as modifications on every plan. Read them as possible noise.
+
+The counts and the delete, detach and unsupported IDs are also written to [`whatif-summary.json`](#what-if-summary-file) for automation.
+
 ## Deployment stacks and the delete gate
+
+![A stack creates, detaches, and deletes only when approved](./images/stacks.png)
 
 With `deployment_mode: stack`, the template is deployed as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks). Azure then knows which resources belong to the template, so the plan can show what would be **deleted** or **detached** when something is removed from the code. This is the recommended mode for new pipelines.
 
@@ -134,6 +165,8 @@ flowchart TD
 
 ## Bicep snapshot
 
+![The template is compared with the committed snapshot](./images/snapshot.png)
+
 A Bicep snapshot is a committed file, `<name>.snapshot.json`, that lists every resource the template produces, fully expanded. The Bicep CLI computes it offline (`bicep snapshot`). When the parameters file is a `.bicepparam` and a matching snapshot sits next to it, the plan checks the template against it:
 
 - **It matches.** The comment says **No changes**.
@@ -150,6 +183,8 @@ Things to know:
 - With [existing tags](#existing-tags), the snapshot contains the tag values. Limit them to the template's own resource groups with `existing_tags_resource_groups`, or the snapshot breaks whenever an unrelated resource changes a tag.
 
 ## Cost estimate
+
+![The cost estimate against the budget](./images/cost.png)
 
 The plan runs the [Azure Cost Estimator](https://github.com/TheCloudTheory/arm-estimator) on the compiled template and puts the monthly estimate in the comment.
 
