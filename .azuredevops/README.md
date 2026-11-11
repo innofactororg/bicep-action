@@ -109,6 +109,8 @@ The plan job will build and test the code. If no issues are found in the code, a
 
 The PSRule steps will only run if **"rule_option"** is specified and points to a file that exist.
 
+PSRule for Azure expands `.bicep` and `.bicepparam` files with the Bicep CLI. The PSRule step installs the Bicep version that the plan compiled with into a folder of its own and passes it to PSRule as `PSRULE_AZURE_BICEP_PATH`. Set that variable yourself to use a different Bicep CLI. When PSRule fails without a failed rule, for example because a template could not be expanded, the step says so instead of reporting a rule failure.
+
 **Plan job steps:**
 
 1. **Tool Installation** - Downloads and installs required CLI tools (Bicep, PSRule modules)
