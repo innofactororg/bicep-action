@@ -62,7 +62,7 @@ az role assignment create \
 | No comment on the pull request (GitHub) | The job lacks `pull-requests: write`, or the token cannot write. | Add the permission. See [GitHub setup](./setup-github.md#4-add-the-workflow). |
 | No comment on the pull request (Azure DevOps) | The build service lacks **Contribute to pull requests**. | Grant it on the repository. See [Azure DevOps setup](./setup-azure-devops.md#4-let-the-pipeline-comment-on-pull-requests). |
 | Auto merge fails: **Pull request is in unstable status** | The branch has no required status check. | Add branch protection with a required check, or set `auto_merge` to empty. |
-| A second run cancels the first | `concurrency` with `cancel-in-progress`. | Intended: only the latest push is planned. |
+| A run waits, or a waiting run is cancelled | The examples lock each Azure target with `concurrency` (`cancel-in-progress: false`). A second pull request waits until the first is deployed or rejected, and GitHub keeps only the newest waiting run. | Intended. It works like an Atlantis lock. Reject or finish the pending deployment to free the target. |
 
 ## Artifacts and logs (Azure DevOps)
 

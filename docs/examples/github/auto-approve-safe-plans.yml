@@ -1,9 +1,10 @@
 # Skip the manual approval for safe plans. The plan's whatif-summary.json is
-# read after the plan: a plan that deletes, detaches or does anything the
-# summary cannot classify goes to the "production" environment (required
-# reviewers). A plan that only creates, modifies or leaves things unchanged
-# goes to "production-auto" (no reviewers). Anything unclear (a missing file,
-# an "error", an unknown change type) fails closed to the reviewed path.
+# read after the plan. Only a plan that is fully known and only creates,
+# modifies or leaves things unchanged goes to "production-auto" (no
+# reviewers): schema version 1, a deterministic result, and no delete,
+# detach, unsupported, deploy or unknown change. Everything else, including a
+# missing file or an "error", fails closed to "production" (required
+# reviewers). Adjust the rule to your own risk appetite, but keep it closed.
 #
 # Setup: two GitHub environments, "production" with required reviewers and
 # "production-auto" without, each with its own federated credential on the
@@ -15,9 +16,14 @@ on:
     branches: [main]
     paths: ["infra/**"]
 
+# One run at a time for this Azure target, across all pull requests, like an
+# Atlantis lock: a second pull request waits until the first is deployed or
+# rejected, so a deployment never runs over changes it did not plan. Running
+# deployments are never cancelled. GitHub keeps one waiting run per group, so a
+# newer waiting run replaces an older one. Use one group name per target.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: azure-deploy-production
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -63,10 +69,14 @@ jobs:
         run: |
           environment=production
           if test -n "${SUMMARY}" && test -f "${SUMMARY}" && jq -e '
-              (has("error") | not)
+              .schemaVersion == 1
+              and (has("error") | not)
               and .blocked == false
+              and .deterministic == true
               and .counts.delete == 0
               and .counts.detach == 0
+              and .counts.unsupported == 0
+              and .counts.deploy == 0
               and .counts.other == 0
             ' "${SUMMARY}" >/dev/null; then
             environment=production-auto

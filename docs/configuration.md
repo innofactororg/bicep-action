@@ -213,6 +213,8 @@ See [Existing tags](./how-it-works.md#existing-tags). Use the same values in the
 
 The plan's `providers` output passes the found providers to the deploy job. The examples wire it up, and in Azure DevOps it is automatic.
 
+The Azure DevOps [deploy stage template](../.azuredevops/templates/deploy-stage.yml) fixes the waits at 30 checks, 10 seconds apart. `WAIT_COUNT` and `WAIT_SECONDS` only take effect in the inline starter, [`ms.azure.deploy.yml`](../.azuredevops/ms.azure.deploy.yml).
+
 ## Pull request and merge
 
 ### `token` (GitHub)
@@ -276,7 +278,7 @@ with:
 
 In Azure DevOps the service connection holds the credentials. Put any other sensitive values in a variable group, and allow the pipeline to read it.
 
-Template parameters that are secrets should be `@secure()`. Their values are never written to the snapshot or the logs.
+Template parameters that are secrets should be `@secure()`. Their values are not written to the Bicep snapshot. They are **not** kept out of the logs artifact, though: the plan copies the compiled parameters file (`*.parameters.json`) into it, and inline `KEY=VALUE` parameters appear in the logged commands. Do not put secret values in the parameters file or inline. Pass them from Key Vault references, or from the pipeline's secret variables through `readEnvironmentVariable()`, and keep the logs artifact as private as the repository.
 
 ## Recommended settings
 

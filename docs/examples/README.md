@@ -11,7 +11,7 @@ Copy to `.github/workflows/`. Setup: [GitHub setup](../setup-github.md).
 | [`github/recommended.yml`](./github/recommended.yml) | **Start here.** A subscription deployment as a deployment stack, with PSRule on a pinned baseline, the cost estimate with a budget, and a Bicep snapshot. The deploy job uses the plan's Bicep version and stack settings, and merges the pull request. |
 | [`github/minimal.yml`](./github/minimal.yml) | The fewest inputs: a standard deployment to one resource group. |
 | [`github/multi-environment.yml`](./github/multi-environment.yml) | Test, then production, from one pull request: separate subscriptions, parameters, stacks, environments and artifacts. Only production merges. |
-| [`github/auto-approve-safe-plans.yml`](./github/auto-approve-safe-plans.yml) | Reads `whatif-summary.json` and skips the manual approval when the plan neither deletes nor detaches anything. Anything unclear fails closed to the reviewed environment. |
+| [`github/auto-approve-safe-plans.yml`](./github/auto-approve-safe-plans.yml) | Reads `whatif-summary.json` and skips the manual approval only when the plan is deterministic and has no delete, detach, unsupported or unknown change. Anything else fails closed to the reviewed environment. |
 
 ## Azure DevOps
 

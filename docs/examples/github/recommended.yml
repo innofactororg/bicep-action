@@ -10,10 +10,14 @@ on:
     paths: ["infra/**"] # only Bicep changes start a plan
     types: [opened, synchronize, reopened]
 
-# One run at a time per pull request; a new push cancels the plan in progress.
+# One run at a time for this Azure target, across all pull requests, like an
+# Atlantis lock: a second pull request waits until the first is deployed or
+# rejected, so a deployment never runs over changes it did not plan. Running
+# deployments are never cancelled. GitHub keeps one waiting run per group, so a
+# newer waiting run replaces an older one. Use one group name per target.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: azure-deploy-production
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -59,6 +63,8 @@ jobs:
           deployment_mode: ${{ env.deployment_mode }}
           stack_action_on_unmanage: ${{ env.stack_action_on_unmanage }}
           stack_approved_deletes: ${{ env.stack_approved_deletes }}
+          existing_tags_keys: ${{ env.existing_tags_keys }} # empty: skipped
+          existing_tags_resource_groups: ${{ env.existing_tags_resource_groups }}
           location: ${{ env.location }}
           log_severity: ${{ env.log_severity }}
           scope: ${{ env.scope }}
@@ -93,6 +99,8 @@ jobs:
           deployment_mode: ${{ env.deployment_mode }}
           stack_action_on_unmanage: ${{ env.stack_action_on_unmanage }}
           stack_approved_deletes: ${{ env.stack_approved_deletes }}
+          existing_tags_keys: ${{ env.existing_tags_keys }} # empty: skipped
+          existing_tags_resource_groups: ${{ env.existing_tags_resource_groups }}
           location: ${{ env.location }}
           log_severity: ${{ env.log_severity }}
           scope: ${{ env.scope }}

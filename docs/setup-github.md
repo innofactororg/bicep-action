@@ -62,7 +62,7 @@ Copy an example into `.github/workflows/` and fill in the IDs:
 | [`recommended.yml`](./examples/github/recommended.yml) | **Start here.** A subscription deployment as a stack, with PSRule, the cost estimate and a snapshot. |
 | [`minimal.yml`](./examples/github/minimal.yml) | The fewest settings: a standard deployment to a resource group. |
 | [`multi-environment.yml`](./examples/github/multi-environment.yml) | Test, then production, from one pull request. |
-| [`auto-approve-safe-plans.yml`](./examples/github/auto-approve-safe-plans.yml) | Skips the manual approval when the plan only creates or modifies; anything else waits for a reviewer. |
+| [`auto-approve-safe-plans.yml`](./examples/github/auto-approve-safe-plans.yml) | Skips the manual approval only for a fully known plan that creates or modifies; anything else waits for a reviewer. |
 
 Then commit:
 
