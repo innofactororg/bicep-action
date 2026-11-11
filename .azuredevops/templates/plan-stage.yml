@@ -80,6 +80,7 @@ stages:
                   "az-deploy"
                   "azure-subscription"
                   "bicep-version"
+                  "existing-tags"
                   "azure-cost"
                   "bicep-snapshot"
                   "install-tools"
@@ -101,6 +102,18 @@ stages:
                   chmod +x "${SCRIPT}.sh"
                 done
                 ./install-tools.sh
+
+          - task: AzureCLI@2
+            condition: and(succeeded(), not(eq(variables['EXISTING_TAGS_KEYS'], '')))
+            displayName: Existing tags
+            env:
+              LOG_NAME: existing_tags
+              LOG_ORDER: b2
+            inputs:
+              azureSubscription: ${{ parameters.serviceConnection }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: ./existing-tags.sh
 
           - task: AzureCLI@2
             condition: and(succeeded(), not(startsWith(variables['IN_TEMPLATE'], '/subscriptions/')))

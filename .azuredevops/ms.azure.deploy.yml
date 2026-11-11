@@ -16,6 +16,8 @@ variables:
     value: -1
   - name: DEPLOYMENT_MODE
     value: stack
+  # - name: EXISTING_TAGS_KEYS  # tags read from existing resources into EXISTING_TAGS
+  #   value: createdOn
   - name: ENVIRONMENT
     value: production
   - name: IN_CURRENCY
@@ -87,6 +89,7 @@ stages:
                   "az-deploy"
                   "azure-subscription"
                   "bicep-version"
+                  "existing-tags"
                   "azure-cost"
                   "bicep-snapshot"
                   "install-tools"
@@ -108,6 +111,18 @@ stages:
                   chmod +x "${SCRIPT}.sh"
                 done
                 ./install-tools.sh
+
+          - task: AzureCLI@2
+            condition: and(succeeded(), not(eq(variables['EXISTING_TAGS_KEYS'], '')))
+            displayName: Existing tags
+            env:
+              LOG_NAME: existing_tags
+              LOG_ORDER: b2
+            inputs:
+              azureSubscription: $(SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: ./existing-tags.sh
 
           - task: AzureCLI@2
             condition: and(succeeded(), not(startsWith(variables['IN_TEMPLATE'], '/subscriptions/')))
@@ -298,6 +313,7 @@ stages:
                         "az-deploy"
                         "azure-subscription"
                         "bicep-version"
+                        "existing-tags"
                         "azure-providers"
                         "install-tools"
                         "pr-comment"
@@ -315,6 +331,18 @@ stages:
                         chmod +x "${SCRIPT}.sh"
                       done
                       ./install-tools.sh
+
+                - task: AzureCLI@2
+                  condition: and(succeeded(), not(eq(variables['EXISTING_TAGS_KEYS'], '')))
+                  displayName: Existing tags
+                  env:
+                    LOG_NAME: existing_tags
+                    LOG_ORDER: b2
+                  inputs:
+                    azureSubscription: $(SERVICE_CONNECTION)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: ./existing-tags.sh
 
                 - task: AzureCLI@2
                   condition: and(succeeded(), not(eq(variables['plan_providers'], '')))

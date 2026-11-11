@@ -213,6 +213,65 @@ A new Bicep release can change the compiled output. When it does, the next plan 
 
 With the GitHub actions, pass the plan's `bicep_version` output to the deploy action's `bicep_version` input, as in the [usage](#usage) example. Without it, the deployment uses the latest version.
 
+#### Existing tags (opt-in)
+
+Some tags must keep the value they got when a resource was created, for example `createdOn`. Bicep cannot do that alone: `utcNow()` gives the time of every deployment, a tags write replaces the whole tag set, and an `existing` reference fails when the resource is absent. The value has to come from what already exists in Azure.
+
+Set **existing_tags_keys** (plan and deploy actions) to a comma separated list of tag names (for example `createdOn`). Before the first compile of the plan, and again before the deployment, a step reads those tags from the existing resources and exposes them to the template as the environment variable `EXISTING_TAGS`:
+
+```json
+{ "/subscriptions/<id>/resourcegroups/rg-app": { "createdOn": "2026-10-29T13:48:57Z" } }
+```
+
+- **Keys** are the resource IDs in lower case. Only resources that carry at least one of the requested tags are listed.
+- **Tag names** are matched without regard to case, like Azure does, and written with the spelling you requested.
+- **Scope.** `sub` reads the resource groups and the resources of the subscription; `group` reads the resource group and its resources. For other scopes the step is skipped with a warning and `EXISTING_TAGS` is not set.
+- **Failure.** If the tags cannot be read, the step fails. It never sets an empty object, which would let the template stamp new values on existing resources. The deployment reads the tags again rather than reuse the plan's values.
+- **Size.** One environment variable is limited to about 128 KiB, so the step fails above 120000 bytes. Request only the tags you need.
+- ARM list calls are used, not Azure Resource Graph, which can lag newly created resources by minutes.
+
+The template reads the value in its parameter file, with no default, so a missing value fails the compile instead of creating new values:
+
+```bicep
+// main.bicepparam
+param existingTags = json(readEnvironmentVariable('EXISTING_TAGS'))
+```
+
+[Azure Verified Modules](https://aka.ms/avm) take one `tags` object for the resource they deploy. Pass each module the value for its own resource ID:
+
+```bicep
+// main.bicep
+param existingTags object
+param tags object = {}
+param now string = utcNow()
+
+func withCreatedOn(tags object, existing object, id string, now string) object =>
+  union(tags, { createdOn: existing[?toLower(id)].?createdOn ?? now })
+
+var rgName = 'rg-app'
+var rgId = '${subscription().id}/resourceGroups/${rgName}'
+
+module rg 'br/public:avm/res/resources/resource-group:<version>' = {
+  params: {
+    name: rgName
+    tags: withCreatedOn(tags, existingTags, rgId, now)
+  }
+}
+
+module law 'br/public:avm/res/operational-insights/workspace:<version>' = {
+  scope: resourceGroup(rgName)
+  params: {
+    name: 'law-app'
+    tags: withCreatedOn(tags, existingTags, '${rgId}/providers/Microsoft.OperationalInsights/workspaces/law-app', now)
+  }
+  dependsOn: [rg]
+}
+```
+
+- Build the resource group ID as `${subscription().id}/resourceGroups/<name>`. `subscriptionResourceId('Microsoft.Resources/resourceGroups', ...)` returns a different form (`.../providers/Microsoft.Resources/resourceGroups/...`) that never matches.
+- Child resources that a module creates (subnets, rules, role assignments, diagnostic settings) are not taggable and need no value. Where one module deploys several taggable resources from one `tags` input, they share the module's value.
+- To compile on your own machine, set `EXISTING_TAGS='{}'` first.
+
 ### Passing secrets
 
 It is optional to pass **"azure_client_id"**, **"azure_subscription_id"** and **"azure_tenant_id"** as secret.
@@ -285,6 +344,10 @@ with:
 - **bicep_version**: (Deploy action) The Bicep CLI version the plan used, from the plan action's `bicep_version` output. The deployment installs and uses this version so it compiles exactly what the plan showed. If the version cannot be installed, the deployment fails and asks for a new plan. See [Bicep CLI version](#bicep-cli-version).
 
   Default: **""** (use the latest version)
+
+- **existing_tags_keys**: (Plan and deploy actions) Comma separated tag names whose current values are read from the existing resources into the environment variable `EXISTING_TAGS`. Use the same value in both actions. See [Existing tags (opt-in)](#existing-tags-opt-in).
+
+  Default: **""** (skipped)
 
 - **deployment_mode**: (Plan and deploy actions) `deployment` or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in). Use the same value and the stack inputs below in both actions.
 
