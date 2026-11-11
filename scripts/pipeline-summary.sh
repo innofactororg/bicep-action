@@ -53,43 +53,49 @@ echo "📋 Execution Details:"
 if test -n "${TF_BUILD-}"; then
   echo "  Build: ${BUILD_NUMBER:-N/A}"
   echo "  Branch: ${SOURCE_BRANCH:-N/A}"
-  echo "  Commit: ${SOURCE_VERSION:0:8:-N/A}"
+  commit="${SOURCE_VERSION:0:8}"
+  echo "  Commit: ${commit:-N/A}"
   echo "  Triggered by: ${BUILD_REQUESTED_FOR:-N/A}"
 else
   echo "  Run: ${RUN_NUMBER:-N/A}"
   echo "  Branch: ${GITHUB_REF_NAME:-N/A}"
-  echo "  Commit: ${GITHUB_SHA:0:8:-N/A}"
+  commit="${GITHUB_SHA:0:8}"
+  echo "  Commit: ${commit:-N/A}"
   echo "  Actor: ${GITHUB_ACTOR:-N/A}"
 fi
 
-# Show stage/job results if this is from stage summary
+# List the steps that ran, from the logs they wrote. This step cannot tell
+# which of them failed, so it does not mark them: the status above is the
+# job's, and the failed step is the one marked in the job view.
 if [ "${LOG_NAME}" = "stage_summary" ] || [ "${STAGE_RESULT:-}" != "" ]; then
-  echo ""
-  echo "🎯 Stage Results:"
-
-  # Check for plan stage artifacts
-  if [ -f "${LOG_PATH}/step_b3_bicep_build.log" ]; then
-    echo "  ${status_emoji} Bicep Build"
-  fi
-  if [ -f "${LOG_PATH}/step_b5_az_deploy_validate.log" ]; then
-    echo "  ${status_emoji} Deployment Validation"
-  fi
-  if [ -f "${LOG_PATH}/step_b6_az_deploy_what-if.log" ]; then
-    echo "  ${status_emoji} What-If Analysis"
-  fi
-  if [ -f "${LOG_PATH}/step_b7_psrule_report.md" ]; then
-    echo "  ${status_emoji} PSRule Analysis"
-  fi
-  if [ -f "${LOG_PATH}/step_b8_cost_estimate.log" ]; then
-    echo "  ${status_emoji} Cost Estimation"
-  fi
-
-  # Check for deploy stage artifacts
-  if [ -f "${LOG_PATH}/step_c2_az_providers.log" ]; then
-    echo "  ${status_emoji} Provider Registration"
-  fi
-  if [ -f "${LOG_PATH}/step_c3_az_deploy_create.log" ]; then
-    echo "  ${status_emoji} Infrastructure Deployment"
+  declare -a STEPS=(
+    "install_tools:Install tools"
+    "azure_login:Azure login"
+    "existing_tags:Existing tags"
+    "bicep_build:Bicep build"
+    "bicep_build_params:Bicep build params"
+    "validate:Validate"
+    "what-if:What-if"
+    "psrule_report:PSRule report"
+    "cost_estimate:Cost estimate"
+    "bicep_snapshot:Bicep snapshot"
+    "check_providers:Check Azure providers"
+    "deploy:Deploy"
+    "create_deployment:Deploy"
+  )
+  ran=()
+  for entry in "${STEPS[@]}"; do
+    name="${entry%%:*}"
+    if compgen -G "${LOG_PATH}/step_*_${name}.*" >/dev/null; then
+      ran+=("${entry#*:}")
+    fi
+  done
+  if [ "${#ran[@]}" -gt 0 ]; then
+    echo ""
+    echo "🎯 Steps with output (job status: ${status_emoji} ${status}):"
+    for step in "${ran[@]}"; do
+      echo "  • ${step}"
+    done
   fi
 fi
 

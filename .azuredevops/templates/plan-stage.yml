@@ -183,6 +183,7 @@ stages:
             env:
               INPUT_PATH: $(Build.SourcesDirectory)
               OUTPUT_PATH: $(Pipeline.Workspace)/logs/psrule_analysis.md
+              VERSION_BICEP_CLI: $(VERSION_BICEP_CLI)
             inputs:
               targetType: inline
               script: ./psrule-analysis.sh
