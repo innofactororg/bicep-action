@@ -1,0 +1,42 @@
+# One environment, with every setting in a variable group instead of the file.
+#
+# Create the variable group "bicep-production" under Pipelines -> Library with
+# the variables from docs/configuration.md, for example:
+#
+#   SUBSCRIPTION_ID, IN_SCOPE, IN_LOCATION, IN_TEMPLATE, IN_TEMPLATE_PARAMS,
+#   DEPLOYMENT_MODE, VERSION_ACE, COST_THRESHOLD, IN_CURRENCY,
+#   RULE_OPTION, RULE_BASELINE, RULE_MODULES, WAIT_COUNT, WAIT_SECONDS,
+#   ARTIFACT_IDENTIFIER, WORKFLOW_VERSION
+#
+# and allow this pipeline to use it ("Pipeline permissions"). The templates
+# are read from GitHub through a GitHub service connection ("github_connection").
+trigger: none
+pr:
+  autoCancel: true
+  drafts: false
+
+name: Azure Deploy
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  repositories:
+    - repository: bicep_action
+      type: github
+      name: innofactororg/bicep-action
+      ref: refs/tags/v1 # the same tag as WORKFLOW_VERSION in the group
+      endpoint: github_connection
+
+variables:
+  - group: bicep-production
+
+stages:
+  - template: .azuredevops/templates/plan-stage.yml@bicep_action
+    parameters:
+      serviceConnection: prod_arm_connection
+
+  - template: .azuredevops/templates/deploy-stage.yml@bicep_action
+    parameters:
+      environmentName: production
+      serviceConnection: prod_arm_connection

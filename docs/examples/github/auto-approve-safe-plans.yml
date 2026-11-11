@@ -1,0 +1,98 @@
+# Skip the manual approval for safe plans. The plan's whatif-summary.json is
+# read after the plan: a plan that deletes, detaches or does anything the
+# summary cannot classify goes to the "production" environment (required
+# reviewers). A plan that only creates, modifies or leaves things unchanged
+# goes to "production-auto" (no reviewers). Anything unclear (a missing file,
+# an "error", an unknown change type) fails closed to the reviewed path.
+#
+# Setup: two GitHub environments, "production" with required reviewers and
+# "production-auto" without, each with its own federated credential on the
+# Entra application. Branch protection still requires a pull request review.
+name: Azure Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["infra/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  azure_client_id: 00000000-0000-0000-0000-000000000000
+  azure_subscription_id: 00000000-0000-0000-0000-000000000000
+  azure_tenant_id: 00000000-0000-0000-0000-000000000000
+  deployment_mode: stack
+  location: westeurope
+  scope: sub
+  template: infra/main.bicep
+  template_parameters: infra/main.bicepparam
+
+jobs:
+  plan:
+    name: 🗓️ Plan
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, id-token: write, pull-requests: write }
+    outputs:
+      providers: ${{ steps.plan.outputs.providers }}
+      bicep_version: ${{ steps.plan.outputs.bicep_version }}
+      stack_settings: ${{ steps.plan.outputs.stack_settings }}
+      environment: ${{ steps.gate.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: plan
+        uses: innofactororg/bicep-action/.github/actions/plan@v1
+        with:
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }}
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          location: ${{ env.location }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: ${{ env.template_parameters }}
+
+      - name: Classify the plan
+        id: gate
+        env:
+          SUMMARY: ${{ steps.plan.outputs.whatif_summary }}
+        run: |
+          environment=production
+          if test -n "${SUMMARY}" && test -f "${SUMMARY}" && jq -e '
+              (has("error") | not)
+              and .blocked == false
+              and .counts.delete == 0
+              and .counts.detach == 0
+              and .counts.other == 0
+            ' "${SUMMARY}" >/dev/null; then
+            environment=production-auto
+          fi
+          echo "Plan routed to: ${environment}"
+          jq -c '.counts // .' "${SUMMARY}" 2>/dev/null || echo 'No what-if summary'
+          echo "environment=${environment}" >> "${GITHUB_OUTPUT}"
+
+  deploy:
+    name: 🏃 Deploy
+    needs: plan
+    runs-on: ubuntu-24.04
+    environment: ${{ needs.plan.outputs.environment }}
+    permissions: { contents: write, id-token: write, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: innofactororg/bicep-action/.github/actions/deploy@v1
+        with:
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }}
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          location: ${{ env.location }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: ${{ env.template_parameters }}
+          azure_providers: ${{ needs.plan.outputs.providers }}
+          bicep_version: ${{ needs.plan.outputs.bicep_version }}
+          plan_stack_settings: ${{ needs.plan.outputs.stack_settings }}

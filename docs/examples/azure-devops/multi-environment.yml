@@ -1,0 +1,104 @@
+# Test, then production, with the reusable stage templates from this repository.
+#
+#   Plan (test) -> Deploy (test) -> Plan (production) -> Deploy (production)
+#
+# The templates are read from GitHub through a GitHub service connection
+# ("github_connection" below; any GitHub service connection in the project
+# works, the repository is public). Pin "ref" and WORKFLOW_VERSION to the same
+# release tag: the templates download the scripts at WORKFLOW_VERSION.
+#
+# Each environment gets its own service connection, subscription, parameters
+# file, Azure DevOps environment (with an approval check) and
+# ARTIFACT_IDENTIFIER, so the log artifacts of the two runs do not collide.
+trigger: none
+pr:
+  autoCancel: true
+  drafts: false
+
+name: Azure Deploy
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  repositories:
+    - repository: bicep_action
+      type: github
+      name: innofactororg/bicep-action
+      ref: refs/tags/v1
+      endpoint: github_connection
+
+# Shared by every stage. Per-environment values are in each stage's
+# "variables" parameter below, and take precedence.
+variables:
+  WORKFLOW_VERSION: v1
+  DEPLOYMENT_MODE: stack
+  IN_LOCATION: westeurope
+  IN_SCOPE: sub
+  IN_SEVERITY: INFO
+  IN_TEMPLATE: infra/main.bicep
+  IN_CURRENCY: EUR
+  VERSION_ACE: 1.6.5
+  RULE_OPTION: infra/ps-rule.yaml
+  RULE_BASELINE: Azure.GA_2026_03
+  RULE_MODULES: Az.Resources,PSRule.Rules.Azure
+  PSRULE_AZURE_RESOURCE_MODULE_NOWARN: true
+  WAIT_COUNT: 30
+  WAIT_SECONDS: 10
+  # EXISTING_TAGS_KEYS: createdOn
+
+stages:
+  # ------------------------------------------------------------------ test
+  - template: .azuredevops/templates/plan-stage.yml@bicep_action
+    parameters:
+      stageName: Plan_test
+      displayName: Plan (test)
+      serviceConnection: test_arm_connection
+      variables:
+        ARTIFACT_IDENTIFIER: test
+        SUBSCRIPTION_ID: 11111111-1111-1111-1111-111111111111
+        IN_TEMPLATE_PARAMS: infra/main.test.bicepparam
+        STACK_NAME: app-test
+        COST_THRESHOLD: 200
+
+  - template: .azuredevops/templates/deploy-stage.yml@bicep_action
+    parameters:
+      stageName: Deploy_test
+      displayName: Deploy (test)
+      dependsOn: [Plan_test]
+      planStageName: Plan_test
+      environmentName: test
+      serviceConnection: test_arm_connection
+      variables:
+        ARTIFACT_IDENTIFIER: test
+        SUBSCRIPTION_ID: 11111111-1111-1111-1111-111111111111
+        IN_TEMPLATE_PARAMS: infra/main.test.bicepparam
+        STACK_NAME: app-test
+
+  # ------------------------------------------------------------ production
+  - template: .azuredevops/templates/plan-stage.yml@bicep_action
+    parameters:
+      stageName: Plan_prod
+      displayName: Plan (production)
+      dependsOn: [Deploy_test]
+      serviceConnection: prod_arm_connection
+      variables:
+        ARTIFACT_IDENTIFIER: prod
+        SUBSCRIPTION_ID: 22222222-2222-2222-2222-222222222222
+        IN_TEMPLATE_PARAMS: infra/main.prod.bicepparam
+        STACK_NAME: app-prod
+        COST_THRESHOLD: 1000
+
+  - template: .azuredevops/templates/deploy-stage.yml@bicep_action
+    parameters:
+      stageName: Deploy_prod
+      displayName: Deploy (production)
+      dependsOn: [Plan_prod]
+      planStageName: Plan_prod
+      environmentName: production
+      serviceConnection: prod_arm_connection
+      variables:
+        ARTIFACT_IDENTIFIER: prod
+        SUBSCRIPTION_ID: 22222222-2222-2222-2222-222222222222
+        IN_TEMPLATE_PARAMS: infra/main.prod.bicepparam
+        STACK_NAME: app-prod

@@ -1,575 +1,104 @@
 # Bicep deploy
 
-This repository includes GitHub actions and a Azure DevOps [pipeline](./.azuredevops/README.md) to plan and deploy Azure infrastructure.
+**Plan, review and deploy Azure Bicep from pull requests, on GitHub Actions or Azure DevOps.**
 
-Bicep is planned and reviewed in the pull request, and deployed only after it has been approved, like a Terraform plan reviewed with Atlantis:
+![Plan, review, deploy](./docs/images/hero.png)
 
-- **The plan is posted in the pull request.** Validation, the what-if, a PSRule analysis and a cost estimate are posted as one comment, and the deployment waits for an approval.
-- **Deployment stacks (recommended).** The template is deployed as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks), so Azure tracks which resources belong to it. The plan counts what will be created, modified, deleted or detached. A delete fails the plan unless that resource is approved in a reviewed file.
-- **The cost estimate.** It shows the cost change of each pull request, and can fail the plan above a threshold.
-- **The Bicep snapshot.** A committed `main.snapshot.json` puts the change to the deployed resources into the pull request diff, and the plan fails when the code no longer matches it.
-- **Deploy exactly what was planned.** The deployment uses the Bicep version and the stack settings that the plan used.
-- **Built for new subscriptions.** When a subscription or role assignment was just created, the scripts wait for it to become visible instead of failing.
-- **GitHub Actions and Azure DevOps**, from the same scripts and with the same pull request comments.
+bicep-action is a pair of GitHub actions and an Azure Pipeline that run Bicep the way Terraform teams use Atlantis. Every change is **planned in the pull request**, the plan is **reviewed by people**, and only the **approved plan is deployed**. Both platforms run the same scripts and post the same comments.
 
-### What the pull request looks like
+## Why use it
 
-The plan for a change: the snapshot matches, the stack will modify one resource and delete none, and the cost estimate reports no change. See the [live example](https://github.com/DamianFlynn/bicep-action-demo/pull/2).
+![Before and after](./docs/images/value.png)
+
+Without a review step, a Bicep deployment is a leap of faith. Nobody sees what Azure will create, change or delete until it has happened. bicep-action turns every change into a reviewable plan:
+
+| Without it | With bicep-action |
+|---|---|
+| Deploy and find out | **The what-if is posted in the pull request** before anything changes |
+| Deletes are discovered afterwards | **Deployment stacks** show every delete and detach, and **unapproved deletes fail the plan** |
+| Policy problems surface in production | **PSRule for Azure** checks every change against the Well-Architected rules |
+| Costs are a monthly surprise | **A cost estimate** on every pull request, with an optional budget that fails the plan |
+| "It compiled differently today" | **Deploy exactly what was planned**: the same Bicep version and stack settings, enforced |
+| Template drift hides in large diffs | **A committed Bicep snapshot** puts the exact resource change into the pull request diff |
+| Each team writes its own pipeline | **One tested implementation** for GitHub and Azure DevOps, with the same comments |
+
+And for the details that usually break pipelines:
+
+- **New subscriptions and role assignments** that are not yet visible are waited for, not failed on.
+- **`createdOn` tags and similar** keep their first value across deployments, with [existing tags](./docs/how-it-works.md#existing-tags).
+- **Automation-ready.** Every plan writes `whatif-summary.json`, so a gate can [auto-approve safe plans](./docs/examples/github/auto-approve-safe-plans.yml).
+
+## How it works
+
+```mermaid
+flowchart LR
+    PR[Pull request] --> P
+    subgraph P[Plan job: read only]
+        direction TB
+        B[Build] --> V[Validate] --> W[What-if<br/>+ delete gate] --> R[PSRule] --> C[Cost] --> S[Snapshot]
+    end
+    P --> CM[Plan comment]
+    CM --> A{Reviewer<br/>approves}
+    A --> D[Deploy job:<br/>same Bicep, same settings]
+    D --> AZ[(Azure)]
+    D --> DC[Deploy comment<br/>+ auto merge]
+```
+
+1. A pull request starts the **plan job**. It builds the template, validates it, runs the what-if (and the stack delete gate), runs PSRule and the cost estimate, and checks the Bicep snapshot. Nothing changes in Azure.
+2. The plan is posted as **one comment**. Any failed check fails the plan, and the deployment never starts.
+3. A reviewer approves the **environment**: required reviewers on GitHub, an approval check in Azure DevOps.
+4. The **deploy job** deploys with the Bicep version and stack settings the plan used, comments the result, and on GitHub merges the pull request.
+
+The plan comment in a pull request ([live example](https://github.com/DamianFlynn/bicep-action-demo/pull/2)):
 
 ![Plan comment in a pull request](./images/pr-plan-comment.png)
 
-After approval, the deployment reports back to the same pull request:
+Read more in [How it works](./docs/how-it-works.md).
 
-![Deploy comment in a pull request](./images/pr-deploy-comment.png)
+## Quick start
 
-The Azure DevOps pipeline posts the same comments on the pull request in Azure Repos.
+### GitHub Actions
 
-### Recommended settings
-
-Deployment stacks are off by default, while the plan action already enables the cost estimate with ACE 1.6.5 unless `version_ace_tool` is explicitly empty. For a new workflow, use these settings:
+1. Create an environment with **required reviewers**, an Entra application with **federated credentials**, and an Azure role for it. See [GitHub setup](./docs/setup-github.md).
+2. Copy [`recommended.yml`](./docs/examples/github/recommended.yml) to `.github/workflows/` and fill in the IDs:
 
 ```yaml
-deployment_mode: stack     # plan and deploy actions
-version_ace_tool: "1.6.5"  # plan action; an empty value skips the cost estimate
-cost_threshold: 1000       # plan action; -1 reports the cost without a limit
+- uses: actions/checkout@v7
+- id: plan
+  uses: innofactororg/bicep-action/.github/actions/plan@v1
+  with:
+    azure_client_id: ${{ env.azure_client_id }}
+    azure_subscription_id: ${{ env.azure_subscription_id }}
+    azure_tenant_id: ${{ env.azure_tenant_id }}
+    deployment_mode: stack
+    location: westeurope
+    scope: sub
+    template: infra/main.bicep
+    template_parameters: infra/main.bicepparam
 ```
 
-Then commit a [Bicep snapshot](#bicep-snapshot) next to the parameters file. The [usage](#usage) example uses these settings.
+3. Open a pull request.
 
-## Overview
+### Azure DevOps
 
-![Flow overview](./images/deploy-flow.drawio.png)
+1. Create an environment with an **approval check**, a **workload identity service connection**, and an Azure role for it. Give the build service **Contribute to pull requests**. See [Azure DevOps setup](./docs/setup-azure-devops.md).
+2. Copy [`ms.azure.deploy.yml`](./.azuredevops/ms.azure.deploy.yml) into the repository and set its variables. For several environments, use the [stage templates](./docs/examples/azure-devops/multi-environment.yml).
+3. Add a **build validation** branch policy, and open a pull request.
 
-1. The user creates a new branch, then commits and push the code.
-1. The user creates a pull request.
-1. The workflow is automatically triggered and starts the [plan job](#plan-job).
-1. If the plan job was successful, the workflow will wait for a [required reviewer](#get-started) to approve the [deploy job](#deploy-job).
-1. When a reviewer has approved, the workflow starts the [deploy job](#deploy-job) to deploy the code.
+## Documentation
 
-## Get started
+| Page | What is in it |
+|---|---|
+| [How it works](./docs/how-it-works.md) | The plan and deploy jobs step by step, deployment stacks and the delete gate, the snapshot, cost, PSRule, the Bicep version, existing tags, the what-if summary file |
+| [Configuration reference](./docs/configuration.md) | Every GitHub input and Azure DevOps variable, with defaults, side by side; outputs; recommended settings |
+| [GitHub setup](./docs/setup-github.md) | Environment, federated credentials, roles, workflow, auto merge, branch protection |
+| [Azure DevOps setup](./docs/setup-azure-devops.md) | Environment, service connection, roles, pipeline, branch policy, variable groups |
+| [Examples](./docs/examples/) | Ready-to-copy workflows and pipelines: recommended, minimal, multi-environment, auto-approval, variable group |
+| [Troubleshooting](./docs/troubleshooting.md) | Common messages, what they mean, and the fix |
 
-To set up a bicep deploy workflow, several prerequisite steps are required:
+## Versions
 
-1. Create an [environment](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
-
-1. To prevent unapproved deployments, add **"Required reviewers"** to the environment. Remember to save the protection rules after making changes.
-
-1. Register a [Microsoft identity platform application](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
-
-1. Assign [Azure roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-steps) to the application so it can deploy Azure infrastructure. For example, give it the **"Owner"** role on the target Azure subscription.
-
-1. Give the repository Azure login permission:
-
-   - **Option 1**: Add [federated credentials](https://docs.microsoft.com/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#use-the-azure-login-action-with-openid-connect) (recommended)
-
-     - Use the scenario **"GitHub Actions deploying Azure resources"**.
-     - Select entity type **"Pull request"** (needed for the [plan job](#plan-job)).
-     - Save the credential.
-     - Add another federated credential with the scenario **"GitHub Actions deploying Azure resources"**.
-     - Select entity type **"Environment"** (needed for the [deploy job](#deploy-job)).
-     - Specify the environment name that was created in step 1.
-     - Save the credential.
-
-     The subject must match the claim GitHub sends. Repositories created recently use the immutable format `repo:<owner>@<owner-id>/<repo>@<repo-id>:pull_request` instead of `repo:<owner>/<repo>:pull_request`. To see which one a repository uses, run `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` (`sub_claim_prefix`). If the login fails with `AADSTS700213: No matching federated identity record found`, the error message shows the subject that was sent.
-
-     Note that there is a limit of 20 federated credentials per application. For this reason, and for security reasons, it is recommended to create a separate application for each repository.
-
-   - **Option 2**: Add [client secret](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-a-client-secret)
-
-     - Add the secret from the app registration as a secret in the repository. Remember that the secret must be replaced when it expires.
-     - Add **"AZURE_CLIENT_SECRET"** to the workflow, see [passing secrets](#passing-secrets).
-
-### Auto merge
-
-To allow pull requests to merge automatically once all required reviews and status checks have passed, enable **"Allow auto-merge"** in the repository settings under **"General"**.
-
-To clean up the head branch after merge, enable **"Automatically delete head branches"** on the same page.
-
-For auto merge to work as intended, enable [branch protection](#branch-protection) with at least one required status check. Without one, GitHub refuses to enable auto merge ("Pull request is in unstable status") and the deploy job fails after a successful deployment. To turn auto merge off, set **auto_merge** to an empty value.
-
-### Branch protection
-
-It is recommended to protect the default branch. This is done in the repository settings under **"Branches"**.
-
-Recommended branch protection for production use:
-
-- Require a pull request before merging
-  - Require approvals
-  - Dismiss stale pull request approvals when new commits are pushed
-  - Require approval of the most recent reviewable push
-- Require status checks to pass before merging
-  - Require branches to be up to date before merging
-  - Add the following status checks:
-    - 🏃 Deploy
-- Require conversation resolution before merging
-- Require linear history
-- Require deployments to succeed before merging (and select the environment that must succeed)
-
-This ensures that no changes to the pull request are possible between the approval and the merging and that a successful plan and deploy has occurred.
-
-## Workflow
-
-The workflow is designed to run when a pull request is created or updated.
-
-It has been tested on a [standard GitHub-hosted runner](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories) with workflow label **"ubuntu-24.04"**.
-
-The concurrency setting is configured to ensure that only one workflow runs at any given time. If a new workflow starts with the same name, GitHub Actions will cancel any workflow already running with that name.
-
-The following tools are used:
-
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/)
-  - [az login](https://learn.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest#az-login)
-  - [az bicep build](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build)
-  - [az bicep build-params](https://learn.microsoft.com/en-us/cli/azure/bicep?view=azure-cli-latest#az-bicep-build-params)
-  - [az provider register](https://learn.microsoft.com/en-us/cli/azure/provider?view=azure-cli-latest#az-provider-register)
-  - [az deployment {SCOPE} create](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-create)
-  - [az deployment {SCOPE} validate](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-validate)
-  - [az deployment {SCOPE} what-if](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-what-if)
-- [Azure Cost Estimator](https://github.com/TheCloudTheory/arm-estimator)
-- [curl](https://curl.se/)
-- GitHub actions:
-  - [checkout](https://github.com/actions/checkout/tree/v7.0.1)
-  - [github-script](https://github.com/actions/github-script/tree/3a2844b7e9c422d3c10d287c895573f7108da1b3)
-  - [microsoft/ps-rule](https://github.com/microsoft/ps-rule/tree/001a0fcdab97b1d83e25c559163ecececc80cc6f)
-  - [upload-artifact](https://github.com/actions/upload-artifact/tree/cf430e030ddbb5b0abf93d22962f4752f3646cd9)
-- [GNU bash](https://www.gnu.org/software/bash/)
-- [GNU bc](https://www.gnu.org/software/bc/)
-- [GNU core utilities](https://www.gnu.org/software/coreutils/coreutils.html)
-- [GNU find utilities](https://www.gnu.org/software/findutils/)
-- [jq](https://jqlang.github.io/jq/)
-- [sed](https://www.gnu.org/software/sed/)
-- [unzip](https://infozip.sourceforge.net/)
-
-### Plan job
-
-The plan job will build and test the code. If no issues are found in the code, a [what-if](https://docs.microsoft.com/cli/azure/deployment/sub#az-deployment-sub-what-if) report is generated.
-
-The PSRule steps will only run if **"rule_option"** is specified and points to a file that exist.
-
-For more information about PSRule configuration, see:
-
-- [Sample ps-rule.yaml](./ps-rule.yaml)
-- [Configuring options](https://azure.github.io/PSRule.Rules.Azure/setup/configuring-options/)
-- [Configuring rule defaults](https://azure.github.io/PSRule.Rules.Azure/setup/configuring-rules/)
-- [Available Options](https://microsoft.github.io/PSRule/v2/concepts/PSRule/en-US/about_PSRule_Options/)
-- [Available Rules by resource type](https://azure.github.io/PSRule.Rules.Azure/en/rules/resource/)
-
-#### Bicep snapshot
-
-When the parameters file is a `.bicepparam` and a matching `<name>.snapshot.json` is committed next to it, the plan job checks the template against that snapshot. A snapshot lists every resource the template will produce, fully expanded, and is computed offline by the Bicep CLI (`bicep snapshot`).
-
-The check works like a Terraform plan reviewed in a pull request:
-
-- If the template produces the committed snapshot, the PR comment shows **No changes**.
-- If it does not, the PR comment shows the difference and the plan job **fails**, so the change cannot be merged or deployed until the snapshot is updated. When the change is intended, run the command shown in the comment (`bicep snapshot <file>.bicepparam --mode overwrite ...`) and commit the updated snapshot. Reviewers then see the exact change to the deployed resources in the pull request diff.
-- Without a snapshot file the step is skipped.
-
-The snapshot depends on the scope values (subscription, resource group, management group, tenant and location), so create it with the same values the pipeline uses. The command in the PR comment already contains them.
-
-Notes:
-
-- Regenerate the snapshot only when the check reports a difference. Bicep does not write the `outputs` section in a stable order, so every regeneration can reorder it in the diff even when nothing changed. The check itself compares content, so a reordered file still matches.
-- Values of `@secure()` parameters are not written to the snapshot. They appear as `[parameters('name')]` expressions, so the file is safe to commit.
-- Tenant scope is only partly supported: there is no subscription, so the snapshot is evaluated with the tenant and location only.
-- Parameter values that are not `@secure()` are written to the snapshot in plain text, like in a parameters file. Keep secrets in `@secure()` parameters.
-- The regenerate command in the PR comment also records the Bicep CLI version that made the snapshot (`metadata.bicepVersion`, which the check ignores when comparing). When the plan uses a newer Bicep, the comment says so, and on a difference it notes that the change may come from the Bicep upgrade rather than from the code. A new Bicep release that changes the output still fails the check, so the new snapshot is reviewed like any other change.
-
-#### What-if summary file
-
-Every plan writes the what-if result as JSON to `whatif-summary.json` in the plan logs artifact, PR or not, so automation (an approval gate that allows only plans without deletes, for example) can read what the plan will do without parsing `az` text. The plan action also returns its path as the `whatif_summary` output.
-
-```json
-{
-  "schemaVersion": 1,
-  "mode": "stack",
-  "scope": "sub",
-  "counts": { "create": 17, "modify": 0, "delete": 0, "deletePotential": 0, "detach": 0, "detachPotential": 0, "deploy": 0, "unsupported": 5, "unchanged": 0, "ignore": 0, "noEffect": 0, "other": 0 },
-  "deletes": [],
-  "detaches": [],
-  "unsupported": ["<resource id>"],
-  "deterministic": false,
-  "blocked": false,
-  "blockedReason": null,
-  "stack": { "name": "<stack name>", "id": "<stack id>" },
-  "stackSettings": { "actionOnUnmanage": "detachAll", "denySettingsMode": "none" },
-  "bicepVersion": "0.49.2",
-  "note": null
-}
-```
-
-- `mode` is `stack` or `classic`, with the same shape in both. In classic mode `stack` and `stackSettings` are `null` and `detach` is 0. When a stack falls back to a standard deployment (tenant scope, Bicep extensions), `mode` is `classic` and `note` gives the reason.
-- `counts` match the PR comment. `delete` and `detach` include the potential ones (`[Potential]` in the comment), which are also counted in `deletePotential` and `detachPotential`. `other` counts change types this version does not know; a gate should treat a non-zero `other` as unknown.
-- `blocked` is `true` when the stack delete gate failed the plan; `blockedReason` says why.
-- In classic mode the counts come from a second, lighter what-if (resource IDs only) run after the one shown in the comment, and include `unchanged` and `ignore`, which the comment leaves out.
-- A what-if that fails leaves no file. A result that cannot be read gives `{"schemaVersion": 1, "mode": ..., "scope": ..., "error": "..."}` and no counts, never zero counts, so a gate that reads it should fail closed when `error` is present or the file is missing.
-
-### Deploy job
-
-The deploy job will only run when the plan job was successful.
-
-A specific [environment](#get-started) must be specified for this job.
-
-If the environment is configured with **required reviewers**, the job will require manual approval.
-
-#### Service connections for new subscriptions
-
-A role assignment that was just created, or a subscription that was just created or moved between management groups, can be invisible to the pipeline identity for a while, and can come back invisible after a successful sign-in ("The subscription of '&lt;id&gt;' doesn't exist in cloud 'AzureCloud'"). In observed runs this lasted more than an hour.
-
-The scripts select the subscription themselves and retry **only that error**: each attempt refreshes and logs the subscriptions the identity can see, for up to the number of minutes in **subscription_wait_minutes** (default 30). Any other error, such as a missing permission, fails at once.
-
-#### Deployment stacks (opt-in)
-
-Set **deployment_mode** to `stack` to plan and deploy the template as an [Azure deployment stack](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks) instead of a standard deployment. This is the recommended setting for new workflows. The default is `deployment`, so existing workflows do not change unless they opt in.
-
-- **Plan.** The what-if runs as a deployment stack what-if (`az stack-whatif`). The PR comment starts with a summary (to create, modify, delete, detach, unsupported, unchanged), lists any resource the stack would delete or detach, and then shows the full change set.
-- **Deploy.** The template is deployed with `az stack ... create`.
-- **Unmanaged resources.** **stack_action_on_unmanage** sets what happens to a resource that is removed from the template. The default `detachAll` never deletes anything: the resource is only released from the stack. `deleteResources` and `deleteAll` delete it.
-- **Delete gate.** When the stack would delete a resource, the plan **fails** unless that resource ID is listed in the JSON array file named by **stack_approved_deletes**, so every delete is approved in a reviewed commit. With a delete mode, the plan also fails when Azure reports the what-if result as not deterministic (some resource names are only known at deploy time), because then not every delete can be shown.
-- **Deploy exactly what was planned.** The plan records its mode and stack settings (the `stack_settings` output; pass it to the deploy action as **plan_stack_settings**). A deployment with different settings, for example `deleteAll` after a plan with `detachAll`, fails and asks for a new plan. With a delete mode, the deployment also runs the delete gate again on the current state just before deploying, because the plan can be old. The gate also fails when the what-if result is missing or incomplete.
-- **Deny settings.** **stack_deny_settings_mode** (`none` by default, or `denyDelete` / `denyWriteAndDelete`).
-- **Stack name.** **stack_name**, by default the repository name. The stack is created at the deployment scope (resource group, subscription or management group).
-- **Adopting existing resources.** The first stack plan for resources that a standard deployment created shows them as adopted (`notManaged` => `managed`). That plan, and later ones, can also show property differences that Azure set itself, such as provider defaults or tags that a policy rewrites on every deployment. Azure's noise reduction for stack what-if is meant to filter many of these, but it does not remove all of them, so read them as possible noise. A template whose resource names are only known at deploy time also makes the what-if result non-deterministic: those resources can be listed as detached (or, with a delete mode, deleted) even though the deployment keeps them, which is why delete modes fail the plan in that case.
-- **Fallback.** Templates that use Bicep extensions, and tenant-scope deployments, are not supported by deployment stacks. They are deployed as a standard deployment, with a warning.
-- Requires an Azure CLI with the `stack-whatif` command.
-
-#### Bicep CLI version
-
-The Bicep CLI is not pinned. Every plan installs and uses the **latest** Bicep release, so new Bicep features are available as soon as they ship. The first step that compiles picks the version and every later step of the plan uses the same one, so the build, PSRule, the cost estimate and the what-if all see the same compiled template. If the latest release cannot be installed, the plan stops rather than continue with an older compiler. The version is shown in the plan logs and in the PR comment.
-
-The deployment then uses **the same version the plan used**, so it compiles exactly the template that the what-if showed, even if a newer Bicep was released while the deployment waited for approval. This works like Atlantis, which applies a Terraform plan only with the Terraform version that made it. If that version cannot be installed, the deployment stops with a message to run the plan again, because the reviewed what-if no longer describes what would be deployed.
-
-A new Bicep release can change the compiled output. When it does, the next plan shows that change in the what-if (and in the Bicep snapshot, if one is used) for review like any other change.
-
-With the GitHub actions, pass the plan's `bicep_version` output to the deploy action's `bicep_version` input, as in the [usage](#usage) example. Without it, the deployment uses the latest version.
-
-#### Existing tags (opt-in)
-
-Some tags must keep the value they got when a resource was created, for example `createdOn`. Bicep cannot do that alone: `utcNow()` gives the time of every deployment, a tags write replaces the whole tag set, and an `existing` reference fails when the resource is absent. The value has to come from what already exists in Azure.
-
-Set **existing_tags_keys** (plan and deploy actions) to a comma separated list of tag names (for example `createdOn`). Before the first compile of the plan, and again before the deployment, a step reads those tags from the existing resources and exposes them to the template as the environment variable `EXISTING_TAGS`:
-
-```json
-{ "/subscriptions/<id>/resourcegroups/rg-app": { "createdOn": "2026-10-29T13:48:57Z" } }
-```
-
-- **Keys** are the resource IDs in lower case. Only resources that carry at least one of the requested tags are listed.
-- **Tag names** are matched without regard to case, like Azure does, and written with the spelling you requested.
-- **Scope.** `sub` reads the resource groups and the resources of the subscription; `group` reads the resource group and its resources. For other scopes the step is skipped with a warning and `EXISTING_TAGS` is not set.
-- **Resource groups.** With `sub`, the list includes groups and resources the template does not own: the network watcher group, managed resource groups (Container Apps, Databricks), monitoring baselines. A [Bicep snapshot](#bicep-snapshot) embeds every expanded parameter value, so a template that uses `EXISTING_TAGS` in its tags breaks its snapshot whenever one of those gains or loses a requested tag. Set **existing_tags_resource_groups** to a comma separated list of resource group names, or prefixes ending with `*` (case is ignored, for example `rg-app-prod,rg-shared-*`), and only those groups and the resources in them are listed. With `group`, the step reads only that group already; the setting must then include it, or the step fails rather than set an empty object.
-- **Failure.** If the tags cannot be read, the step fails. It never sets an empty object, which would let the template stamp new values on existing resources. The deployment reads the tags again rather than reuse the plan's values.
-- **Size.** One environment variable is limited to about 128 KiB, so the step fails above 120000 bytes. Request only the tags you need.
-- ARM list calls are used, not Azure Resource Graph, which can lag newly created resources by minutes.
-
-The template reads the value in its parameter file, with no default, so a missing value fails the compile instead of creating new values:
-
-```bicep
-// main.bicepparam
-param existingTags = json(readEnvironmentVariable('EXISTING_TAGS'))
-```
-
-[Azure Verified Modules](https://aka.ms/avm) take one `tags` object for the resource they deploy. Pass each module the value for its own resource ID:
-
-```bicep
-// main.bicep
-param existingTags object
-param tags object = {}
-param now string = utcNow()
-
-func withCreatedOn(tags object, existing object, id string, now string) object =>
-  union(tags, { createdOn: existing[?toLower(id)].?createdOn ?? now })
-
-var rgName = 'rg-app'
-var rgId = '${subscription().id}/resourceGroups/${rgName}'
-
-module rg 'br/public:avm/res/resources/resource-group:<version>' = {
-  params: {
-    name: rgName
-    tags: withCreatedOn(tags, existingTags, rgId, now)
-  }
-}
-
-module law 'br/public:avm/res/operational-insights/workspace:<version>' = {
-  scope: resourceGroup(rgName)
-  params: {
-    name: 'law-app'
-    tags: withCreatedOn(tags, existingTags, '${rgId}/providers/Microsoft.OperationalInsights/workspaces/law-app', now)
-  }
-  dependsOn: [rg]
-}
-```
-
-- Build the resource group ID as `${subscription().id}/resourceGroups/<name>`. `subscriptionResourceId('Microsoft.Resources/resourceGroups', ...)` returns a different form (`.../providers/Microsoft.Resources/resourceGroups/...`) that never matches.
-- Child resources that a module creates (subnets, rules, role assignments, diagnostic settings) are not taggable and need no value. Where one module deploys several taggable resources from one `tags` input, they share the module's value.
-- To compile on your own machine, set `EXISTING_TAGS='{}'` first.
-
-### Passing secrets
-
-It is optional to pass **"azure_client_id"**, **"azure_subscription_id"** and **"azure_tenant_id"** as secret.
-
-Secrets are masked in the job log. The result is that IDs can't be seen and it may be difficult to see if the wrong ID is used.
-
-On the other hand, passing these values as secrets will make them less exposed and is therefore the more secure option.
-
-When using **"Option 2"** in [Get started](#get-started), the input **"azure_client_secret"** is needed and must be passed as a secret.
-
-Secrets are passed using the secrets syntax, for example:
-
-```yaml
-with:
-  azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-  azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-  azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-```
-
-### Action Inputs
-
-#### Required
-
-- **azure_client_id**: (Required) The client ID of the service principal for Azure login.
-
-  This service principal must have permission to deploy within the Azure subscription.
-
-- **azure_subscription_id**: (Required) The subscription ID in which to deploy the resources.
-
-- **azure_tenant_id**: (Required) The tenant ID in which the subscription exists.
-
-- **location**: (Required) The Azure location to store the deployment metadata.
-
-- **scope**: (Required) The deployment scope. Accepted: tenant, mg, sub, group.
-
-- **template**: (Required) The template address. A path or URI to a file or a template spec resource id.
-
-#### Optional
-
-- **artifact_identifier**: A unique identifier added to artifact name in case of multiple runs within one workflow.
-
-- **auto_merge**: Auto merge method to use after successful deployment.
-
-  Can be one of:
-
-  - merge
-  - squash
-  - rebase
-  - disable (turn off auto merge)
-
-  Default: **"squash"**
-
-- **azure_providers**: A comma separated list of Azure resource providers.
-
-  The workflow will try to register the specified providers in addition to the providers that is detected in code by deployment validate.
-
-  Use the value **"disable"** to prevent the workflow from trying to register Azure resource providers.
-
-  Default: **""**
-
-- **azure_provider_wait_count**: Times to check provider status before giving up.
-
-  Default: **"30"**
-
-- **azure_provider_wait_seconds**: Seconds to wait between each provider status check.
-
-  Default: **"10"**
-
-- **bicep_version**: (Deploy action) The Bicep CLI version the plan used, from the plan action's `bicep_version` output. The deployment installs and uses this version so it compiles exactly what the plan showed. If the version cannot be installed, the deployment fails and asks for a new plan. See [Bicep CLI version](#bicep-cli-version).
-
-  Default: **""** (use the latest version)
-
-- **existing_tags_keys**: (Plan and deploy actions) Comma separated tag names whose current values are read from the existing resources into the environment variable `EXISTING_TAGS`. Use the same value in both actions. See [Existing tags (opt-in)](#existing-tags-opt-in).
-- **existing_tags_resource_groups**: (Plan and deploy actions) Comma separated resource group names, or prefixes ending with `*`, that limit `EXISTING_TAGS` to those groups and their resources. Empty (default): every group in the scope. Use the same value in both actions. See [Existing tags (opt-in)](#existing-tags-opt-in).
-
-  Default: **""** (skipped)
-
-- **deployment_mode**: (Plan and deploy actions) `deployment` or `stack`. See [Deployment stacks (opt-in)](#deployment-stacks-opt-in). Use the same value and the stack inputs below in both actions.
-
-  Default: **"deployment"**
-
-- **stack_action_on_unmanage**, **stack_deny_settings_mode**, **stack_name**: (Plan and deploy actions) Stack settings, used when deployment_mode is `stack`.
-
-  Defaults: **"detachAll"**, **"none"**, **""** (the repository name)
-
-- **stack_approved_deletes**: (Plan and deploy actions) Path to a JSON array of resource IDs the stack may delete. The deploy action uses it to check deletes again before deploying with a delete mode.
-
-  Default: **""**
-
-- **plan_stack_settings**: (Deploy action) The plan action's `stack_settings` output. Required for a stack deployment; a deployment whose settings differ from the plan fails.
-
-  Default: **""**
-
-- **subscription_wait_minutes**: (Plan and deploy actions) Minutes to wait for the subscription to become visible to the signed-in identity. Only the "doesn't exist in cloud" error is retried. See [Service connections for new subscriptions](#service-connections-for-new-subscriptions).
-
-  Default: **"30"**
-
-- **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
-
-  A value of **"-1"** means no cost threshold: the estimate is report-only, and a failure of the estimator itself (download, crash, unsupported resource) is a warning and an "unavailable" note in the PR comment, not a failed plan. With a threshold set, an estimator failure fails the plan.
-
-  Default: **"-1"**
-
-- **currency**: Currency code to use for estimations.
-
-  See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
-
-  Default: **"EUR"**
-
-- **log_severity**: The log verbosity. Can be one of:
-
-  - **ERROR**: Only show errors, suppressing warnings.
-  - **INFO**: Standard log level.
-  - **VERBOSE**: Increase logging verbosity.
-  - **DEBUG**: Show all debug logs.
-
-  Default: **ERROR**
-
-- **management_group**: Management group to create deployment at for mg scope.
-
-  Default: **""**
-
-- **resource_group**: Resource group to create deployment at for group scope.
-
-  Default: **""**
-
-- **rule_baseline**: The name of a PSRule baseline to use.
-
-  For a list of baseline names for module PSRule.Rules.Azure see <https://azure.github.io/PSRule.Rules.Azure/en/baselines/Azure.All/>
-
-  When empty, PSRule uses `Azure.Default`, which picks up every new rule as soon as a new PSRule.Rules.Azure version is installed, so a plan that passed yesterday can fail today without any change to your code. To keep results stable, set a quarterly baseline such as `Azure.GA_2026_03` and move to a newer one when you are ready for the new rules. Older quarterly baselines still work but log an obsolete warning. A quarterly baseline ignores custom (local) rules unless `Rule.IncludeLocal: true` is set in the options file. To turn off a single rule instead, exclude it in the options file (`rule: { exclude: [Azure.VNET.PrivateSubnet] }`). See <https://azure.github.io/PSRule.Rules.Azure/working-with-baselines/>.
-
-  Default: **Azure.Default**
-
-- **rule_modules**: A comma separated list of modules to use for analysis.
-
-  For a list of modules see <https://www.powershellgallery.com/packages?q=Tags%3A%22PSRule-rules%22>
-
-  Default: **Az.Resources,PSRule.Rules.Azure**
-
-- **rule_option**: The path to an options file. If empty, PSRule will be skipped.
-
-  For example: `bicep/pattern1/ps-rule.prod.yaml`
-
-  Default: **""**
-
-- **template_parameters**: Deployment parameter values.
-
-  Either a path, URI, JSON string, or <KEY=VALUE> pairs.
-
-  For example: `bicep/pattern1/main.prod.bicepparam`
-
-  Default: **""**
-
-- **version_ace_tool**: Azure Cost Estimator version. If empty, cost estimator will be skipped.
-
-  See versions at <https://github.com/TheCloudTheory/arm-estimator/releases>.
-
-  Version 1.6 cannot parse templates that Bicep compiles with `languageVersion` 2.0 (for example when user-defined types are used) and fails the step. Use 1.6.5 or later.
-
-  Default: **"1.6.5"**
-
-### Usage
-
-```yaml
-name: Azure Deploy
-on:
-  pull_request:
-    branches: [main]
-    paths: ["**.bicep*"] # for multiple workflows, limit to a path: "ptn/avd/**.bicep*"
-    types: [opened, synchronize]
-
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
-
-permissions: {}
-
-env:
-  auto_merge: squash
-  azure_client_id: d0d0d0d0-4558-43bb-896a-008e763058bd # when using a secret, remove this line and add the secret to each job below
-  azure_providers: Microsoft.Advisor,Microsoft.AlertsManagement,Microsoft.Authorization,Microsoft.Consumption,Microsoft.EventGrid,microsoft.insights,Microsoft.ManagedIdentity,Microsoft.Management,Microsoft.Network,Microsoft.PolicyInsights,Microsoft.ResourceHealth,Microsoft.Resources,Microsoft.Security
-  azure_provider_wait_count: 30
-  azure_provider_wait_seconds: 10
-  azure_subscription_id: d0d0d0d0-ed29-4694-ac26-2e358c364506 # when using a secret, remove this line and add the secret to each job below
-  azure_tenant_id: d0d0d0d0-b93b-4f96-9e73-4ea6caa2f3b4 # when using a secret, remove this line and add the secret to each job below
-  cost_threshold: 1000
-  currency: EUR
-  deployment_mode: stack
-  location: westeurope
-  log_severity: INFO
-  rule_option: ps-rule.yaml
-  scope: sub
-  template: main.bicep
-  template_parameters: main.bicepparam # parameters can be passed inline too, like this: namePrefix=t serviceShort=tstsp3
-  version_ace_tool: "1.6.5"
-
-jobs:
-  plan:
-    name: 🗓️ Plan
-    permissions:
-      contents: read # for checkout
-      id-token: write # for Azure login with open id
-      pull-requests: write # for pull request comment
-    outputs:
-      providers: ${{ steps.plan.outputs.providers }}
-      bicep_version: ${{ steps.plan.outputs.bicep_version }}
-      stack_settings: ${{ steps.plan.outputs.stack_settings }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Plan
-        id: plan
-        uses: innofactororg/bicep-action/.github/actions/plan@v1
-        with:
-          azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
-          # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
-          azure_providers: ${{ env.azure_providers }}
-          azure_subscription_id: ${{ env.azure_subscription_id }} # for secret, use ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          azure_tenant_id: ${{ env.azure_tenant_id }} # for secret, use ${{ secrets.AZURE_TENANT_ID }}
-          cost_threshold: ${{ env.cost_threshold }}
-          currency: ${{ env.currency }}
-          deployment_mode: ${{ env.deployment_mode }}
-          location: ${{ env.location }}
-          log_severity: ${{ env.log_severity }}
-          rule_option: ${{ env.rule_option }}
-          scope: ${{ env.scope }}
-          template: ${{ env.template }}
-          template_parameters: ${{ env.template_parameters }}
-          version_ace_tool: ${{ env.version_ace_tool }}
-
-  deploy:
-    name: 🏃 Deploy
-    needs: plan
-    environment: production
-    permissions:
-      contents: write # for auto merge
-      id-token: write # for Azure login with open id
-      pull-requests: write # for pull request comment
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Deploy
-        id: deploy
-        uses: innofactororg/bicep-action/.github/actions/deploy@v1
-        with:
-          auto_merge: ${{ env.auto_merge }}
-          azure_client_id: ${{ env.azure_client_id }} # for secret, use ${{ secrets.AZURE_CLIENT_ID }}
-          # azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }} # use this if choosing Option 2 in Get started
-          azure_providers: ${{ needs.plan.outputs.providers }}
-          bicep_version: ${{ needs.plan.outputs.bicep_version }}
-          deployment_mode: ${{ env.deployment_mode }}
-          plan_stack_settings: ${{ needs.plan.outputs.stack_settings }}
-          azure_provider_wait_count: ${{ env.azure_provider_wait_count }}
-          azure_provider_wait_seconds: ${{ env.azure_provider_wait_seconds }}
-          azure_subscription_id: ${{ env.azure_subscription_id }} # for secret, use ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          azure_tenant_id: ${{ env.azure_tenant_id }} # for secret, use ${{ secrets.AZURE_TENANT_ID }}
-          location: ${{ env.location }}
-          log_severity: ${{ env.log_severity }}
-          scope: ${{ env.scope }}
-          template: ${{ env.template }}
-          template_parameters: ${{ env.template_parameters }}
-```
+Pin a release tag: `@v1` on GitHub, and `WORKFLOW_VERSION: v1` in Azure DevOps. See the [tags](https://github.com/innofactororg/bicep-action/tags) and [releases](https://github.com/innofactororg/bicep-action/releases). The Bicep CLI itself is not pinned: every plan uses the latest release, and the deployment uses the plan's version.
 
 ## License
 
