@@ -26,7 +26,7 @@ The Azure DevOps pipeline posts the same comments on the pull request in Azure R
 
 ### Recommended settings
 
-Deployment stacks and the cost estimate are off by default, so existing workflows do not change. For a new workflow, turn them on:
+Deployment stacks are off by default, while the plan action already enables the cost estimate with ACE 1.6.5 unless `version_ace_tool` is explicitly empty. For a new workflow, use these settings:
 
 ```yaml
 deployment_mode: stack     # plan and deploy actions
