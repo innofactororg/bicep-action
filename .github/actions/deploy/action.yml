@@ -73,6 +73,10 @@ inputs:
     description: "Minutes to wait for the subscription to become visible to the signed-in identity (a new role assignment or a newly moved subscription can take a while). Only that error is retried."
     required: false
     default: "30"
+  existing_tags_keys:
+    description: "Comma separated tag names (e.g. 'createdOn') whose current values are read from the existing resources and exposed to the template as the environment variable EXISTING_TAGS. Only for the sub and group scopes. Empty (default): skipped."
+    required: false
+    default: ""
   location:
     description: "The Azure location to store the deployment metadata."
     required: true
@@ -135,6 +139,20 @@ runs:
         TENANT_ID: ${{ inputs.azure_tenant_id }}
       shell: bash
       run: az-login.sh
+
+    - name: Existing tags
+      if: inputs.existing_tags_keys != ''
+      env:
+        EXISTING_TAGS_KEYS: ${{ inputs.existing_tags_keys }}
+        IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
+        IN_SCOPE: ${{ inputs.scope }}
+        LOG_NAME: existing_tags
+        LOG_ORDER: b2
+        LOG_PATH: ${{ runner.workspace }}/logs
+        SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        SUBSCRIPTION_WAIT_MINUTES: ${{ inputs.subscription_wait_minutes }}
+      shell: bash
+      run: existing-tags.sh
 
     - name: Check resource providers
       if: inputs.azure_providers != ''
