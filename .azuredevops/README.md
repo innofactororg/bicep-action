@@ -39,8 +39,6 @@ Then commit a [Bicep snapshot](#bicep-snapshot) next to the parameters file.
 
 To use the pipeline, several prerequisite steps are required:
 
-1. Install the [PSRule](https://marketplace.visualstudio.com/items?itemName=bewhite.ps-rule) Azure DevOps extension.
-
 1. Create an [environment](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/environments?view=azure-devops).
 
 1. To prevent unapproved deployments, add the [**"Approvals"**](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/approvals?view=azure-devops&tabs=check-pass#approvals) check to the environment.
@@ -92,10 +90,10 @@ The following tools are used:
   - [az deployment {SCOPE} what-if](https://learn.microsoft.com/en-us/cli/azure/deployment/sub?view=azure-cli-latest#az-deployment-sub-what-if)
 - [Azure Cost Estimator](https://github.com/TheCloudTheory/arm-estimator)
 - [curl](https://curl.se/)
+- [PowerShell](https://learn.microsoft.com/powershell/scripting/overview) with [PSRule](https://microsoft.github.io/PSRule/) and [PSRule for Azure](https://azure.github.io/PSRule.Rules.Azure/), installed from the PowerShell Gallery on each run
 - Azure Pipelines task:
   - [AzureCLI@2](https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2?view=azure-pipelines)
   - [checkout](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout?view=azure-pipelines)
-  - [ps-rule-assert](https://github.com/microsoft/PSRule-pipelines/blob/main/docs/tasks.md#ps-rule-assert)
   - [publish](https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-publish?view=azure-pipelines)
 - [GNU bash](https://www.gnu.org/software/bash/)
 - [GNU bc](https://www.gnu.org/software/bc/)

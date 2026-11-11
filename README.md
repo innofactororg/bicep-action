@@ -128,10 +128,10 @@ The following tools are used:
 - [Azure Cost Estimator](https://github.com/TheCloudTheory/arm-estimator)
 - [curl](https://curl.se/)
 - GitHub actions:
-  - [checkout](https://github.com/actions/checkout/tree/b4ffde65f46336ab88eb53be808477a3936bae11)
-  - [github-script](https://github.com/actions/github-script/tree/60a0d83039c74a4aee543508d2ffcb1c3799cdea)
+  - [checkout](https://github.com/actions/checkout/tree/v7.0.1)
+  - [github-script](https://github.com/actions/github-script/tree/3a2844b7e9c422d3c10d287c895573f7108da1b3)
   - [microsoft/ps-rule](https://github.com/microsoft/ps-rule/tree/001a0fcdab97b1d83e25c559163ecececc80cc6f)
-  - [upload-artifact](https://github.com/actions/upload-artifact/tree/ef09cdac3e2d3e60d8ccadda691f4f1cec5035cb)
+  - [upload-artifact](https://github.com/actions/upload-artifact/tree/cf430e030ddbb5b0abf93d22962f4752f3646cd9)
 - [GNU bash](https://www.gnu.org/software/bash/)
 - [GNU bc](https://www.gnu.org/software/bc/)
 - [GNU core utilities](https://www.gnu.org/software/coreutils/coreutils.html)
@@ -420,7 +420,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Plan
         id: plan
@@ -453,7 +453,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Deploy
         id: deploy
