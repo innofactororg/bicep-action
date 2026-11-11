@@ -120,6 +120,9 @@ outputs:
   stack_settings:
     description: The deployment mode and stack settings the plan used. Pass it to the deploy action so only a planned stack is deployed.
     value: ${{ steps.what_if.outputs.stack_settings }}
+  whatif_summary:
+    description: Path to whatif-summary.json, the plan's what-if result as JSON (also in the logs artifact).
+    value: ${{ steps.what_if.outputs.whatif_summary }}
 runs:
   using: composite
   steps:

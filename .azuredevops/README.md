@@ -154,6 +154,35 @@ Notes:
 - Parameter values that are not `@secure()` are written to the snapshot in plain text, like in a parameters file. Keep secrets in `@secure()` parameters.
 - The regenerate command in the PR comment also records the Bicep CLI version that made the snapshot (`metadata.bicepVersion`, which the check ignores when comparing). When the plan uses a newer Bicep, the comment says so, and on a difference it notes that the change may come from the Bicep upgrade rather than from the code. A new Bicep release that changes the output still fails the check, so the new snapshot is reviewed like any other change.
 
+#### What-if summary file
+
+Every plan writes the what-if result as JSON to `whatif-summary.json` in the plan logs artifact, PR or not, so automation (an approval gate that allows only plans without deletes, for example) can read what the plan will do without parsing `az` text. The What-if step also sets its path as the output variable `what_if.whatif_summary`; a later stage reads the file from the plan logs artifact.
+
+```json
+{
+  "schemaVersion": 1,
+  "mode": "stack",
+  "scope": "sub",
+  "counts": { "create": 17, "modify": 0, "delete": 0, "deletePotential": 0, "detach": 0, "detachPotential": 0, "deploy": 0, "unsupported": 5, "unchanged": 0, "ignore": 0, "noEffect": 0, "other": 0 },
+  "deletes": [],
+  "detaches": [],
+  "unsupported": ["<resource id>"],
+  "deterministic": false,
+  "blocked": false,
+  "blockedReason": null,
+  "stack": { "name": "<stack name>", "id": "<stack id>" },
+  "stackSettings": { "actionOnUnmanage": "detachAll", "denySettingsMode": "none" },
+  "bicepVersion": "0.49.2",
+  "note": null
+}
+```
+
+- `mode` is `stack` or `classic`, with the same shape in both. In classic mode `stack` and `stackSettings` are `null` and `detach` is 0. When a stack falls back to a standard deployment (tenant scope, Bicep extensions), `mode` is `classic` and `note` gives the reason.
+- `counts` match the PR comment. `delete` and `detach` include the potential ones (`[Potential]` in the comment), which are also counted in `deletePotential` and `detachPotential`. `other` counts change types this version does not know; a gate should treat a non-zero `other` as unknown.
+- `blocked` is `true` when the stack delete gate failed the plan; `blockedReason` says why.
+- In classic mode the counts come from a second, lighter what-if (resource IDs only) run after the one shown in the comment, and include `unchanged` and `ignore`, which the comment leaves out.
+- A what-if that fails leaves no file. A result that cannot be read gives `{"schemaVersion": 1, "mode": ..., "scope": ..., "error": "..."}` and no counts, never zero counts, so a gate that reads it should fail closed when `error` is present or the file is missing.
+
 ### Deploy job
 
 The deploy job will only run when the plan job was successful.

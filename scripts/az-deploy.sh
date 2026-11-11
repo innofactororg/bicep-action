@@ -134,6 +134,77 @@ log_output() {
     fi
   fi
 }
+# The plan's what-if summary as a machine-readable file (whatif-summary.json in
+# the logs folder), so automation such as an approval gate can read what the
+# plan will do without parsing az CLI text. The same shape in stack and
+# classic mode. It is written only from a complete what-if result: a failed
+# what-if leaves no file, and a result that cannot be read gives "error" and
+# no counts, never zero counts.
+summary_file="${LOG_PATH}/whatif-summary.json"
+summary_note=''
+# Records the summary file as the whatif_summary output.
+summary_output() {
+  if test -n "${TF_BUILD-}"; then
+    echo "##vso[task.setvariable variable=whatif_summary;isOutput=true]${summary_file}"
+  else
+    echo "whatif_summary=${summary_file}" >> "${GITHUB_OUTPUT:-/dev/null}"
+  fi
+}
+summary_error() {
+  jq -n --arg mode "${1}" --arg scope "${IN_SCOPE}" --arg error "${2}" \
+    '{schemaVersion: 1, mode: $mode, scope: $scope, error: $error}' > "${summary_file}"
+  summary_output
+}
+# Reads a normalised change list on stdin ([{t: changeType, id, p: potential}])
+# and writes the summary. The remaining arguments are jq --arg/--argjson pairs
+# for: mode, stack, settings, deterministic, blocked, reason.
+write_summary() {
+  jq --arg scope "${IN_SCOPE}" --arg bicep "${BICEP_SELECTED-}" \
+     --arg note "${summary_note}" "$@" '
+    def n(t): [.[] | select(.t == t)] | length;
+    def ids(t): [.[] | select(.t == t) | .id];
+    def known: ["create", "modify", "delete", "detach", "deploy", "unsupported", "nochange", "ignore", "noeffect"];
+    {
+      schemaVersion: 1,
+      mode: $mode,
+      scope: $scope,
+      counts: {
+        create: n("create"),
+        modify: n("modify"),
+        delete: n("delete"),
+        deletePotential: ([.[] | select(.t == "delete" and .p)] | length),
+        detach: n("detach"),
+        detachPotential: ([.[] | select(.t == "detach" and .p)] | length),
+        deploy: n("deploy"),
+        unsupported: n("unsupported"),
+        unchanged: n("nochange"),
+        ignore: n("ignore"),
+        noEffect: n("noeffect"),
+        other: ([.[] | select(.t as $t | known | index($t) | not)] | length)
+      },
+      deletes: ids("delete"),
+      detaches: ids("detach"),
+      unsupported: ids("unsupported"),
+      deterministic: $deterministic,
+      blocked: $blocked,
+      blockedReason: (if $reason == "" then null else $reason end),
+      stack: $stack,
+      stackSettings: $settings,
+      bicepVersion: (if $bicep == "" then null else $bicep end),
+      note: (if $note == "" then null else $note end)
+    }' > "${summary_file}.tmp" || true
+  # jq on empty input (a failed step before it) writes nothing and succeeds,
+  # so check the result itself before publishing it.
+  if ! jq -e '.schemaVersion == 1 and (.counts | type) == "object"' "${summary_file}.tmp" >/dev/null 2>&1; then
+    rm -f "${summary_file}.tmp"
+    return 1
+  fi
+  mv "${summary_file}.tmp" "${summary_file}"
+  summary_output
+}
+if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
+  rm -f "${summary_file}"
+fi
 if test -z "${TF_BUILD-}"; then
   echo "::group::Output"
 fi
@@ -262,6 +333,7 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
       echo "::warning::${msg}"
     fi
     echo "${msg}" >> "${log}"
+    summary_note="${msg}"
     check_plan_settings 'deployment'
   else
     if ! az stack-whatif --help >/dev/null 2>&1; then
@@ -317,7 +389,20 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
     fi
     stack_cmd=(az stack-whatif "${stack_scope}" create --name "${result_name}" --stack-id "${stack_id}" "${template_args[@]}" "${common[@]}" "${stack_args[@]}" --retention-interval PT1H --no-color)
     echo "Run: ${stack_cmd[*]}"
-    "${stack_cmd[@]}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
+    # set -e does not apply inside the caller's if, so check the command here.
+    if ! "${stack_cmd[@]}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2); then
+      az stack-whatif "${stack_scope}" delete --name "${result_name}" "${scope_args[@]}" --yes >/dev/null 2>&1 || true
+      printf '%s\n' "## Deployment stack${nl}${nl}The stack what-if failed, so the deletes cannot be checked❗${nl}${nl}\`\`\`text${nl}$(sed -n '/ERROR/,$p' "${log}")${nl}\`\`\`" > "${md}"
+      if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
+        summary_error stack 'The stack what-if failed.'
+      fi
+      if test -n "${TF_BUILD-}"; then
+        echo "##[error]The stack what-if failed."
+      else
+        echo "::error::The stack what-if failed."
+      fi
+      return 1
+    fi
     text=$(sed -n '/^Resource and property changes/,$p' "${log}")
     json=$(az stack-whatif "${stack_scope}" show --name "${result_name}" "${scope_args[@]}" --no-pretty-print -o json)
     az stack-whatif "${stack_scope}" delete --name "${result_name}" "${scope_args[@]}" --yes >/dev/null 2>&1 || true
@@ -326,6 +411,9 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
     if [ "$(printf '%s' "${wi_state}" | tr '[:upper:]' '[:lower:]')" != 'succeeded' ] || \
        ! jq -e '(.properties.changes.resourceChanges | type) == "array" and (.properties.error == null)' <<< "${json}" >/dev/null 2>&1; then
       printf '%s\n' "## Deployment stack${nl}${nl}The stack what-if result is missing or incomplete (state: ${wi_state:-none}), so the deletes cannot be checked❗" > "${md}"
+      if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
+        summary_error stack "The stack what-if result is missing or incomplete (state: ${wi_state:-none})."
+      fi
       if test -n "${TF_BUILD-}"; then
         echo "##[error]Stack what-if result missing or incomplete (state: ${wi_state:-none})."
       else
@@ -377,6 +465,20 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
     fi
     if [ "${nondeterministic}" -gt 0 ] && [ "${unmanage}" = 'detachAll' ]; then
       notes+="${nl}${nl}:information_source: Azure reports this result as not deterministic (${n_unsupported} unsupported resources). With \`detachAll\` nothing can be deleted, so this is shown for information."
+    fi
+    if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
+      jq '[.properties.changes.resourceChanges[]? | {
+            t: ((.changeType // "") | ascii_downcase),
+            id: (.id // .symbolicName // ""),
+            p: (((.changeCertainty // "") | ascii_downcase) == "potential")
+          }]' <<< "${json}" | write_summary \
+        --arg mode stack \
+        --argjson stack "$(jq -n --arg name "${stack_name}" --arg id "${stack_id}" '{name: $name, id: $id}')" \
+        --argjson settings "$(jq -n --arg u "${unmanage}" --arg d "${deny}" '{actionOnUnmanage: $u, denySettingsMode: $d}')" \
+        --argjson deterministic "$([ "${nondeterministic}" -eq 0 ] && echo true || echo false)" \
+        --argjson blocked "$(test -n "${gate}" && echo true || echo false)" \
+        --arg reason "${gate}" || \
+        summary_error stack 'The what-if summary could not be written.'
     fi
     diff=$(sed -r 's/^([[:space:]]+)([-+~xv!=])[[:space:]]/\2\1/g' <<< "${text}" | sed -e 's/^~/!/g')
     body="${head}${notes}"
@@ -462,6 +564,7 @@ fi
 if [ "${IN_SCOPE}" = 'group' ]; then
   cmd+=" --resource-group ${IN_RESOURCE_GROUP}"
 fi
+base_cmd="${cmd}"
 case "${IN_SEVERITY}" in
   ERROR)   cmd+=' --only-show-errors';;
   VERBOSE) cmd+=' --verbose';;
@@ -475,3 +578,38 @@ esac
 echo "Run: ${cmd}"
 eval "${cmd}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" >&2)
 log_output "${log}" '' ''
+# The summary file (see write_summary). az prints a what-if as text or as
+# JSON, not both, so the JSON comes from a second, lighter what-if (resource
+# IDs only, and every change type, so unchanged is counted too). If it fails,
+# the file says so; the plan, which already succeeded, is not failed by it.
+if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
+  json_cmd="${base_cmd} --no-prompt true --no-pretty-print --result-format ResourceIdOnly --only-show-errors -o json"
+  echo "Run: ${json_cmd}"
+  json=''
+  if ! json=$(eval "${json_cmd}"); then
+    json=''
+  fi
+  wi_state=$(jq -r '.status // empty' <<< "${json}" 2>/dev/null || true)
+  if [ "$(printf '%s' "${wi_state}" | tr '[:upper:]' '[:lower:]')" = 'succeeded' ] && \
+     jq -e '(.changes | type) == "array" and (.error == null)' <<< "${json}" >/dev/null 2>&1; then
+    # Newer API versions list changes that depend on deploy-time conditions
+    # separately, as potentialChanges.
+    jq '[(.changes[] | {c: ., p: false}), (.potentialChanges[]? | {c: ., p: true})] | map({
+          t: ((.c.changeType // "") | ascii_downcase),
+          id: (.c.resourceId // ""),
+          p: .p
+        })' <<< "${json}" | write_summary \
+      --arg mode classic --argjson stack null --argjson settings null \
+      --argjson deterministic "$(jq '[.diagnostics[]? | select(.code == "ShortCircuitedResourceId")] | length == 0' <<< "${json}")" \
+      --argjson blocked false --arg reason '' || \
+      summary_error classic 'The what-if summary could not be written.'
+  else
+    msg="The what-if summary file could not be made (what-if JSON state: ${wi_state:-none})."
+    if test -n "${TF_BUILD-}"; then
+      echo "##[warning]${msg}"
+    else
+      echo "::warning::${msg}"
+    fi
+    summary_error classic "${msg}"
+  fi
+fi
