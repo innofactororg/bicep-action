@@ -24,6 +24,14 @@
 #                       resources. Other scopes are skipped with a warning,
 #                       and EXISTING_TAGS is not set.
 #   IN_RESOURCE_GROUP   The resource group, for the group scope.
+#   EXISTING_TAGS_RESOURCE_GROUPS
+#                       Optional. Comma separated resource group names, or
+#                       prefixes ending with '*' (case is ignored). Only these
+#                       groups and the resources in them are listed, so that
+#                       resources the template does not own (platform groups,
+#                       managed resource groups) stay out of EXISTING_TAGS and
+#                       of a Bicep snapshot made from it. For the group scope
+#                       it must match IN_RESOURCE_GROUP.
 #   SUBSCRIPTION_ID     The subscription.
 #
 # ARM list calls are used, not Azure Resource Graph, which can lag newly
@@ -108,6 +116,22 @@ esac
 if test -z "${SUBSCRIPTION_ID-}"; then
   fail 'SUBSCRIPTION_ID is not set.'
 fi
+# Resource group filter, lower-cased with Unicode rules like the IDs below.
+groups=$(
+  printf '%s' "${EXISTING_TAGS_RESOURCE_GROUPS-}" | perl -CSD -pe '$_ = lc' \
+    | jq -Rsc 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))'
+)
+if [ "${groups}" != '[]' ]; then
+  bad=$(jq -r '[.[] | select(.[:-1] | contains("*"))] | join(", ")' <<< "${groups}")
+  if test -n "${bad}"; then
+    fail "EXISTING_TAGS_RESOURCE_GROUPS: '*' is allowed only at the end of a name (a prefix), not in: ${bad}"
+  fi
+  echo "Limited to the resource groups: ${groups}" | tee -a "${log}"
+  if [ "${IN_SCOPE}" = 'group' ] && ! jq -e --arg g "$(printf '%s' "${IN_RESOURCE_GROUP-}" | perl -CSD -pe '$_ = lc')" \
+       'any(.[]; . as $p | if $p | endswith("*") then $g | startswith($p[:-1]) else $g == $p end)' <<< "${groups}" >/dev/null; then
+    fail "EXISTING_TAGS_RESOURCE_GROUPS (${EXISTING_TAGS_RESOURCE_GROUPS}) does not include the resource group ${IN_RESOURCE_GROUP}, so EXISTING_TAGS would be empty."
+  fi
+fi
 if [ "${IN_SCOPE}" = 'group' ] && test -z "${IN_RESOURCE_GROUP-}"; then
   fail 'IN_RESOURCE_GROUP is not set for the group scope.'
 fi
@@ -166,9 +190,16 @@ jq -r '.[] | select(.tags != null) | .id as $id
     | .tags | to_entries[] | $id + "\t" + .key + "\t" + (.value | tojson)' \
   "${work}/groups.json" "${work}/resources.json" | lower > "${work}/tags.tsv"
 # -a writes ASCII only (\u escapes), so the length below is the byte count.
+# With EXISTING_TAGS_RESOURCE_GROUPS, keep only the IDs in a matching group
+# (the group itself, or a resource in it).
 existing=$(
-  jq -acR -n --argjson wanted "${wanted}" '
-    reduce (inputs | split("\t") | select($wanted[.[2]] != null)) as $t ({};
+  jq -acR -n --argjson wanted "${wanted}" --argjson groups "${groups}" '
+    def keep:
+      if ($groups | length) == 0 then true
+      else ((capture("^/subscriptions/[^/]+/resourcegroups/(?<g>[^/]+)") | .g) // null) as $g
+        | $g != null and any($groups[]; . as $p | if $p | endswith("*") then $g | startswith($p[:-1]) else $g == $p end)
+      end;
+    reduce (inputs | split("\t") | select($wanted[.[2]] != null and (.[0] | keep))) as $t ({};
       .[$t[0]][$wanted[$t[2]]] = ($t[3] | fromjson))' "${work}/tags.tsv"
 )
 count=$(jq 'length' <<< "${existing}")

@@ -77,6 +77,10 @@ inputs:
     description: "Comma separated tag names (e.g. 'createdOn') whose current values are read from the existing resources and exposed to the template as the environment variable EXISTING_TAGS. Only for the sub and group scopes. Empty (default): skipped."
     required: false
     default: ""
+  existing_tags_resource_groups:
+    description: "Comma separated resource group names, or prefixes ending with '*', that limit EXISTING_TAGS to those groups and the resources in them (case is ignored). Keeps resources the template does not own out of EXISTING_TAGS and of a Bicep snapshot. Empty (default): every group in the scope."
+    required: false
+    default: ""
   location:
     description: "The Azure location to store the deployment metadata."
     required: true
@@ -144,6 +148,7 @@ runs:
       if: inputs.existing_tags_keys != ''
       env:
         EXISTING_TAGS_KEYS: ${{ inputs.existing_tags_keys }}
+        EXISTING_TAGS_RESOURCE_GROUPS: ${{ inputs.existing_tags_resource_groups }}
         IN_RESOURCE_GROUP: ${{ inputs.resource_group }}
         IN_SCOPE: ${{ inputs.scope }}
         LOG_NAME: existing_tags

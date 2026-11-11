@@ -18,6 +18,8 @@ variables:
     value: stack
   # - name: EXISTING_TAGS_KEYS  # tags read from existing resources into EXISTING_TAGS
   #   value: createdOn
+  # - name: EXISTING_TAGS_RESOURCE_GROUPS  # limit EXISTING_TAGS to these groups (names or prefix*)
+  #   value: rg-app-prod
   - name: ENVIRONMENT
     value: production
   - name: IN_CURRENCY
