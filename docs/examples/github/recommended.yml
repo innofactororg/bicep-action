@@ -1,0 +1,113 @@
+# Recommended: a subscription deployment as a deployment stack, with PSRule,
+# the cost estimate and a Bicep snapshot (main.snapshot.json next to
+# main.bicepparam). Copy to .github/workflows/azure-deploy.yml and replace the
+# IDs. Setup: docs/setup-github.md. Every input: docs/configuration.md.
+name: Azure Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["infra/**"] # only Bicep changes start a plan
+    types: [opened, synchronize, reopened]
+
+# One run at a time for this Azure target, across all pull requests, like an
+# Atlantis lock: a second pull request waits until the first is deployed or
+# rejected, so a deployment never runs over changes it did not plan. Running
+# deployments are never cancelled. GitHub keeps one waiting run per group, so a
+# newer waiting run replaces an older one. Use one group name per target.
+concurrency:
+  group: azure-deploy-production
+  cancel-in-progress: false
+
+permissions: {}
+
+# Inputs used by both actions live here, so plan and deploy always agree.
+env:
+  azure_client_id: 00000000-0000-0000-0000-000000000000       # or a secret
+  azure_subscription_id: 00000000-0000-0000-0000-000000000000 # or a secret
+  azure_tenant_id: 00000000-0000-0000-0000-000000000000       # or a secret
+  deployment_mode: stack
+  stack_action_on_unmanage: detachAll # never deletes; see the delete gate in docs/how-it-works.md
+  stack_approved_deletes: infra/approved-deletes.json # used only with a delete mode
+  location: westeurope
+  log_severity: INFO
+  scope: sub
+  template: infra/main.bicep
+  template_parameters: infra/main.bicepparam
+  # existing_tags_keys: createdOn                 # keep createdOn stable, see docs/how-it-works.md#existing-tags
+  # existing_tags_resource_groups: rg-app-prod-*  # only this template's resource groups
+
+jobs:
+  plan:
+    name: 🗓️ Plan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read      # checkout
+      id-token: write     # Azure login with OpenID Connect
+      pull-requests: write # the plan comment
+    outputs:
+      providers: ${{ steps.plan.outputs.providers }}
+      bicep_version: ${{ steps.plan.outputs.bicep_version }}
+      stack_settings: ${{ steps.plan.outputs.stack_settings }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Plan
+        id: plan
+        uses: innofactororg/bicep-action/.github/actions/plan@v1
+        with:
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }}
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          stack_action_on_unmanage: ${{ env.stack_action_on_unmanage }}
+          stack_approved_deletes: ${{ env.stack_approved_deletes }}
+          existing_tags_keys: ${{ env.existing_tags_keys }} # empty: skipped
+          existing_tags_resource_groups: ${{ env.existing_tags_resource_groups }}
+          location: ${{ env.location }}
+          log_severity: ${{ env.log_severity }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: ${{ env.template_parameters }}
+          # Quality gates
+          rule_option: infra/ps-rule.yaml
+          rule_baseline: Azure.GA_2026_03 # a quarterly baseline keeps results stable
+          version_ace_tool: "1.6.5"
+          cost_threshold: 1000 # fail above 1000 a month; -1 reports only
+          currency: EUR
+
+  deploy:
+    name: 🏃 Deploy
+    needs: plan
+    runs-on: ubuntu-24.04
+    environment: production # with required reviewers: this is the approval
+    permissions:
+      contents: write      # auto merge
+      id-token: write      # Azure login with OpenID Connect
+      pull-requests: write # the deploy comment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Deploy
+        uses: innofactororg/bicep-action/.github/actions/deploy@v1
+        with:
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }}
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          stack_action_on_unmanage: ${{ env.stack_action_on_unmanage }}
+          stack_approved_deletes: ${{ env.stack_approved_deletes }}
+          existing_tags_keys: ${{ env.existing_tags_keys }} # empty: skipped
+          existing_tags_resource_groups: ${{ env.existing_tags_resource_groups }}
+          location: ${{ env.location }}
+          log_severity: ${{ env.log_severity }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: ${{ env.template_parameters }}
+          # From the plan: deploy exactly what was reviewed
+          azure_providers: ${{ needs.plan.outputs.providers }}
+          bicep_version: ${{ needs.plan.outputs.bicep_version }}
+          plan_stack_settings: ${{ needs.plan.outputs.stack_settings }}
+          auto_merge: squash

@@ -1,0 +1,79 @@
+# Minimal: a standard deployment to one resource group, with only the required
+# inputs. The plan still validates, runs the what-if and estimates the cost
+# (ACE 1.6.5 is the default; set version_ace_tool: "" to skip it).
+name: Azure Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["**.bicep*"]
+
+# One run at a time for this Azure target, across all pull requests, like an
+# Atlantis lock: a second pull request waits until the first is deployed or
+# rejected, so a deployment never runs over changes it did not plan. Running
+# deployments are never cancelled. GitHub keeps one waiting run per group, so a
+# newer waiting run replaces an older one. Use one group name per target.
+concurrency:
+  group: azure-deploy-rg-app
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  azure_client_id: 00000000-0000-0000-0000-000000000000
+  azure_subscription_id: 00000000-0000-0000-0000-000000000000
+  azure_tenant_id: 00000000-0000-0000-0000-000000000000
+  location: westeurope
+  resource_group: rg-app
+  scope: group
+  template: main.bicep
+  template_parameters: main.bicepparam
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    outputs:
+      providers: ${{ steps.plan.outputs.providers }}
+      bicep_version: ${{ steps.plan.outputs.bicep_version }}
+      stack_settings: ${{ steps.plan.outputs.stack_settings }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        uses: innofactororg/bicep-action/.github/actions/plan@v1
+        with:
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }}
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          location: ${{ env.location }}
+          resource_group: ${{ env.resource_group }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: ${{ env.template_parameters }}
+
+  deploy:
+    needs: plan
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: innofactororg/bicep-action/.github/actions/deploy@v1
+        with:
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: ${{ env.azure_subscription_id }}
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          location: ${{ env.location }}
+          resource_group: ${{ env.resource_group }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: ${{ env.template_parameters }}
+          azure_providers: ${{ needs.plan.outputs.providers }}
+          bicep_version: ${{ needs.plan.outputs.bicep_version }}
+          plan_stack_settings: ${{ needs.plan.outputs.stack_settings }}

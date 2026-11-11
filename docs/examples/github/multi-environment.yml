@@ -1,0 +1,134 @@
+# Two environments from one pull request: test is planned and deployed first,
+# production is planned only after test deployed, and merges the pull request.
+# Each environment has its own subscription, parameters file, GitHub
+# environment (with its own reviewers and federated credential) and
+# artifact_identifier, so the logs of the two runs do not collide.
+name: Azure Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["infra/**"]
+
+# One run at a time for this Azure target, across all pull requests, like an
+# Atlantis lock: a second pull request waits until the first is deployed or
+# rejected, so a deployment never runs over changes it did not plan. Running
+# deployments are never cancelled. GitHub keeps one waiting run per group, so a
+# newer waiting run replaces an older one. Use one group name per target.
+concurrency:
+  group: azure-deploy-app
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  azure_client_id: 00000000-0000-0000-0000-000000000000
+  azure_tenant_id: 00000000-0000-0000-0000-000000000000
+  deployment_mode: stack
+  location: westeurope
+  scope: sub
+  template: infra/main.bicep
+
+jobs:
+  # ---------------------------------------------------------------- test
+  plan_test:
+    name: 🗓️ Plan (test)
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, id-token: write, pull-requests: write }
+    outputs:
+      providers: ${{ steps.plan.outputs.providers }}
+      bicep_version: ${{ steps.plan.outputs.bicep_version }}
+      stack_settings: ${{ steps.plan.outputs.stack_settings }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        uses: innofactororg/bicep-action/.github/actions/plan@v1
+        with:
+          artifact_identifier: test
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: 11111111-1111-1111-1111-111111111111
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          stack_name: app-test
+          location: ${{ env.location }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: infra/main.test.bicepparam
+          cost_threshold: 200
+
+  deploy_test:
+    name: 🏃 Deploy (test)
+    needs: plan_test
+    runs-on: ubuntu-24.04
+    environment: test
+    permissions: { contents: read, id-token: write, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: innofactororg/bicep-action/.github/actions/deploy@v1
+        with:
+          artifact_identifier: test
+          auto_merge: "" # merge only after production
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: 11111111-1111-1111-1111-111111111111
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          stack_name: app-test
+          location: ${{ env.location }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: infra/main.test.bicepparam
+          azure_providers: ${{ needs.plan_test.outputs.providers }}
+          bicep_version: ${{ needs.plan_test.outputs.bicep_version }}
+          plan_stack_settings: ${{ needs.plan_test.outputs.stack_settings }}
+
+  # ---------------------------------------------------------- production
+  plan_prod:
+    name: 🗓️ Plan (production)
+    needs: deploy_test
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, id-token: write, pull-requests: write }
+    outputs:
+      providers: ${{ steps.plan.outputs.providers }}
+      bicep_version: ${{ steps.plan.outputs.bicep_version }}
+      stack_settings: ${{ steps.plan.outputs.stack_settings }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        uses: innofactororg/bicep-action/.github/actions/plan@v1
+        with:
+          artifact_identifier: prod
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: 22222222-2222-2222-2222-222222222222
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          stack_name: app-prod
+          location: ${{ env.location }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: infra/main.prod.bicepparam
+          cost_threshold: 1000
+
+  deploy_prod:
+    name: 🏃 Deploy (production)
+    needs: plan_prod
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions: { contents: write, id-token: write, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: innofactororg/bicep-action/.github/actions/deploy@v1
+        with:
+          artifact_identifier: prod
+          auto_merge: squash
+          azure_client_id: ${{ env.azure_client_id }}
+          azure_subscription_id: 22222222-2222-2222-2222-222222222222
+          azure_tenant_id: ${{ env.azure_tenant_id }}
+          deployment_mode: ${{ env.deployment_mode }}
+          stack_name: app-prod
+          location: ${{ env.location }}
+          scope: ${{ env.scope }}
+          template: ${{ env.template }}
+          template_parameters: infra/main.prod.bicepparam
+          azure_providers: ${{ needs.plan_prod.outputs.providers }}
+          bicep_version: ${{ needs.plan_prod.outputs.bicep_version }}
+          plan_stack_settings: ${{ needs.plan_prod.outputs.stack_settings }}
