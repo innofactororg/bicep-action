@@ -192,7 +192,14 @@ write_summary() {
       stackSettings: $settings,
       bicepVersion: (if $bicep == "" then null else $bicep end),
       note: (if $note == "" then null else $note end)
-    }' > "${summary_file}"
+    }' > "${summary_file}.tmp" || true
+  # jq on empty input (a failed step before it) writes nothing and succeeds,
+  # so check the result itself before publishing it.
+  if ! jq -e '.schemaVersion == 1 and (.counts | type) == "object"' "${summary_file}.tmp" >/dev/null 2>&1; then
+    rm -f "${summary_file}.tmp"
+    return 1
+  fi
+  mv "${summary_file}.tmp" "${summary_file}"
   summary_output
 }
 if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
