@@ -371,7 +371,7 @@ with:
 
 - **cost_threshold**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
 
-  A value of **"-1"** means no cost threshold.
+  A value of **"-1"** means no cost threshold: the estimate is report-only, and a failure of the estimator itself (download, crash, unsupported resource) is a warning and an "unavailable" note in the PR comment, not a failed plan. With a threshold set, an estimator failure fails the plan.
 
   Default: **"-1"**
 
