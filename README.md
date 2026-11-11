@@ -255,6 +255,7 @@ Set **existing_tags_keys** (plan and deploy actions) to a comma separated list o
 - **Keys** are the resource IDs in lower case. Only resources that carry at least one of the requested tags are listed.
 - **Tag names** are matched without regard to case, like Azure does, and written with the spelling you requested.
 - **Scope.** `sub` reads the resource groups and the resources of the subscription; `group` reads the resource group and its resources. For other scopes the step is skipped with a warning and `EXISTING_TAGS` is not set.
+- **Resource groups.** With `sub`, the list includes groups and resources the template does not own: the network watcher group, managed resource groups (Container Apps, Databricks), monitoring baselines. A [Bicep snapshot](#bicep-snapshot) embeds every expanded parameter value, so a template that uses `EXISTING_TAGS` in its tags breaks its snapshot whenever one of those gains or loses a requested tag. Set **existing_tags_resource_groups** to a comma separated list of resource group names, or prefixes ending with `*` (case is ignored, for example `rg-app-prod,rg-shared-*`), and only those groups and the resources in them are listed. With `group`, the step reads only that group already; the setting must then include it, or the step fails rather than set an empty object.
 - **Failure.** If the tags cannot be read, the step fails. It never sets an empty object, which would let the template stamp new values on existing resources. The deployment reads the tags again rather than reuse the plan's values.
 - **Size.** One environment variable is limited to about 128 KiB, so the step fails above 120000 bytes. Request only the tags you need.
 - ARM list calls are used, not Azure Resource Graph, which can lag newly created resources by minutes.
@@ -375,6 +376,7 @@ with:
   Default: **""** (use the latest version)
 
 - **existing_tags_keys**: (Plan and deploy actions) Comma separated tag names whose current values are read from the existing resources into the environment variable `EXISTING_TAGS`. Use the same value in both actions. See [Existing tags (opt-in)](#existing-tags-opt-in).
+- **existing_tags_resource_groups**: (Plan and deploy actions) Comma separated resource group names, or prefixes ending with `*`, that limit `EXISTING_TAGS` to those groups and their resources. Empty (default): every group in the scope. Use the same value in both actions. See [Existing tags (opt-in)](#existing-tags-opt-in).
 
   Default: **""** (skipped)
 
