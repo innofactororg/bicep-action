@@ -365,11 +365,11 @@ stages:
 
 - **ARTIFACT_IDENTIFIER**: A unique identifier added to artifact name in case of multiple runs within one workflow.
 
-- **COST_THRESHOLD**: Max acceptable estimated cost. Exceeding threshold causes plan to fail.
+- **COST_THRESHOLD**: Max acceptable estimated cost. Exceeding threshold causes plan to fail. When unset or **"-1"**, the cost estimate is report-only: if the estimator itself fails (download, crash, unsupported resource), the step logs a warning, the PR comment says the estimate is unavailable, and the plan continues. With a threshold set, an estimator failure fails the plan, because the cost is then not known to be below it.
 
 - **ENVIRONMENT**: Name of the [environment](#get-started) to use for the [deploy job](#deploy-job).
 
-- **IN_CURRENCY**: Currency code to use for estimations. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
+- **IN_CURRENCY**: Currency code to use for estimations. Default: **"EUR"** when unset or empty. See allowed values at <https://github.com/TheCloudTheory/arm-estimator/wiki/Options#currency>
 
 - **IN_LOCATION**: The Azure location to store the deployment metadata.
 
