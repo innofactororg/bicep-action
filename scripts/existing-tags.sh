@@ -116,55 +116,72 @@ source "$(dirname "${BASH_SOURCE[0]}")/azure-subscription.sh"
 if ! select_subscription "${SUBSCRIPTION_ID}"; then
   fail "${SUBSCRIPTION_ERROR}"
 fi
+# The ARM responses go to files, never to command-line arguments: a large
+# subscription exceeds the per-argument limit even when few resources match.
+work=$(mktemp -d)
+trap 'rm -rf "${work}"; cleanup' EXIT
 query='[].{id: id, tags: tags}'
 if [ "${IN_SCOPE}" = 'sub' ]; then
   echo "List the resource groups and resources of subscription ${SUBSCRIPTION_ID}" | tee -a "${log}"
-  groups=$(az group list --subscription "${SUBSCRIPTION_ID}" \
-    --query "${query}" -o json --only-show-errors 2>> "${log}")
-  resources=$(az resource list --subscription "${SUBSCRIPTION_ID}" \
-    --query "${query}" -o json --only-show-errors 2>> "${log}")
+  az group list --subscription "${SUBSCRIPTION_ID}" \
+    --query "${query}" -o json --only-show-errors \
+    > "${work}/groups.json" 2>> "${log}"
+  az resource list --subscription "${SUBSCRIPTION_ID}" \
+    --query "${query}" -o json --only-show-errors \
+    > "${work}/resources.json" 2>> "${log}"
 else
   echo "List resource group ${IN_RESOURCE_GROUP} and its resources" | tee -a "${log}"
   # The group itself can be absent before the first deployment.
   if out=$(az group show --subscription "${SUBSCRIPTION_ID}" \
     --name "${IN_RESOURCE_GROUP}" --query '{id: id, tags: tags}' \
     -o json --only-show-errors 2>&1); then
-    groups="[${out}]"
-    resources=$(az resource list --subscription "${SUBSCRIPTION_ID}" \
+    jq -c '[.]' <<< "${out}" > "${work}/groups.json"
+    az resource list --subscription "${SUBSCRIPTION_ID}" \
       --resource-group "${IN_RESOURCE_GROUP}" \
-      --query "${query}" -o json --only-show-errors 2>> "${log}")
+      --query "${query}" -o json --only-show-errors \
+      > "${work}/resources.json" 2>> "${log}"
   elif [[ "${out}" == *'ResourceGroupNotFound'* ]]; then
     echo "Resource group ${IN_RESOURCE_GROUP} does not exist yet" | tee -a "${log}"
-    groups='[]'
-    resources='[]'
+    echo '[]' > "${work}/groups.json"
+    echo '[]' > "${work}/resources.json"
   else
     echo "${out}" >> "${log}"
     fail "Unable to read resource group ${IN_RESOURCE_GROUP}."
   fi
 fi
+# Resource IDs and tag names are lower-cased with Unicode rules, as Bicep's
+# toLower() does (jq's ascii_downcase leaves non-ASCII letters unchanged).
+# One line per tag: id <TAB> tag name <TAB> value as JSON. IDs and tag names
+# hold no tabs, and tojson escapes any in the value. perl (an essential
+# package on Debian and Ubuntu) lower-cases the id and adds the lower-cased
+# tag name as a fourth field.
+lower() {
+  perl -CSD -pe 's/^([^\t]*)\t([^\t]*)\t/\L$1\E\t$2\t\L$2\E\t/'
+}
+wanted=$(
+  jq -r '.[] | . + "\t" + . + "\t"' <<< "${keys}" | lower \
+    | jq -cR -n '[inputs | split("\t") | {key: .[2], value: .[1]}] | from_entries'
+)
+jq -r '.[] | select(.tags != null) | .id as $id
+    | .tags | to_entries[] | $id + "\t" + .key + "\t" + (.value | tojson)' \
+  "${work}/groups.json" "${work}/resources.json" | lower > "${work}/tags.tsv"
+# -a writes ASCII only (\u escapes), so the length below is the byte count.
 existing=$(
-  jq -cn --argjson keys "${keys}" --argjson g "${groups}" --argjson r "${resources}" '
-    [ ($g + $r)[]
-      | select(.tags != null and .tags != {})
-      | .tags as $t
-      | {
-          key: (.id | ascii_downcase),
-          value: (reduce $keys[] as $k ({};
-            ([$t | to_entries[] | select((.key | ascii_downcase) == ($k | ascii_downcase))] | first) as $m
-            | if $m then . + {($k): $m.value} else . end))
-        }
-      | select(.value != {})
-    ] | from_entries'
+  jq -acR -n --argjson wanted "${wanted}" '
+    reduce (inputs | split("\t") | select($wanted[.[2]] != null)) as $t ({};
+      .[$t[0]][$wanted[$t[2]]] = ($t[3] | fromjson))' "${work}/tags.tsv"
 )
 count=$(jq 'length' <<< "${existing}")
-size=${#existing}
+size=$(printf '%s' "${existing}" | wc -c | tr -d ' ')
 echo "Resources that carry a requested tag: ${count} (${size} bytes)" | tee -a "${log}"
 # One environment variable cannot be larger than 128 KiB on Linux.
 if [ "${size}" -gt 120000 ]; then
   fail "EXISTING_TAGS is ${size} bytes, above the 120000 byte limit of one environment variable. Request fewer tags, or deploy to a resource group scope."
 fi
 if test -n "${TF_BUILD-}"; then
-  echo "##vso[task.setvariable variable=EXISTING_TAGS]${existing}"
+  # Azure DevOps decodes %0A, %0D, %3B, %5D and %AZP25 in logging commands.
+  # Escape every percent sign so the JSON arrives unchanged.
+  echo "##vso[task.setvariable variable=EXISTING_TAGS]${existing//%/%AZP25}"
 else
   echo "EXISTING_TAGS=${existing}" >> "${GITHUB_ENV}"
 fi
