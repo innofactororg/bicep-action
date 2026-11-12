@@ -8,6 +8,12 @@ SCRIPT_ACTION="${1}"
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 trap 'error $? $LINENO "$BASH_COMMAND" $log' ERR
 trap cleanup EXIT
+# Azure DevOps colours everything after a run of three or more asterisks in
+# a diff block as a comment, so a masked value ("*******") garbles the rest
+# of the what-if. Replace each "*" in such a run with the lookalike U+2217.
+diff_safe() {
+  perl -CSD -pe 's/(\*{3,})/"\x{2217}" x length($1)/ge'
+}
 cleanup() {
   if test -z "${TF_BUILD-}"; then
     echo '::endgroup::'
@@ -36,7 +42,7 @@ log_output() {
     if [ "${SCRIPT_ACTION}" = 'what-if' ]; then
       data=$(
         sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' "${1}" | \
-        sed -e 's/^~/!/g'
+        sed -e 's/^~/!/g' | diff_safe
       )
     else
       data=$(sed '/^{$/,$d' "${1}")
@@ -480,7 +486,7 @@ if [ "${DEPLOYMENT_MODE:-deployment}" = 'stack' ] && \
         --arg reason "${gate}" || \
         summary_error stack 'The what-if summary could not be written.'
     fi
-    diff=$(sed -r 's/^([[:space:]]+)([-+~xv!=])[[:space:]]/\2\1/g' <<< "${text}" | sed -e 's/^~/!/g')
+    diff=$(sed -r 's/^([[:space:]]+)([-+~xv!=])[[:space:]]/\2\1/g' <<< "${text}" | sed -e 's/^~/!/g' | diff_safe)
     body="${head}${notes}"
     if test -n "${gate}"; then
       body=":no_entry: ${gate}${nl}${nl}${body}"

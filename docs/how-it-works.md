@@ -126,6 +126,8 @@ The comment shows the result as a `diff` block, so the changes are coloured:
 
 Property changes are listed under each resource. Long results are folded under **Click for details**.
 
+Values Azure hides, such as secrets, show as `∗∗∗∗∗∗∗`: the comment uses the lookalike `∗` (U+2217) instead of `*`, because Azure DevOps colours everything after `***` in a diff block as a comment. The log keeps Azure's original output.
+
 What the what-if cannot know:
 
 - **Values only known at deploy time,** such as `reference()` output or a name built from a runtime value, show as unsupported or not deterministic.

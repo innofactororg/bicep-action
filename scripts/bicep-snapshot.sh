@@ -15,6 +15,12 @@ mkdir -p "${LOG_PATH}"
 log="${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}.log"
 md="${log/.log/.md}"
 nl=$'\n'
+# Azure DevOps colours everything after a run of three or more asterisks in
+# a diff block as a comment, so a masked value ("*******") garbles the rest
+# of the what-if. Replace each "*" in such a run with the lookalike U+2217.
+diff_safe() {
+  perl -CSD -pe 's/(\*{3,})/"\x{2217}" x length($1)/ge'
+}
 cleanup() {
   if test -z "${TF_BUILD-}"; then
     echo '::endgroup::'
@@ -128,7 +134,7 @@ regen+="${nl}jq --arg v \"\$(bicep --version | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]
 if [[ "${output}" == *'Snapshot validation failed'* ]]; then
   diff=$(
     echo "${output}" | sed -n '/^Scope:/,$p' | grep -v '^Scope: <unknown>' | \
-      sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | sed -e 's/^~/!/g'
+      sed -r 's/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g' | sed -e 's/^~/!/g' | diff_safe
   )
   summary="The template no longer matches \`${snapshot}\` ❗"
   if test -n "${version_note}"; then
