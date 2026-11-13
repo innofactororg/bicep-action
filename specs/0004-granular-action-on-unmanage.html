@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Granular action on unmanage (bicep-action #57)</title>
+<style>
+  :root {
+    --paper: #f7f5f0; --ink: #1f2a33; --ink-soft: #55616b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #c2410c; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details { margin: 10px 0; } #notes summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  #questionables details { margin: 10px 0; } #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: Granular action on unmanage</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-57)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd>https://github.com/innofactororg/bicep-action/issues/57, docs/adr/0004-granular-action-on-unmanage.md</dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0004-granular-action-on-unmanage/hero.png" alt="Three nested boxes for resources, resource groups and management groups, each with a delete or detach switch" width="1152" height="768">
+    <figcaption>Three kinds of object, each with its own delete or detach switch.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Let a pipeline say separately what a deployment stack does with an unmanaged resource, resource group and management group, as Azure does, while every existing pipeline keeps working and the "deploy exactly what was planned" promise holds for every combination.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>The only control is <code>stack_action_on_unmanage</code> with <code>detachAll</code>, <code>deleteResources</code> and <code>deleteAll</code> (<code>scripts/az-deploy.sh:351</code>). These are the three values of the CLI flag <code>--action-on-unmanage</code>. They hide which kind of object each value affects, and they cannot express anything else.</p>
+    <p>Checked against the installed Azure CLI 2.87.0 (<code>az stack group|sub|mg create --help</code>): there is no granular flag. Only <code>--action-on-unmanage</code> exists, with those three values, and <code>--resources-without-delete-support</code> (<code>detach</code> or <code>fail</code>), which this repository does not use. The <code>az stack-whatif</code> command that the script calls is not present in that CLI at all, so what-if could not be exercised locally.</p>
+    <table>
+      <tr><th>CLI value</th><th>resources</th><th>resource groups</th><th>management groups</th></tr>
+      <tr><td><code>detachAll</code></td><td>detach</td><td>detach</td><td>detach</td></tr>
+      <tr><td><code>deleteResources</code></td><td>delete</td><td>detach</td><td>detach</td></tr>
+      <tr><td><code>deleteAll</code></td><td>delete</td><td>delete</td><td>delete</td></tr>
+    </table>
+    <p>The issue's example, "delete unmanaged resources but never delete a resource group", already works today as <code>deleteResources</code>. The real gaps are explicitness, scope awareness, and one combination (delete resources and resource groups, detach management groups) that the CLI cannot express.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>Add three inputs (<code>stack_action_on_unmanage_resources</code>, <code>_resource_groups</code>, <code>_management_groups</code>) next to the shorthand. A new sourced script, <code>scripts/stack-unmanage.sh</code>, resolves shorthand or granular values into one normalised triple, validated for the scope and for nesting. The triple, not the input style, then drives four things: the CLI argument, the plan record, the delete gate, and the deploy-time refusal on mismatch.</p>
+    <figure>
+      <img src="0004-granular-action-on-unmanage/solution.png" alt="Three switches feed a normalise step, then the plan record, then the deploy checks" width="1152" height="768">
+      <figcaption>Inputs are normalised once; the plan records the result and the deploy checks it.</figcaption>
+    </figure>
+    <p>Rules, in short:</p>
+    <ul>
+      <li>The shorthand and any granular input together is an error. Nothing set is <code>detachAll</code>. An unset granular value is <code>detach</code>.</li>
+      <li>Kinds that do not apply at the scope are dropped: resource groups at <code>group</code>; management groups at <code>group</code> and <code>sub</code>. <code>delete</code> for such a kind is an error. This keeps <code>deleteAll</code> working at every scope.</li>
+      <li>Nesting rule: <code>resource_groups: delete</code> needs <code>resources: delete</code>; <code>management_groups: delete</code> needs both others to be <code>delete</code>. That leaves 4 valid triples at <code>mg</code>, 3 at <code>sub</code>, 2 at <code>group</code>.</li>
+      <li>A valid triple equal to a CLI row is passed as <code>--action-on-unmanage</code>. The only other valid triple, delete, delete, detach at <code>mg</code>, is refused with a clear message until the CLI can express it.</li>
+      <li>Any <code>delete</code> in the triple means delete mode: approved list, non-deterministic failure and the second gate run all apply.</li>
+    </ul>
+    <h4>Valid combinations by scope</h4>
+    <table>
+      <tr><th>resources</th><th>resource groups</th><th>management groups</th><th>group</th><th>sub</th><th>mg</th><th>CLI value</th></tr>
+      <tr><td>detach</td><td>detach</td><td>detach</td><td>valid</td><td>valid</td><td>valid</td><td><code>detachAll</code></td></tr>
+      <tr><td>delete</td><td>detach</td><td>detach</td><td>valid</td><td>valid</td><td>valid</td><td><code>deleteResources</code></td></tr>
+      <tr><td>delete</td><td>delete</td><td>detach</td><td>n/a (rg dropped)</td><td>valid, same as <code>deleteAll</code></td><td>valid, not expressible</td><td>none</td></tr>
+      <tr><td>delete</td><td>delete</td><td>delete</td><td>valid</td><td>valid</td><td>valid</td><td><code>deleteAll</code></td></tr>
+      <tr><td>detach</td><td>delete (any)</td><td>any</td><td colspan="3">refused: contradicts nesting</td><td>none</td></tr>
+      <tr><td>delete</td><td>detach</td><td>delete</td><td colspan="3">refused: contradicts nesting</td><td>none</td></tr>
+    </table>
+    <p>The raw 2×2×2 grid has eight cells. The nesting rule refuses four at <code>mg</code> scope, <code>delete</code> at a kind that does not apply is refused at the lower scopes, and the rest map as above. The tests (phase 5) enumerate all eight cells at all three scopes, 24 cases, plus the shorthand and conflict cases.</p>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — reads the value (351), builds <code>common</code> (382), the plan record and check (306, 384), the delete gate <code>stack_whatif_gate</code> (388-499), the second gate run (519), the summary <code>stackSettings</code> (483), the create command (526).</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code> — input at 48, env at 238, <code>stack_settings</code> output at 124.</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/deploy/action.yml</code> — input at 38, env at 187, <code>plan_stack_settings</code> input at 46. Also its "Add scripts to system path" step, which already exposes every file in <code>scripts/</code>.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/ms.azure.deploy.yml</code> — the single-file pipeline. Two script download lists (lines 93 and 318) and the variables block (line 16) where the new variables are shown commented out.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code> (list at 82) and <code>.azuredevops/templates/deploy-stage.yml</code> (list at 97) — script download lists.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/README.md</code> — mentions the stack variables; check for a list to extend.</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code> — settings table (46), the <code>stack_action_on_unmanage</code> section (136-146), the approved deletes text (146, 165), outputs table (262), recommended settings (290).</li>
+      <li><span class="tag existing">existing</span> <code>docs/how-it-works.md</code> — settings check (103), delete mode (104), flowchart (149), unmanaged resources (157-163), summary file (290).</li>
+      <li><span class="tag existing">existing</span> <code>docs/troubleshooting.md</code> — lines 37-38 name <code>detachAll</code> as the fix.</li>
+      <li><span class="tag existing">existing</span> <code>docs/examples/github/recommended.yml</code> (30, 64, 100), <code>docs/examples/azure-devops/*.yml</code> — examples.</li>
+    </ul>
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>scripts/stack-unmanage.sh</code> — sourced helper: <code>resolve_unmanage</code>, <code>classify_change_kind</code>, <code>unmanage_kind_violations</code>.</li>
+      <li><span class="tag new">new</span> <code>scripts/tests/stack-unmanage.test.sh</code> — resolver matrix tests with no Azure access.</li>
+      <li><span class="tag new">new</span> <code>scripts/tests/stack-gate.test.sh</code>, <code>scripts/tests/fixtures/*.json</code>, <code>scripts/tests/bin/az</code> — stubbed <code>az</code> and canned what-if results that run <code>az-deploy.sh</code> end to end.</li>
+      <li><span class="tag new">new</span> <code>scripts/tests/run.sh</code> — runs every test, for local use and CI.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: Spike, verify what Azure and the CLI accept</h3>
+      <p>Three facts in this plan are assumptions that cannot be checked from the installed tooling: what the stack API accepts for each combination, what an unmanaged resource group looks like in a what-if result, and whether a newer CLI has granular flags. Settle them before writing code, in a throwaway subscription.</p>
+
+      <h4>1. Record the facts</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>On a CLI newer than 2.87.0, if one exists, run <code>az stack sub create --help</code> and <code>az stack mg create --help</code> and look for flags beyond <code>--action-on-unmanage</code>. Write the CLI version and result into the ADR (Context).</span></li>
+        <li><code class="status">[]</code> <span>Create a subscription stack with two resource groups, remove one group from the template, run <code>az stack-whatif sub create</code> and capture the JSON of <code>az stack-whatif sub show --no-pretty-print</code>. Confirm the exact <code>id</code> format of a resource group change (expected <code>/subscriptions/&lt;id&gt;/resourceGroups/&lt;name&gt;</code>) and that its <code>changeType</code> is <code>delete</code> or <code>detach</code>. Save the JSON as <code>scripts/tests/fixtures/whatif-rg-delete.json</code> after removing real IDs.</span></li>
+        <li><code class="status">[]</code> <span>Repeat at management group scope for a unmanaged management group and a subscription, and confirm the ID format (expected <code>/providers/Microsoft.Management/managementGroups/&lt;name&gt;</code>).</span></li>
+        <li><code class="status">[]</code> <span>With the REST API (<code>az rest</code>, API version used by <code>Azure/bicep-deploy</code>), send <code>actionOnUnmanage</code> with <code>resources: detach</code> and <code>resourceGroups: delete</code> and note whether Azure accepts it. This decides the nesting rule (Questionable 1).</span></li>
+      </ul>
+
+      <h4>2. Testing Strategy</h4>
+      <p>No code yet. The evidence is saved fixtures and a short note in the ADR. Nothing from a customer subscription is saved: replace subscription IDs and names with generic placeholders before committing.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>jq -e '.properties.changes.resourceChanges | length &gt; 0' scripts/tests/fixtures/whatif-rg-delete.json</code> — the fixture parses and has changes.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rIiE 'subscriptions/[0-9a-f]{8}-' scripts/tests/fixtures | grep -v 00000000</code> — prints nothing, so no real subscription ID was committed.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: The resolver, <code>scripts/stack-unmanage.sh</code></h3>
+      <p>One sourced file holds all the policy, so GitHub, Azure DevOps and the tests use the same code. Follow the shape of <code>scripts/bicep-version.sh</code>: functions, results in variables, an error string, no output of its own.</p>
+
+      <h4>1. Write the functions</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>scripts/stack-unmanage.sh</code> with the licence header used by the other scripts and a <code># shellcheck disable=SC2034</code> line for the variables the caller reads.</span></li>
+        <li><code class="status">[]</code> <span><code>resolve_unmanage &lt;scope&gt;</code>: reads <code>STACK_ACTION_ON_UNMANAGE</code>, <code>STACK_ACTION_ON_UNMANAGE_RESOURCES</code>, <code>..._RESOURCE_GROUPS</code>, <code>..._MANAGEMENT_GROUPS</code>. On success sets <code>UNMANAGE_RESOURCES</code>, <code>UNMANAGE_RESOURCE_GROUPS</code>, <code>UNMANAGE_MANAGEMENT_GROUPS</code> (<code>delete</code>, <code>detach</code> or empty for a kind that does not apply), <code>UNMANAGE_LEGACY</code> (the CLI value or empty), <code>UNMANAGE_RECORD</code> (the plan record text), <code>UNMANAGE_DELETE_MODE</code> (<code>true</code> or <code>false</code>). On failure returns 1 and sets <code>UNMANAGE_ERROR</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>classify_change_kind</code>: a jq function string, <code>UNMANAGE_KIND_JQ</code>, mapping a change ID to <code>resources</code>, <code>resourceGroups</code> or <code>managementGroups</code>. It is a string so the gate can embed it in its existing jq calls.</span></li>
+        <li><code class="status">[]</code> <span><code>unmanage_kind_violations &lt;json&gt;</code>: prints the IDs of <code>delete</code> changes whose kind is <code>detach</code> in the triple. Empty output means the result is consistent with the plan.</span></li>
+      </ul>
+      <pre><code># resolve_unmanage, the non-obvious parts
+resolve_unmanage() {
+  local scope="${1}" short="${STACK_ACTION_ON_UNMANAGE-}"
+  local r="${STACK_ACTION_ON_UNMANAGE_RESOURCES-}"
+  local g="${STACK_ACTION_ON_UNMANAGE_RESOURCE_GROUPS-}"
+  local m="${STACK_ACTION_ON_UNMANAGE_MANAGEMENT_GROUPS-}"
+  UNMANAGE_ERROR=''
+  if [ -n "${short}" ] &amp;&amp; { [ -n "${r}" ] || [ -n "${g}" ] || [ -n "${m}" ]; }; then
+    UNMANAGE_ERROR='Set either stack_action_on_unmanage or the stack_action_on_unmanage_* inputs, not both.'
+    return 1
+  fi
+  if [ -n "${g}${m}${r}" ]; then
+    r=$(lower "${r:-detach}"); g=$(lower "${g:-detach}"); m=$(lower "${m:-detach}")
+    # each must be delete or detach, else error naming the input
+  else
+    case "$(lower "${short:-detachAll}")" in
+      detachall)       r=detach; g=detach; m=detach;;
+      deleteresources) r=delete; g=detach; m=detach;;
+      deleteall)       r=delete; g=delete; m=delete;;
+      *) UNMANAGE_ERROR="Unknown stack_action_on_unmanage '${short}'."; return 1;;
+    esac
+  fi
+  # 1. kinds that do not apply: delete is an error, detach is dropped
+  case "${scope}" in
+    group) [ "${g}" = delete ] &amp;&amp; { [ -n "${short}" ] || err; }; g=''; m='';;
+    sub)   m='';;
+  esac
+  # (the shorthand deleteAll expands to delete for every kind, so dropping is
+  #  silent for the shorthand; only an explicit granular delete errors)
+  # 2. nesting
+  [ "${g}" = delete ] &amp;&amp; [ "${r}" != delete ] &amp;&amp; err 'resource groups cannot be deleted while resources are detached'
+  [ "${m}" = delete ] &amp;&amp; { [ "${r}" != delete ] || [ "${g}" != delete ]; } &amp;&amp; err 'management groups ...'
+  # 3. CLI mapping and record over the applicable kinds only
+  local key="${r}/${g:-n}/${m:-n}"
+  case "${key}" in
+    detach/detach/detach|detach/n/n|detach/detach/n) UNMANAGE_LEGACY=detachAll;;
+    delete/detach/detach|delete/n/n|delete/detach/n)  UNMANAGE_LEGACY=deleteResources;;
+    ...
+  esac
+}</code></pre>
+      <p>The <code>group</code> case needs care: <code>delete/n/n</code> at group scope must map to <code>deleteAll</code> when it came from the shorthand <code>deleteAll</code>, because that is what the CLI value was and what the plan record said before. Decide the CLI value from the pre-drop triple only when the shorthand was used; from the post-drop triple when granular inputs were used. Write the mapping as a table of (scope, post-drop triple) to (CLI value), not as nested conditionals, so the test can print the table.</p>
+
+      <h4>2. Define the plan record</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>UNMANAGE_RECORD</code> equals <code>UNMANAGE_LEGACY</code> whenever one exists, so the existing <code>unmanage=detachAll</code> text is unchanged. For the one non-CLI triple it is <code>resources:delete,resourceGroups:delete,managementGroups:detach</code>. The record is built from the applicable kinds only, so a <code>group</code> plan never mentions management groups.</span></li>
+        <li><code class="status">[]</code> <span>Keep the record key order and separators identical to today (<code>stack;id=…;unmanage=…;deny=…</code>) so a plan made by an older release still compares equal.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Pure bash tests, no Azure. Each case sets the four environment variables, sources the script, calls <code>resolve_unmanage</code> and asserts the outputs. Edge cases: empty everything, shorthand in odd case, granular partially set, shorthand plus one granular, <code>delete</code> for a kind that does not apply, every nesting violation, and <code>deleteAll</code> at <code>group</code> scope.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/stack-unmanage.sh</code> — clean.</span></li>
+        <li><code class="status">[]</code> <span><code>bash scripts/tests/stack-unmanage.test.sh</code> — all 24 matrix cases (8 triples × 3 scopes) plus the shorthand and conflict cases pass.</span></li>
+        <li><code class="status">[]</code> <span><code>bash scripts/tests/stack-unmanage.test.sh --table</code> — prints the (scope, triple) to CLI value table; compare it with the table in the Solution section.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: Wire the resolver into <code>az-deploy.sh</code></h3>
+      <p>Replace the single variable with the triple at every place that used it. The goal is that a pipeline using only the shorthand produces byte-identical commands, records and summary values, with one added summary key.</p>
+
+      <h4>1. Resolve and fail early</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>After the Bicep and subscription selection and before <code>stack_fallback</code> is decided (line 326), <code>source "$(dirname "${BASH_SOURCE[0]}")/stack-unmanage.sh"</code> and call <code>resolve_unmanage "${IN_SCOPE}"</code>. On failure use the existing <code>stack_fail "${UNMANAGE_ERROR}"</code>, which writes the markdown comment and exits 1. When the stack falls back to a standard deployment (tenant scope, Bicep extensions) the resolver is skipped, because nothing can be unmanaged. If a granular input is set there, log a warning that it is ignored.</span></li>
+        <li><code class="status">[]</code> <span>Line 351: remove <code>unmanage="${STACK_ACTION_ON_UNMANAGE:-detachAll}"</code>. Keep a display string <code>unmanage="${UNMANAGE_RECORD}"</code> for the comment text.</span></li>
+        <li><code class="status">[]</code> <span>Line 382: if <code>UNMANAGE_LEGACY</code> is empty, <code>stack_fail</code> with the "not expressible by this Azure CLI" message and the three-value triple; otherwise <code>common=(--action-on-unmanage "${UNMANAGE_LEGACY}" --deny-settings-mode "${deny}")</code>. Put the CLI-argument construction in one function, <code>unmanage_cli_args</code>, so a future CLI with granular flags changes one place.</span></li>
+        <li><code class="status">[]</code> <span>Line 384: <code>check_plan_settings "stack;id=${stack_id};unmanage=${UNMANAGE_RECORD};deny=${deny}"</code>.</span></li>
+      </ul>
+
+      <h4>2. Refuse a mismatch at deploy, with a readable message</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>check_plan_settings</code> (line 306) already refuses any difference. Extend only the message: when both strings contain <code>unmanage=</code>, call <code>describe_unmanage</code> (in <code>stack-unmanage.sh</code>) on each so the error reads "the plan used resources delete, resource groups detach; this deployment uses resources delete, resource groups delete". Fall back to the raw strings if a record cannot be parsed.</span></li>
+        <li><code class="status">[]</code> <span>Do not loosen the comparison: it stays a string compare of the full record, so a changed id or deny mode is still caught.</span></li>
+      </ul>
+
+      <h4>3. The delete gate</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Line 469: replace <code>[ "${unmanage}" != 'detachAll' ]</code> with <code>[ "${UNMANAGE_DELETE_MODE}" = true ]</code>, and the message text <code>with \`${unmanage}\`</code> with the record. The "use <code>detachAll</code>" advice becomes "detach the kinds you do not need to delete".</span></li>
+        <li><code class="status">[]</code> <span>Line 472: the information note applies when <code>UNMANAGE_DELETE_MODE</code> is <code>false</code>, replacing <code>= 'detachAll'</code>.</span></li>
+        <li><code class="status">[]</code> <span>Line 519: the second gate run before create runs when <code>UNMANAGE_DELETE_MODE</code> is <code>true</code>. The log line prints the record.</span></li>
+        <li><code class="status">[]</code> <span>After <code>deletes=</code> (line 436) add the kind check, and fold its result into <code>unapproved</code>'s sibling variable <code>unexpected</code>: delete changes of a kind the triple detaches. If non-empty, <code>gate</code> gets a message "Azure reports a delete of a kind this plan detaches" and the plan fails, even when the ID is in the approved list.</span></li>
+        <li><code class="status">[]</code> <span>The approved list is unchanged: one flat list, matched without case. A resource group delete is approved by listing the group's ID. Mention this in the docs.</span></li>
+      </ul>
+      <pre><code># in stack_whatif_gate, after the deletes= line
+unexpected=$(unmanage_kind_violations "${json}")
+...
+if test -n "${unexpected}"; then
+  gate="Azure reports deletes of a kind this plan detaches (${UNMANAGE_RECORD}). Nothing was deployed:${nl}${nl}$(sed 's/^/- `/; s/$/`/' &lt;&lt;&lt; "${unexpected}")"
+elif test -n "${unapproved}"; then
+  ...</code></pre>
+
+      <h4>4. Summary file</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Line 483: add the three values and keep <code>actionOnUnmanage</code> as the record string. New shape: <code>{actionOnUnmanage: $u, unmanage: {resources, resourceGroups, managementGroups}, denySettingsMode: $d}</code>, where a kind that does not apply is <code>null</code>. <code>schemaVersion</code> stays 1 because the change only adds a key. Update the example in <code>docs/how-it-works.md</code>.</span></li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <p>Run the whole script against a stubbed <code>az</code> on <code>PATH</code> that answers <code>stack-whatif</code> with canned JSON from <code>scripts/tests/fixtures/</code> and records the arguments it was given. Assert on the arguments, the exit code, the markdown file and <code>whatif-summary.json</code>. Cases below; the third is the acceptance case from the issue.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Shorthand <code>detachAll</code> at each scope: <code>--action-on-unmanage detachAll</code> passed; record unchanged; no second gate run; non-deterministic result passes with a note.</span></li>
+        <li><code class="status">[]</code> <span>Shorthand <code>deleteResources</code> and <code>deleteAll</code>: identical arguments, record and exit codes to the output of the unmodified script. Capture that baseline from <code>origin/main</code> before editing and store it in <code>scripts/tests/baseline/</code>.</span></li>
+        <li><code class="status">[]</code> <span>Granular <code>delete</code>, <code>detach</code>, <code>detach</code> (delete resources, detach resource groups) at <code>sub</code> scope with a fixture that deletes one resource and detaches one group: the resource must be approved, the detached group is only reported, and the plan passes when the ID is listed. Fails when it is not listed. Fails on a non-deterministic fixture. Gate runs twice on deploy.</span></li>
+        <li><code class="status">[]</code> <span>Same granular values with a fixture where Azure reports a resource group as <code>delete</code>: fails with the "kind this plan detaches" message even though its ID is approved.</span></li>
+        <li><code class="status">[]</code> <span>Mismatch: plan record from <code>deleteResources</code>, deploy with granular <code>delete</code>, <code>delete</code>, <code>detach</code> at <code>mg</code>: exits 1 and the message names both triples. The reverse also fails. The same behaviour through shorthand and through granular inputs matches.</span></li>
+        <li><code class="status">[]</code> <span>Conflict: shorthand plus <code>stack_action_on_unmanage_resources</code> exits 1 before any <code>az</code> call.</span></li>
+        <li><code class="status">[]</code> <span>Not expressible: <code>delete</code>, <code>delete</code>, <code>detach</code> at <code>mg</code> exits 1 with the message, and the stub saw no <code>create</code> call.</span></li>
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/az-deploy.sh scripts/stack-unmanage.sh</code> and <code>bash scripts/tests/stack-gate.test.sh</code> — all pass.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: Inputs and wiring on GitHub and Azure DevOps</h3>
+      <p>GitHub declares inputs and passes them as environment variables. Azure DevOps has no declaration: a pipeline variable <code>STACK_ACTION_ON_UNMANAGE_RESOURCES</code> reaches the script as an environment variable of the same name. What Azure DevOps does need is the new script in each download list.</p>
+
+      <h4>1. GitHub actions</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>.github/actions/plan/action.yml</code>: add the three inputs after <code>stack_action_on_unmanage</code> (line 48), each <code>required: false</code>, <code>default: ""</code>, with a description that says "delete or detach; set instead of stack_action_on_unmanage". Change the shorthand default from <code>"detachAll"</code> to <code>""</code> and say in its description that empty means <code>detachAll</code>. Add the three <code>STACK_ACTION_ON_UNMANAGE_*</code> lines to the <code>what_if</code> step's <code>env</code> (line 238).</span></li>
+        <li><code class="status">[]</code> <span><code>.github/actions/deploy/action.yml</code>: the same inputs (after line 38) and env (line 187). The deploy action must receive the same values as the plan, as it does today for the shorthand.</span></li>
+        <li><code class="status">[]</code> <span>Check that the "Add scripts to system path" step exposes <code>stack-unmanage.sh</code> without change, and that <code>az-deploy.sh</code> finds it through <code>dirname "${BASH_SOURCE[0]}"</code> as it does for <code>bicep-version.sh</code>.</span></li>
+      </ul>
+
+      <h4>2. Azure DevOps</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add <code>"stack-unmanage"</code> to the <code>SCRIPTS</code> arrays in <code>.azuredevops/ms.azure.deploy.yml</code> at both places (near lines 93 and 318), in <code>.azuredevops/templates/plan-stage.yml</code> (near 82) and <code>.azuredevops/templates/deploy-stage.yml</code> (near 97). Keep alphabetical order. A missing entry fails at runtime with "No such file" only on the stack path, so grep for all four.</span></li>
+        <li><code class="status">[]</code> <span><code>ms.azure.deploy.yml</code> variables block: add commented examples after <code>DEPLOYMENT_MODE</code>: <code>STACK_ACTION_ON_UNMANAGE_RESOURCES</code> and the other two, noting "use instead of STACK_ACTION_ON_UNMANAGE". Do not add active variables: a default would trigger the conflict error for anyone who also sets the shorthand.</span></li>
+        <li><code class="status">[]</code> <span>Check that the Azure DevOps deploy stage already passes the plan's <code>stack_settings</code> (line 294 of the single file, line 73 of <code>deploy-stage.yml</code>). No change is needed: the record carries the triple.</span></li>
+        <li><code class="status">[]</code> <span>The single-file pipeline and the templates are two copies of the same steps. After editing both, diff the <code>SCRIPTS</code> arrays: they must list the same names.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>No Azure is available in CI. Validate the YAML structurally, and prove the wiring by name.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>actionlint .github/actions/*/action.yml</code> where installed (it is not on this machine; otherwise <code>python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/actions/*/action.yml .azuredevops/*.yml .azuredevops/templates/*.yml</code>) — files parse.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -c stack-unmanage .azuredevops/ms.azure.deploy.yml</code> returns 2, and <code>grep -l stack-unmanage .azuredevops/templates/*.yml</code> lists both templates — all four download lists updated.</span></li>
+        <li><code class="status">[]</code> <span><code>for f in plan deploy; do grep -c STACK_ACTION_ON_UNMANAGE_ .github/actions/$f/action.yml; done</code> — each prints 6 (3 inputs plus 3 env lines).</span></li>
+        <li><code class="status">[]</code> <span>Check that every script in <code>scripts/</code> that another script sources appears in the download lists: <code>grep -ho 'source "\$(dirname[^"]*"\?[^"]*' scripts/*.sh</code> then compare names.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Documentation, examples and the test runner</h3>
+      <p>Docs follow the code. Keep the text plain and put the valid-combinations table where people choose the setting.</p>
+
+      <h4>1. Docs</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>: add three rows to the settings table after line 46 (GitHub input, Azure DevOps variable, jobs <code>P D</code>, default empty). Change the shorthand row default to "empty (<code>detachAll</code>)". Rewrite the section at 136-146: shorthand table with the three-kind mapping, the granular inputs, the rule that the two styles are mutually exclusive, the scope table, the nesting rule, and the one combination refused for now. Say that "delete mode" means any <code>delete</code>, and that a resource group delete is approved by listing the group's ID in <code>stack_approved_deletes</code>. Update the <code>stack_settings</code> row of the outputs table (262) with the long record form.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/how-it-works.md</code>: line 103 (settings must match; add a granular example), line 104 and the flowchart node at 149 (replace "detachAll" by "no delete in the settings"), lines 157-163 (replace the two-value list with the triple), and the summary example at 290 (add <code>unmanage</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>docs/troubleshooting.md</code>: lines 37-38 advice to "use <code>detachAll</code>" becomes "detach the kinds you do not need to delete". Add rows for the conflict error, the nesting error and the "not expressible" error, each with a fix.</span></li>
+        <li><code class="status">[]</code> <span><code>README.md</code> and <code>.azuredevops/README.md</code>: grep for <code>unmanage</code>; update only where the single setting is described.</span></li>
+      </ul>
+
+      <h4>2. Examples</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/examples/github/recommended.yml</code>: keep <code>detachAll</code> (lines 30, 64, 100). Add a commented block showing the granular form for resources only, with a comment that it replaces the shorthand.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/examples/azure-devops/variable-group.yml</code>: add the three variables as comments, same wording.</span></li>
+      </ul>
+
+      <h4>3. Test runner</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>scripts/tests/run.sh</code>: run every <code>*.test.sh</code>, print a count, exit non-zero on the first failure. Optionally a <code>.github/workflows/test.yml</code> that runs it and shellcheck on pull requests (Questionable 5).</span></li>
+      </ul>
+
+      <h4>4. Testing Strategy</h4>
+      <p>Docs are checked by reading and by search; code samples in the docs are checked by running the resolver with the same values.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>grep -rn "detachAll" docs README.md | grep -v configuration.md</code> — every remaining hit is still true under the new model.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn "action_on_unmanage" docs .github .azuredevops | cut -c1-120</code> — each of the four names appears in docs, both actions and both Azure DevOps places where relevant.</span></li>
+        <li><code class="status">[]</code> <span><code>bash scripts/tests/run.sh &amp;&amp; shellcheck scripts/*.sh scripts/tests/*.sh scripts/tests/bin/az</code> — everything passes.</span></li>
+        <li><code class="status">[]</code> <span><code>git diff origin/main --stat -- scripts/az-deploy.sh</code> — only the intended lines changed; read the diff once for any shorthand-only path whose output text changed.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh scripts/tests/*.sh</code> — no findings in any script.</span></li>
+      <li><code class="status">[]</code> <span><code>bash scripts/tests/run.sh</code> — the resolver matrix (24 cases), the gate cases and the baseline comparison pass.</span></li>
+      <li><code class="status">[]</code> <span><code>diff &lt;(bash scripts/tests/run.sh --baseline-new) scripts/tests/baseline/shorthand.txt</code> — shorthand-only pipelines produce the same commands and records as before the change.</span></li>
+      <li><code class="status">[]</code> <span><code>grep -c stack-unmanage .azuredevops/ms.azure.deploy.yml .azuredevops/templates/*.yml</code> — 2, 1 and 1.</span></li>
+      <li><code class="status">[]</code> <span><code>grep -rIiE 'subscriptions/[0-9a-f]{8}-' scripts/tests docs | grep -v 00000000 | grep -v '&lt;'</code> — prints nothing: no real IDs, no customer names. Also read the diff for customer names by eye.</span></li>
+      <li><code class="status">[]</code> <span>Manual, in a throwaway subscription: a stack deployed with <code>delete</code>, <code>detach</code>, <code>detach</code> then a template that drops a resource and a group; the plan lists the resource under deletes and the group under detaches, and a deploy with the shorthand <code>deleteAll</code> after that plan fails with the settings message.</span></li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <details open>
+      <summary>1. Should the nesting rule refuse "detach resources, delete resource groups"?</summary>
+      <p class="qa-answer">The plan assumes yes: deleting a resource group deletes what is in it, so the triple cannot be honoured as written, and refusing keeps the gate honest. If Azure accepts and behaves differently (for example it detaches the resources first and then deletes the empty group), the rule should go and the delete gate should list the group. Phase 1 settles this with a real call. If the rule goes, more triples become valid but none of them can be expressed by the CLI.</p>
+    </details>
+    <details open>
+      <summary>2. How is the one non-CLI combination delivered: refuse, or build an <code>az rest</code> path?</summary>
+      <p class="qa-answer">The plan refuses (delete, delete, detach at management group scope) and puts all argument building behind <code>unmanage_cli_args</code>. The alternative builds the stack request body ourselves, which also means our own compile, parameters and what-if handling for those runs. That is a second code path for one combination. Recommendation: refuse until the CLI has granular flags; revisit if someone needs it.</p>
+    </details>
+    <details open>
+      <summary>3. What does a what-if report for an unmanaged resource group or management group?</summary>
+      <p class="qa-answer">The kind check assumes a group appears in <code>resourceChanges</code> with an ID ending in <code>/resourceGroups/&lt;name&gt;</code>, and a management group under <code>/providers/Microsoft.Management/managementGroups/</code>. This could not be verified here: the installed CLI 2.87.0 has no <code>stack-whatif</code> command. If groups are reported another way, the kind classifier changes and some fixtures change; the rest of the design does not.</p>
+    </details>
+    <details open>
+      <summary>4. Input names: keep the <code>stack_</code> prefix, or follow the issue's <code>action_on_unmanage_*</code>?</summary>
+      <p class="qa-answer">The plan keeps the prefix (<code>stack_action_on_unmanage_resources</code>) so every stack input sorts together and Azure DevOps variable names stay consistent. The issue text uses the shorter names. The shorter names also match <code>Azure/bicep-deploy</code>. It is a rename in four places, so decide before phase 4.</p>
+    </details>
+    <details open>
+      <summary>5. Add a CI workflow for the new tests?</summary>
+      <p class="qa-answer">The repository has no tests and only a release workflow. The plan adds <code>scripts/tests/run.sh</code> and proposes a small <code>test.yml</code> running it with shellcheck on pull requests. The other planned features in this batch may add the same, so agree one runner and one workflow rather than several.</p>
+    </details>
+    <details open>
+      <summary>6. Should the plan record change at all for the shorthand?</summary>
+      <p class="qa-answer">The plan keeps it identical, which is why the long form exists only for the one non-CLI triple. The cost is two spellings for one idea. The alternative, always recording the triple, changes every existing record and breaks a plan made by one release and deployed by another during an upgrade. Keep identical.</p>
+    </details>
+    <details open>
+      <summary>7. Shorthand values in a different case, and unknown values.</summary>
+      <p class="qa-answer">Today an unknown value is rejected by <code>az</code>. The resolver rejects it earlier with a clear message, and accepts any case, recording the canonical spelling. A pipeline that used, say, <code>deleteresources</code> would see the record spelling change once, between a plan and deploy made by different releases. Very unlikely, and the failure is the safe one.</p>
+    </details>
+    <details open>
+      <summary>8. Granular <code>detach</code> for a kind that does not apply: accept or reject?</summary>
+      <p class="qa-answer">Accepted and dropped, so one shared configuration can serve pipelines at several scopes. An explicit <code>delete</code> is rejected, because it would never do what the author expects.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+    <h3>What each part of the "deploy exactly what was planned" promise becomes</h3>
+    <table>
+      <tr><th>Guarantee</th><th>Today</th><th>After this change</th></tr>
+      <tr><td>Plan records settings</td><td><code>unmanage=&lt;one of three&gt;</code> in <code>stack_settings</code> (line 384)</td><td>Same text for the three CLI rows; a triple in the long form for the one other valid value. Always built from the normalised triple.</td></tr>
+      <tr><td>Deploy refuses a difference</td><td>String compare in <code>check_plan_settings</code> (306)</td><td>Same compare, better message. Shorthand and granular inputs for the same behaviour compare equal.</td></tr>
+      <tr><td>Approved deletes</td><td>Flat ID list, any <code>delete</code> change</td><td>Unchanged. Resource group IDs are listed like resource IDs.</td></tr>
+      <tr><td>Deletes re-checked at deploy</td><td>Skipped only for <code>detachAll</code></td><td>Skipped only when the triple has no <code>delete</code>.</td></tr>
+      <tr><td>Non-deterministic what-if</td><td>Fails unless <code>detachAll</code></td><td>Fails when the triple has a <code>delete</code>.</td></tr>
+      <tr><td>Azure and plan disagree</td><td>Not checked</td><td>New: a delete of a kind the plan detaches fails the gate.</td></tr>
+    </table>
+    <h3>Rejected approaches</h3>
+    <ul>
+      <li>Replacing the shorthand outright: breaks existing pipelines.</li>
+      <li>Last-one-wins between shorthand and granular inputs: hides mistakes in the setting that deletes things.</li>
+      <li>Recording <code>unmanage=custom</code>: two different triples would compare equal.</li>
+      <li>Building the stack request with <code>az rest</code> now: see Questionable 2.</li>
+    </ul>
+    <h3>Things in the current code that differ from the issue text</h3>
+    <ul>
+      <li>The issue says to pass the values "to <code>az stack ... --action-on-unmanage</code> (or the granular flags, depending on the CLI version)". The installed CLI has no granular flags, so for now only the three legacy values can be passed.</li>
+      <li>The issue's example (delete resources, never delete a resource group) is already <code>deleteResources</code>.</li>
+      <li>"All 2×2×2 combinations validated" can be done for the settings and the gate, but not for creating the stack, because of the CLI limit.</li>
+      <li>The shorthand's <code>detachAll</code> default lives in both <code>action.yml</code> files, which would hide a conflict; it moves into the script.</li>
+      <li>The Azure DevOps side needs a script list change, not an input change.</li>
+    </ul>
+    <h3>Dependencies</h3>
+    <p>No new libraries. Uses <code>jq</code> and <code>bash</code> as the other scripts do. The test stub replaces <code>az</code> via <code>PATH</code>, so tests need neither Azure nor network.</p>
+    <h3>Future work</h3>
+    <p>If the CLI adds granular flags, <code>unmanage_cli_args</code> and the record builder change; the resolver, gate and tests stay. If a <code>resources-without-delete-support</code> setting is wanted, it should be a separate input and appear in the plan record, for the same reason.</p>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet.</p>
+  </section>
+
+</main>
+</body>
+</html>
