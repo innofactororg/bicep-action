@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Expose deployment outputs, with masked outputs</title>
+<style>
+  :root {
+    --paper: #f7f5f0; --ink: #1f2a33; --ink-soft: #55616b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #c2410c; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details, #questionables details { margin: 10px 0; } #notes summary, #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: Expose deployment outputs, with masked outputs</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-54)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd>issue #54 (https://github.com/innofactororg/bicep-action/issues/54), docs/adr/0001-deploy-outputs.md</dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0001-deploy-outputs/hero.png" alt="Template outputs flow through the deploy step to step outputs, with masked values locked away">
+    <figcaption>Template outputs leave the deploy step as step outputs. Masked values take a separate, locked route.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Let a later job use what the template produced: a resource ID, an endpoint, a principal ID. After a successful deployment, classic or stack, at any scope, the deploy action and the Azure DevOps deploy stage publish the template outputs. A new <code>masked_outputs</code> input hides sensitive values, and outputs typed <code>securestring</code> or <code>secureObject</code> are always hidden.</p>
+    <p>Decision record: <code>docs/adr/0001-deploy-outputs.md</code>. Issue: #54.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>The deploy action has no <code>outputs:</code> block and its step has no <code>id</code>. The Azure DevOps Deploy task has no <code>name:</code>. A later job must query Azure again, or the template author works around it.</p>
+    <p>There is also a hole that masking has to close first. <code>az deployment &lt;scope&gt; create</code> prints the whole result, including every output value, and <code>scripts/az-deploy.sh</code> tees it into the step log (line 585). For a standard deployment <code>log_output</code> (lines 34-88) copies the JSON into the step Markdown file (lines 54-59), <code>scripts/pr-comment.sh</code> posts every <code>step_*.md</code> verbatim, and the logs artifact holds the same files. A stack result is teed to the log at line 528. So output values already reach the console and the log, and for standard deployments the pull request comment and the artifact. Masking that only calls <code>::add-mask::</code> would leave the comment and the artifact unprotected, because a mask does not edit files.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>A new sourced script, <code>scripts/deploy-outputs.sh</code>, runs after a successful create. It captures the create command's stdout instead of teeing it, reads <code>properties.outputs</code>, decides which outputs are masked (named in <code>masked_outputs</code>, or secure type), registers the masks, prints and stores a redacted copy of the result, scrubs the log, and publishes the outputs.</p>
+    <table>
+      <thead><tr><th>Where</th><th>Non-masked outputs</th><th>Masked outputs</th></tr></thead>
+      <tbody>
+        <tr><td>GitHub</td><td>One action output <code>outputs</code>: compact JSON object of all non-masked outputs. Use <code>fromJSON()</code>.</td><td>Environment variable <code>BICEP_OUTPUT_&lt;NAME&gt;</code> for later steps in the same job, after <code>::add-mask::</code>. Not in <code>outputs</code>, because the runner drops a job output that contains a mask.</td></tr>
+        <tr><td>Azure DevOps</td><td>Output variable per output (<code>isOutput=true</code>) on step <code>deploy</code>, plus <code>outputs</code> with the JSON.</td><td>Output variable with <code>isOutput=true;issecret=true</code>. Not in <code>outputs</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>Objects and arrays stay JSON values. With no outputs the script writes nothing. <code>masked_outputs</code> is not a plan setting: it changes what is hidden, not what is deployed, so the plan's settings check is untouched.</p>
+    <figure>
+      <img src="0001-deploy-outputs/solution.png" alt="The create result passes through redaction before the log, the PR comment and the outputs">
+      <figcaption>The create result is redacted once, then feeds the log, the comment and the outputs.</figcaption>
+    </figure>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — create paths at line 528 (stack) and line 585 (classic), <code>log_output</code> at lines 34-88, <code>check_plan_settings</code> at lines 252-271, tenant and extension fallback at lines 326-343.</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/deploy/action.yml</code> — "Create deployment" step (lines 175-197) needs an <code>id</code> and the new env; the action needs an <code>outputs:</code> block and the <code>masked_outputs</code> input.</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code> — only for the pattern: its <code>outputs:</code> block (lines 117-129) and <code>id: what_if</code>.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/deploy-stage.yml</code> — Deploy task (lines 148-157) needs <code>name: deploy</code>; the script download list (lines 94-102) needs <code>deploy-outputs</code>.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/ms.azure.deploy.yml</code> — the single-file pipeline: same two edits (script list near line 316, Deploy task lines 367-376).</li>
+      <li><span class="tag existing">existing</span> <code>scripts/pr-comment.sh</code> — posts every <code>step_*.md</code> verbatim; read only, to confirm what the redaction must cover.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/debug-info.sh</code> and the "Show debug info" step in the deploy action — dump the environment; must never see output values (only <code>MASKED_OUTPUTS</code> names).</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code> — settings table (lines 26-67), "Outputs" section (line 256) which says "The deploy action has no outputs", Azure DevOps table (line 245).</li>
+      <li><span class="tag existing">existing</span> <code>docs/how-it-works.md</code> — "The deploy job" (line 80), "Deploy exactly what was planned" (line 96), "Logs and artifacts" (line 311).</li>
+      <li><span class="tag existing">existing</span> <code>docs/examples/README.md</code>, <code>docs/examples/github/recommended.yml</code>, <code>docs/examples/azure-devops/multi-environment.yml</code> — index and style reference for the new examples.</li>
+    </ul>
+
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>scripts/deploy-outputs.sh</code> — sourced by <code>az-deploy.sh</code>; collect, mask, redact, scrub, publish.</li>
+      <li><span class="tag new">new</span> <code>tests/deploy-outputs/run.sh</code> — offline test runner that feeds fixture results to the script and checks the files and output lines.</li>
+      <li><span class="tag new">new</span> <code>tests/deploy-outputs/fixtures/*.json</code> — create results: no outputs, mixed types, secure output, multi-line and <code>%</code> values, stack shape.</li>
+      <li><span class="tag new">new</span> <code>tests/deploy-outputs/outputs.bicep</code> — output-only template for the live test deployment (no resources, so it deploys at every scope; only <code>targetScope</code> changes).</li>
+      <li><span class="tag new">new</span> <code>docs/examples/github/use-outputs.yml</code> — deploy job, then a second job that consumes <code>outputs</code> and a masked value.</li>
+      <li><span class="tag new">new</span> <code>docs/examples/azure-devops/use-outputs.yml</code> — deploy stage, then a later stage that reads an output and a secret output.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: The core script and the create paths</h3>
+      <p>Write <code>scripts/deploy-outputs.sh</code> and call it from both create paths in <code>scripts/az-deploy.sh</code>. Nothing platform-specific yet except the two publish functions, which already branch on <code>TF_BUILD</code> as the rest of the script does.</p>
+
+      <h4>1. Design of <code>deploy-outputs.sh</code></h4>
+      <p>It is sourced, not executed, like <code>bicep-version.sh</code> and <code>azure-subscription.sh</code> (see az-deploy.sh lines 204 and 221). It reads <code>MASKED_OUTPUTS</code>, <code>LOG_PATH</code>, <code>LOG_NAME</code>, <code>IN_SCOPE</code> and <code>TF_BUILD</code> from the environment and expects <code>${log}</code> from the caller. Public entry point: <code>deploy_outputs_handle &lt;result-json&gt;</code>.</p>
+      <pre><code># scripts/deploy-outputs.sh (sketch)
+deploy_outputs_handle() {
+  local result="${1}" log_md="${log/.log/.md}"
+  # 1. Not JSON (or no result): print as is and stop. Nothing to protect.
+  if ! jq -e 'type == "object"' &lt;&lt;&lt; "${result}" &gt;/dev/null 2&gt;&amp;1; then
+    printf '%s\n' "${result}" | tee -a "${log}"; return 0
+  fi
+  # 2. The table: one row per output.
+  local masked_csv
+  masked_csv=$(printf '%s' "${MASKED_OUTPUTS-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+  OUTPUT_TABLE=$(jq -c --arg m "${masked_csv}" '
+    ($m | split(",") | map(select(. != ""))) as $mask
+    | (.properties.outputs // {}) | to_entries
+    | map({
+        name: .key,
+        type: ((.value.type // "") | ascii_downcase),
+        value: .value.value,
+        masked: (((.key | ascii_downcase) as $k | $mask | index($k)) != null
+                 or ((.value.type // "") | ascii_downcase | startswith("secure")))
+      })' &lt;&lt;&lt; "${result}")
+  # 3. No outputs: print exactly what az printed, write nothing else.
+  if [ "${OUTPUT_TABLE}" = '[]' ]; then
+    printf '%s\n' "${result}" | tee -a "${log}"; return 0
+  fi
+  # 4. Masks first, before the value is written anywhere.
+  register_masks
+  # 5. Redacted copy to console and log.
+  jq '. as $r | reduce (env_table[] | select(.masked and .value != null)) as $o
+        ($r; .properties.outputs[$o.name].value = "***")' ... | tee -a "${log}"
+  # 6. Scrub any other literal copy (debug output) from the log.
+  scrub_log
+  # 7. Publish, then add the names-only table to the step Markdown.
+  publish_outputs
+}</code></pre>
+      <p>Details that are easy to get wrong:</p>
+      <table>
+        <thead><tr><th>Concern</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td>Masked value text</td><td><code>jq -r 'if type == "string" then . else tojson end'</code>. For an object or array also mask every string leaf of 4 or more characters (<code>.. | strings | select(length &gt;= 4)</code>) and the compact JSON.</td></tr>
+          <tr><td>GitHub masks</td><td>One <code>::add-mask::</code> line per line of the value. A multi-line value masked with a single command leaves its later lines visible.</td></tr>
+          <tr><td>Azure DevOps masks</td><td>Done by <code>issecret=true</code> on <code>setvariable</code>. Print the redacted JSON only after that call so the console never shows the value.</td></tr>
+          <tr><td>Secure types</td><td>ARM normally returns no value for <code>SecureString</code> / <code>SecureObject</code>. If <code>value</code> is null or absent, publish nothing for that output and log one line: <code>Output 'x' is secure and Azure returned no value.</code> If a value is present, mask it like any other.</td></tr>
+          <tr><td>Scrub</td><td>Per masked line: <code>V="${line}" perl -pi -e 'BEGIN { $v = $ENV{V} } s/\Q$v\E/***/g' "${log}"</code>. Pass the value through the environment, never on the command line.</td></tr>
+          <tr><td>Step Markdown</td><td><code>log_output</code> rewrites the <code>.md</code> file with <code>&gt;</code>, so append the outputs table after it: name, type, masked yes or no, never a value.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><strong>Ordering is the guarantee.</strong> Capture, then mask, then print, then write. Any code that prints or writes a value before <code>register_masks</code> returns breaks the promise that a masked output never appears in the log, the comment or the artifact.</div>
+
+      <h4>2. Wire the standard deployment path</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>In <code>scripts/az-deploy.sh</code>, replace the single line at 585 (<code>eval "${cmd}" 1&gt; &gt;(tee -a "${log}") 2&gt; &gt;(tee -a "${log}" &gt;&amp;2)</code>) with a branch. For <code>SCRIPT_ACTION=create</code>: source <code>deploy-outputs.sh</code>, then <code>result=$(eval "${cmd}" 2&gt; &gt;(tee -a "${log}" &gt;&amp;2))</code> and <code>deploy_outputs_handle "${result}"</code>. For <code>validate</code> and <code>what-if</code> keep the existing line unchanged.</span></li>
+        <li><code class="status">[]</code> <span>Keep <code>log_output "${log}" '' ''</code> (line 586) after the handler, so it reads the already redacted log. The handler must have appended the redacted JSON to the log before this point; the Markdown details block then contains <code>***</code>, not the value.</span></li>
+        <li><code class="status">[]</code> <span>A failing <code>az</code> inside <code>$(...)</code> still trips <code>set -e</code> and the <code>ERR</code> trap at line 9, so the error path (<code>error()</code>, lines 22-33) is unchanged. Confirm by running with a fake <code>az</code> that exits 1.</span></li>
+        <li><code class="status">[]</code> <span>Fallback: if the result has no <code>properties</code> object, read it with <code>az deployment "${IN_SCOPE}" show --name "${LOG_NAME}_${RUN_ID}"</code> plus the same scope arguments the create used (<code>--resource-group</code>, <code>--management-group-id</code>; sub and tenant have none). Put the scope arguments in an array once, instead of re-deriving them from the <code>cmd</code> string.</span></li>
+      </ul>
+
+      <h4>3. Wire the stack path</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>At line 528 replace the tee with <code>result=$("${stack_cmd[@]}" 2&gt; &gt;(tee -a "${log}" &gt;&amp;2))</code> followed by <code>deploy_outputs_handle "${result}"</code>, before the "deployed" line at 529. The stack result keeps outputs at <code>.properties.outputs</code>, the same path, so the same jq works.</span></li>
+        <li><code class="status">[]</code> <span>Fallback for an empty result: <code>az stack "${stack_scope}" show --name "${stack_name}" "${stack_args[@]}"</code>. Note that <code>stack_args</code> for the sub scope holds <code>--location</code>, which <code>show</code> does not take; build a separate <code>show_args</code> as <code>stack_whatif_gate</code> does for <code>scope_args</code> (lines 390-395).</span></li>
+        <li><code class="status">[]</code> <span>Tenant scope and templates with Bicep extensions fall back to a standard deployment (lines 326-343) and so take the standard path above. Nothing extra to do; add a test case for it.</span></li>
+      </ul>
+
+      <h4>4. Publish functions</h4>
+      <pre><code>publish_outputs() {
+  local json
+  json=$(jq -c 'map(select(.masked | not)) | map({(.name): .value}) | add // {}' &lt;&lt;&lt; "${OUTPUT_TABLE}")
+  if test -n "${TF_BUILD-}"; then
+    # Azure DevOps: a variable per output, then the JSON.
+    while IFS= read -r row; do
+      name=$(jq -r .name &lt;&lt;&lt; "${row}"); masked=$(jq -r .masked &lt;&lt;&lt; "${row}")
+      [ "$(jq -r '.value == null' &lt;&lt;&lt; "${row}")" = true ] &amp;&amp; continue
+      val=$(jq -r 'if (.value | type) == "string" then .value else (.value | tojson) end' &lt;&lt;&lt; "${row}")
+      val=${val//'%'/'%AZP25'}; val=${val//$'\r'/'%0D'}; val=${val//$'\n'/'%0A'}
+      if [ "${name}" = outputs ]; then warn "..."; continue; fi
+      if [ "${masked}" = true ]; then
+        echo "##vso[task.setvariable variable=${name};isOutput=true;issecret=true]${val}"
+      else
+        echo "##vso[task.setvariable variable=${name};isOutput=true]${val}"
+      fi
+    done &lt; &lt;(jq -c '.[]' &lt;&lt;&lt; "${OUTPUT_TABLE}")
+    echo "##vso[task.setvariable variable=outputs;isOutput=true]${json//'%'/'%AZP25'}"
+  else
+    # GitHub: one JSON output, masked values into the job environment.
+    echo "outputs=${json}" &gt;&gt; "${GITHUB_OUTPUT:-/dev/null}"
+    # for each masked row: heredoc form with a random delimiter into GITHUB_ENV
+    #   BICEP_OUTPUT_${NAME^^}&lt;&lt;ghd_${RANDOM}${RANDOM}
+  fi
+}</code></pre>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement <code>register_masks</code>, <code>scrub_log</code> and <code>publish_outputs</code> as sketched. The compact JSON from <code>jq -c</code> is a single line, so the plain <code>name=value</code> form is valid for <code>GITHUB_OUTPUT</code>; use the heredoc form only for the <code>GITHUB_ENV</code> masked values, which can be multi-line.</span></li>
+        <li><code class="status">[]</code> <span>Never use <code>echo "${val}"</code> for values that can start with <code>-n</code> or contain backslashes; use <code>printf '%s\n'</code>.</span></li>
+        <li><code class="status">[]</code> <span>Output names are Bicep identifiers (letters, digits, underscore), valid for both platforms. Validate with <code>[[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]</code> anyway and skip, with a warning, a name that does not match, rather than writing a malformed command.</span></li>
+        <li><code class="status">[]</code> <span>Add the append of the names-only Markdown table: <code>## Outputs</code>, columns name, type, masked. Values are never in it.</span></li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <p>The script is pure shell and jq, so the redaction, masking and escaping rules are tested offline with fixture results before anything touches Azure. The runner sets <code>LOG_PATH</code> to a temp folder and points <code>GITHUB_OUTPUT</code> and <code>GITHUB_ENV</code> at temp files, then asserts on the files and on captured stdout. Cases: no outputs, string, int, bool, object, array, secure output with no value, secure output with a value, an output named in <code>masked_outputs</code> in a different case, a multi-line value, a value containing <code>%</code>, <code>-n</code> and a backslash, an output called <code>outputs</code>, a stack-shaped result, a non-JSON result.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/deploy-outputs.sh scripts/az-deploy.sh</code> — no new warnings against the current baseline (run it on the unmodified file first and compare).</span></li>
+        <li><code class="status">[]</code> <span><code>bash -n scripts/deploy-outputs.sh &amp;&amp; bash -n scripts/az-deploy.sh</code> — both parse.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/deploy-outputs/run.sh</code> — every fixture passes: no masked value in the log, the step Markdown or <code>GITHUB_OUTPUT</code>; <code>BICEP_OUTPUT_*</code> present in <code>GITHUB_ENV</code>; <code>::add-mask::</code> lines precede the first write; the no-outputs fixture produces output byte-identical to the old code path.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn "SECRET_SENTINEL" "${LOG_PATH}"</code> in the runner, with a sentinel value planted in a masked output — must find nothing (the grep step proves the scrub, including with a simulated <code>--debug</code> line containing the value).</span></li>
+        <li><code class="status">[]</code> <span><code>TF_BUILD=1 bash tests/deploy-outputs/run.sh</code> — the Azure DevOps branch: <code>##vso[task.setvariable ...issecret=true]</code> for masked, none for secure outputs without a value, <code>%AZP25</code> and <code>%0A</code> escapes present, redacted JSON printed after the secret variable line.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: GitHub deploy action</h3>
+      <p>Declare the input and the output, give the step an id, and pass the new setting in. Composite actions can only return declared outputs, which is why the dynamic names stay inside the JSON.</p>
+
+      <h4>1. <code>.github/actions/deploy/action.yml</code></h4>
+      <pre><code>inputs:
+  masked_outputs:
+    description: "Comma separated names of template outputs to mask. Their values never reach the log or the comment, are not in the 'outputs' output, and are available to later steps in the same job as BICEP_OUTPUT_&lt;NAME&gt;. Outputs typed securestring or secureObject are always masked."
+    required: false
+    default: ""
+outputs:
+  outputs:
+    description: "The template outputs as a JSON object, {name: value}. Objects and arrays stay JSON. Masked and secure outputs are not included. Read one with fromJSON(steps.&lt;id&gt;.outputs.outputs).&lt;name&gt;."
+    value: ${{ steps.deploy.outputs.outputs }}
+# ...
+    - name: Create deployment
+      id: deploy
+      env:
+        MASKED_OUTPUTS: ${{ inputs.masked_outputs }}
+        # existing env unchanged</code></pre>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add the <code>masked_outputs</code> input after <code>log_severity</code> (alphabetical order is kept in the file: place it between <code>management_group</code> and <code>resource_group</code>).</span></li>
+        <li><code class="status">[]</code> <span>Add an <code>outputs:</code> block between <code>inputs:</code> and <code>runs:</code>, as the plan action does (plan/action.yml line 117).</span></li>
+        <li><code class="status">[]</code> <span>Add <code>id: deploy</code> and <code>MASKED_OUTPUTS</code> to the "Create deployment" step (lines 175-197). No other step changes. The "Show debug info" step dumps <code>process.env</code> between <code>stop-commands</code> markers; it shows <code>MASKED_OUTPUTS</code> names only, which is acceptable, and the <code>BICEP_OUTPUT_*</code> values are in the job environment but masked in the log.</span></li>
+        <li><code class="status">[]</code> <span>Check the "Show debug info" step does not print <code>BICEP_OUTPUT_*</code> values in clear. <code>::stop-commands::</code> stops workflow commands, but masking is applied to the log text by the runner regardless. Verify in the live test (Phase 5), and if a value shows, filter keys starting with <code>BICEP_OUTPUT_</code> out of the loop at action.yml line 289.</span></li>
+      </ul>
+
+      <h4>2. Behaviour on GitHub</h4>
+      <table>
+        <thead><tr><th>Case</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Template has no outputs</td><td><code>outputs</code> is empty. No env variables. Log unchanged.</td></tr>
+          <tr><td>Output <code>vnetId</code>, string</td><td><code>fromJSON(steps.d.outputs.outputs).vnetId</code></td></tr>
+          <tr><td>Output <code>subnets</code>, array</td><td>JSON array inside the JSON: <code>fromJSON(steps.d.outputs.outputs).subnets[0]</code></td></tr>
+          <tr><td><code>masked_outputs: connString</code></td><td>Not in <code>outputs</code>. <code>${{ env.BICEP_OUTPUT_CONNSTRING }}</code> in later steps of the same job. Cannot be passed to another job, by design.</td></tr>
+          <tr><td>Output typed <code>@secure()</code></td><td>Masked always. Usually no value from Azure, so nothing is published and one log line says so.</td></tr>
+        </tbody>
+      </table>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Do not pass the whole <code>outputs</code> JSON as a job output of a reusable workflow without telling users the 1 MB limit for step and job outputs. Say so in the docs (Phase 4).</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>actionlint is not installed here, so use it through its release binary or <code>docker run rhysd/actionlint</code> when available; otherwise the YAML is parsed and the output wiring is checked by a short script, and the real check is the live deployment in Phase 5.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>actionlint .github/actions/deploy/action.yml docs/examples/github/*.yml</code> (or <code>docker run --rm -v "$PWD:/r" -w /r rhysd/actionlint:latest</code>) — action and examples are valid. Fallback: <code>python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" .github/actions/deploy/action.yml</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>yq '.outputs.outputs.value, .runs.steps[] | select(.id == "deploy") | .id' .github/actions/deploy/action.yml</code> — the output refers to a step id that exists.</span></li>
+        <li><code class="status">[]</code> <span><code>git diff --stat origin/main -- .github/actions/deploy/action.yml</code> — only the input, the outputs block, the <code>id</code> and one env line changed.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: Azure DevOps stage template and single-file pipeline</h3>
+      <p>Name the Deploy step, download the new script, and document the reference syntax. The variable <code>MASKED_OUTPUTS</code> reaches the script as an environment variable like every other pipeline variable, so no input plumbing is needed. Both <code>deploy-stage.yml</code> and <code>ms.azure.deploy.yml</code> need the same edits; they are separate copies of the deploy stage.</p>
+
+      <h4>1. Edits</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>.azuredevops/templates/deploy-stage.yml</code>: add <code>name: deploy</code> to the "Deploy" <code>AzureCLI@2</code> task (lines 148-157), next to <code>displayName</code>. Add <code>"deploy-outputs"</code> to the <code>SCRIPTS</code> array (lines 94-102); the download loop saves it next to <code>az-deploy.sh</code>, which is where <code>dirname "${BASH_SOURCE[0]}"</code> looks for it.</span></li>
+        <li><code class="status">[]</code> <span><code>.azuredevops/ms.azure.deploy.yml</code>: the same two edits in the Deploy stage (script list near line 316, Deploy task lines 367-376). Do not touch the Plan stage's list, which has <code>az-deploy</code> too (line 91) but never publishes outputs: the plan runs <code>validate</code> and <code>what-if</code>, and the new code path is only for <code>create</code>. Still add the file to the Plan list so a future change does not fail on a missing source (<code>source</code> fails if the file is absent, and that is only reached on create).</span></li>
+        <li><code class="status">[]</code> <span><code>.azuredevops/templates/deploy-stage.yml</code> header comment (lines 1-22): add a line on the outputs and on <code>MASKED_OUTPUTS</code>.</span></li>
+        <li><code class="status">[]</code> <span>Check that no step in the deploy job prints variables: the "Debug information" task sets <code>IN_*</code> only; <code>pipeline-summary.sh</code> reads log file names. Nothing prints an output variable.</span></li>
+      </ul>
+
+      <h4>2. Reading the outputs</h4>
+      <p>Within the deployment job, a later step reads <code>$(deploy.vnetId)</code>. From another job or stage the reference includes the deployment job name, here <code>create</code>, as in the existing plan reads (<code>stageDependencies.Plan.plan.outputs['what_if.bicep_version']</code>), but with the job-name prefix that deployment jobs add:</p>
+      <pre><code># another stage
+variables:
+  VNET_ID: $[ stageDependencies.Deploy.create.outputs['create.deploy.vnetId'] ]
+  ALL: $[ stageDependencies.Deploy.create.outputs['create.deploy.outputs'] ]
+# in a job of the same stage as the deployment job
+  VNET_ID: $[ dependencies.create.outputs['create.deploy.vnetId'] ]</code></pre>
+      <div class="callout"><strong>Verify, do not assume.</strong> The <code>&lt;job&gt;.&lt;step&gt;.&lt;name&gt;</code> form for deployment jobs is the documented one, but the template's stage name is the <code>stageName</code> parameter (default <code>Deploy</code>) and the job name is fixed at <code>create</code>. The live test in Phase 5 proves the exact string before the docs state it.</div>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>In the docs, show the form for the template (<code>stageName</code> parameter) and for the single-file pipeline (stage <code>Deploy</code>), and say that a masked output is read the same way and is shown as <code>***</code> in logs.</span></li>
+        <li><code class="status">[]</code> <span>Document that a masked output is not in the <code>outputs</code> JSON and that whether Azure DevOps hands a secret output variable to another job has to be tested on the user's side. If the live test shows it does not, the docs say to read the value in the same job, or from Key Vault.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>No Azure DevOps agent is available offline. The YAML is validated structurally, the script's Azure DevOps branch is covered by the Phase 1 runner with <code>TF_BUILD=1</code>, and the syntax for cross-job references is proven in the Phase 5 live run.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .azuredevops/templates/*.yml .azuredevops/ms.azure.deploy.yml docs/examples/azure-devops/*.yml</code> — all parse.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -n "deploy-outputs" .azuredevops/templates/deploy-stage.yml .azuredevops/ms.azure.deploy.yml</code> — present in both download lists.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -n "name: deploy$" .azuredevops/templates/deploy-stage.yml .azuredevops/ms.azure.deploy.yml</code> — the step is named in both.</span></li>
+        <li><code class="status">[]</code> <span><code>az pipelines</code> is not needed: if an Azure DevOps project is available, <code>az pipelines run --branch feat/54-deploy-outputs</code> with the test template (Phase 5) validates the template expansion; otherwise note the gap in the pull request.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: Documentation and examples</h3>
+      <p>The documentation changes are part of the feature. The "Outputs" section currently states that the deploy action has no outputs; that sentence has to go.</p>
+
+      <h4>1. Reference and explanation</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>, settings table (lines 26-67): add a row "Masked outputs", GitHub <code>masked_outputs</code>, Azure DevOps <code>MASKED_OUTPUTS</code>, job D, default empty. Add a section "Deployment outputs" near "Pull request and merge" with the masking rule, the secure-type rule and the GitHub and Azure DevOps tables from Phase 2.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>, "Outputs" section (line 256): replace "The deploy action has no outputs." with a table of deploy outputs (<code>outputs</code> on GitHub; per-output variables, <code>outputs</code> on Azure DevOps with the <code>deploy</code> step) and the reference forms.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/how-it-works.md</code>, "The deploy job" (line 80): one paragraph on what is published and when. "Deploy exactly what was planned" (line 96): one sentence that outputs are read after the deployment and are not part of the plan check. "Logs and artifacts" (line 311): masked values are replaced by <code>***</code> in the deploy log and comment; add the DEBUG caveat.</span></li>
+        <li><code class="status">[]</code> <span>State the limits plainly: composite actions cannot return per-output names; masked values on GitHub stay in the job; job and step outputs are limited to 1 MB; Azure DevOps limits variable size (give the verified number).</span></li>
+        <li><code class="status">[]</code> <span>Add a short note on the changed behaviour: the create result prints when the command ends, not as it runs, and secure values in it show as <code>***</code>.</span></li>
+      </ul>
+
+      <h4>2. Examples</h4>
+      <pre><code># docs/examples/github/use-outputs.yml (deploy and consume)
+  deploy:
+    outputs:
+      outputs: ${{ steps.deploy.outputs.outputs }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: deploy
+        uses: innofactororg/bicep-action/.github/actions/deploy@v1
+        with:
+          masked_outputs: connectionString
+          # ...the usual inputs
+      - run: ./configure.sh "${CONN}"   # same job: the masked value
+        env:
+          CONN: ${{ env.BICEP_OUTPUT_CONNECTIONSTRING }}
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    steps:
+      - run: curl --fail "https://${HOST}/health"
+        env:
+          HOST: ${{ fromJSON(needs.deploy.outputs.outputs).hostName }}</code></pre>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>docs/examples/github/use-outputs.yml</code> from <code>recommended.yml</code>'s structure, trimmed to the deploy job and one consumer job. Values reach scripts through <code>env:</code>, not interpolated into <code>run:</code>, as the existing examples do.</span></li>
+        <li><code class="status">[]</code> <span>Create <code>docs/examples/azure-devops/use-outputs.yml</code> with the stage template, <code>MASKED_OUTPUTS</code> in <code>variables</code>, and a later stage that sets <code>VNET_ID</code> from <code>stageDependencies</code> and passes it to a script through <code>env:</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add both to the example index in <code>docs/examples/README.md</code>.</span></li>
+        <li><code class="status">[]</code> <span>Use only generic names in every example (<code>rg-app</code>, <code>hostName</code>, <code>connectionString</code>). No customer names, no real IDs: use the all-zero GUID the other examples use.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Documentation is checked for correctness against the code, not for style alone: every input, variable and output name in the docs must exist in the code, and every example must parse.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>grep -rn "no outputs" docs/ README.md .azuredevops/README.md</code> — no statement left that contradicts the feature.</span></li>
+        <li><code class="status">[]</code> <span><code>for n in masked_outputs MASKED_OUTPUTS BICEP_OUTPUT_; do grep -rln "$n" scripts .github .azuredevops docs; done</code> — each name appears in code and in docs.</span></li>
+        <li><code class="status">[]</code> <span><code>actionlint docs/examples/github/use-outputs.yml</code> (or the YAML parse fallback) and the same Python parse for <code>docs/examples/azure-devops/use-outputs.yml</code> — examples are valid.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rniE -f ~/.customer-denylist docs specs tests</code> — nothing customer-specific (a public repository; the organisation name in the repository path is fine).</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Live test deployment</h3>
+      <p>Prove what offline tests cannot: what Azure returns for secure outputs, that the runner masks, that the comment and artifact are clean, and the exact Azure DevOps reference strings. The test template has outputs and no resources, so it creates nothing and deploys at every scope.</p>
+
+      <h4>1. The test template and scenarios</h4>
+      <pre><code>// tests/deploy-outputs/outputs.bicep
+targetScope = 'resourceGroup'   // sed to subscription / managementGroup / tenant per scope
+@secure()
+param secretIn string = 'SENTINEL-secret-value-1234'
+output text string = 'plain-value'
+output count int = 42
+output flag bool = true
+output obj object = { id: '/subscriptions/0/x', tags: ['a', 'b'] }
+output list array = ['one', 'two']
+output multi string = 'line one\nline two'
+output odd string = '50% -n \\backslash'
+@secure()
+output hidden string = secretIn
+output conn string = 'SENTINEL-conn-5678'   // masked through masked_outputs</code></pre>
+      <table>
+        <thead><tr><th>Scenario</th><th>Settings</th><th>Expect</th></tr></thead>
+        <tbody>
+          <tr><td>Standard, group</td><td><code>masked_outputs: conn</code></td><td>All outputs in the JSON except <code>conn</code> and <code>hidden</code>; <code>BICEP_OUTPUT_CONN</code> usable in a later step; no SENTINEL in the log, comment or artifact.</td></tr>
+          <tr><td>Standard, sub, mg, tenant</td><td>same</td><td>Same result at every scope.</td></tr>
+          <tr><td>Stack, group, sub, mg</td><td><code>deployment_mode: stack</code></td><td>Same outputs from <code>az stack ... create</code>.</td></tr>
+          <tr><td>Stack requested, tenant</td><td><code>deployment_mode: stack</code></td><td>Falls back to standard with the existing warning; outputs published.</td></tr>
+          <tr><td>No outputs</td><td>empty template</td><td>Run identical to <code>main</code>: same log, same comment.</td></tr>
+          <tr><td>Severity DEBUG</td><td><code>log_severity: DEBUG</code></td><td>Records whether the live log shows a masked value; the artifact is clean after the scrub.</td></tr>
+        </tbody>
+      </table>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>tests/deploy-outputs/outputs.bicep</code> and a small <code>tests/deploy-outputs/README.md</code> line in the runner header describing how to switch <code>targetScope</code> (a <code>sed</code> on line 1).</span></li>
+        <li><code class="status">[]</code> <span>Run the GitHub scenarios from a throwaway workflow in a fork or scratch repository with a service principal that has Contributor on a scratch resource group (and the matching rights for sub, mg and tenant scope where available). Record the results in the pull request description, not in the repository.</span></li>
+        <li><code class="status">[]</code> <span>Run the Azure DevOps scenario with the stage template and a consumer stage; capture the exact working reference string and whether the secret variable arrives in the later stage. Update Phase 3's docs with the verified form.</span></li>
+      </ul>
+
+      <h4>2. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>az deployment group create -g &lt;scratch-rg&gt; --template-file tests/deploy-outputs/outputs.bicep -o json | jq '.properties.outputs.hidden'</code> — shows what Azure returns for a secure output (expected: type only, no value). Record it; if a value comes back, the masking path is exercised in the live runs.</span></li>
+        <li><code class="status">[]</code> <span><code>gh run view &lt;id&gt; --log | grep -c "SENTINEL"</code> — 0 for every masked or secure value, on every scenario above.</span></li>
+        <li><code class="status">[]</code> <span><code>gh run download &lt;id&gt; -n deploy_logs &amp;&amp; grep -r "SENTINEL" deploy_logs/ | wc -l</code> — 0 in the logs artifact, including the <code>.md</code> files; and the PR comment body fetched with <code>gh pr view &lt;n&gt; --json comments</code> contains no SENTINEL.</span></li>
+        <li><code class="status">[]</code> <span>A second job reads <code>fromJSON(needs.deploy.outputs.outputs).obj.tags[1]</code> and prints <code>b</code> — object and array outputs are usable as JSON.</span></li>
+        <li><code class="status">[]</code> <span>Run the no-outputs scenario on this branch and on <code>main</code>; <code>diff</code> the two <code>deploy_logs</code> artifacts after removing timestamps and run IDs — identical.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh tests/deploy-outputs/run.sh</code> — no new findings.</span></li>
+      <li><code class="status">[]</code> <span><code>bash tests/deploy-outputs/run.sh &amp;&amp; TF_BUILD=1 bash tests/deploy-outputs/run.sh</code> — offline tests pass on both platform branches.</span></li>
+      <li><code class="status">[]</code> <span><code>bicep build tests/deploy-outputs/outputs.bicep --stdout | jq '.outputs | keys'</code> — the test template compiles and lists every output.</span></li>
+      <li><code class="status">[]</code> <span><code>actionlint .github/actions/*/action.yml docs/examples/github/*.yml</code> — valid, or the Python YAML parse fallback.</span></li>
+      <li><code class="status">[]</code> <span><code>git diff --stat origin/main</code> — only the files named in this plan changed; <code>scripts/az-deploy.sh</code> hunks are limited to the two create sites and one <code>source</code> line.</span></li>
+      <li><code class="status">[]</code> <span>The live scenarios in Phase 5 all met their expectations, with the results noted in the pull request.</span></li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <details>
+      <summary>Does Azure DevOps pass a secret output variable to a later job or stage?</summary>
+      <p class="qa-answer">Assumed yes with <code>isOutput=true;issecret=true</code>, but Azure DevOps has a history of not exposing secret values across jobs. Phase 5 tests it. If it does not, masked outputs on Azure DevOps are usable only inside the deployment job, the docs say so, and the example reads the value from Key Vault in the later stage.</p>
+    </details>
+    <details>
+      <summary>Does ARM return the value of a securestring or secureObject output at all?</summary>
+      <p class="qa-answer">Expected no (type only). The design publishes nothing for such an output when no value is returned, and masks it when one is. If Azure never returns them, "secure outputs are always masked" means "never exposed", and the docs should tell template authors to pass secrets through Key Vault rather than outputs. Confirm in Phase 5.</p>
+    </details>
+    <details>
+      <summary>How are masked objects and arrays masked?</summary>
+      <p class="qa-answer">Proposed: the compact JSON and every string leaf of 4 or more characters. Shorter leaves would mask ordinary words across the log. The alternative is to refuse to mask a structured output and tell the user to output a string. Which one does the maintainer prefer?</p>
+    </details>
+    <details>
+      <summary>Is an environment variable the right route for masked values on GitHub?</summary>
+      <p class="qa-answer">It is the only route a composite action has for a value that must not be a job output. The cost: the value is in the environment of every later step in the job, including third-party actions. Alternatives are to drop masked values on GitHub entirely, or to write them to a file under the runner temp folder and expose its path. Should every output (not only masked ones) also be exported as <code>BICEP_OUTPUT_*</code>, or stay JSON only?</p>
+    </details>
+    <details>
+      <summary>Should the pull request comment show output values for non-masked outputs?</summary>
+      <p class="qa-answer">Today a standard deployment's comment contains the full result JSON, outputs included, and the plan keeps that for non-masked values so nothing changes. A stricter default would drop the <code>outputs</code> block from the comment and show names only. That is a behaviour change for existing users, so it is left as a decision.</p>
+    </details>
+    <details>
+      <summary>The create result now prints after the command finishes. Acceptable?</summary>
+      <p class="qa-answer">Needed to redact before printing. With <code>--verbose</code> or <code>--debug</code> the progress is on stderr, which is still streamed, so only the final JSON is delayed. A deployment that runs for an hour shows the JSON at the end, as <code>az</code> prints it then anyway.</p>
+    </details>
+    <details>
+      <summary>Size limits and name collisions</summary>
+      <p class="qa-answer">GitHub limits step and job outputs to 1 MB; Azure DevOps limits variable size (value to confirm in Phase 5). A template output called <code>outputs</code> collides with the JSON variable on Azure DevOps and is then only in the JSON, with a warning. Is that acceptable, or should the JSON variable get a less common name such as <code>bicep_outputs</code> on both platforms? The issue says <code>outputs</code>.</p>
+    </details>
+    <details>
+      <summary>Add a CI workflow for <code>tests/deploy-outputs/run.sh</code>?</summary>
+      <p class="qa-answer">The repository has only a release workflow. The runner is cheap and offline, so a pull request workflow running shellcheck and the runner is worth adding, but it is a separate decision and may overlap with other issues in this batch.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+    <h3>Why not extend the plan check</h3>
+    <p>The plan records what changes what is deployed: Bicep version, mode and stack settings. Outputs are read from the finished deployment, and a plan cannot know values that exist only after deployment. <code>masked_outputs</code> is therefore a deploy-time setting like <code>auto_merge</code>. The "deploy exactly what was planned" promise is unchanged, and no new comparison is added to <code>check_plan_settings</code>.</p>
+
+    <h3>What leaks today, and where it is closed</h3>
+    <table>
+      <thead><tr><th>Route</th><th>Today</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>Console, classic create</td><td>Full result, values in clear (line 585)</td><td>Redacted copy, printed after the masks are registered</td></tr>
+        <tr><td>Step log file</td><td>Same, via <code>tee -a "${log}"</code></td><td>Redacted copy, then scrubbed for literal values</td></tr>
+        <tr><td>Step Markdown and PR comment (classic)</td><td>JSON in a details block (lines 54-59)</td><td>Redacted JSON</td></tr>
+        <tr><td>Logs artifact</td><td>Log and Markdown files</td><td>Redacted</td></tr>
+        <tr><td>Console and log, stack create</td><td>Full result (line 528)</td><td>Same handling as classic</td></tr>
+        <tr><td>Debug environment dump</td><td>No output values in env</td><td><code>BICEP_OUTPUT_*</code> exist in the job env, masked by the runner; verified in Phase 5</td></tr>
+        <tr><td>DEBUG severity</td><td>Raw HTTP bodies on stderr</td><td>Log file scrubbed; the live log of that run can still show them. Documented.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Coordination with the other features in this batch</h3>
+    <p>Several other issues edit <code>scripts/az-deploy.sh</code>, the two action files, the Azure DevOps templates and the same docs. To keep merges small, this change puts the logic in a new file and limits edits in shared files to the two create sites, one <code>source</code> line, one step <code>id</code>/<code>name</code>, and appended doc sections. Whichever feature merges first, the others rebase over small hunks.</p>
+
+    <h3>Rejected approaches</h3>
+    <ul>
+      <li>A reusable workflow instead of a composite action, to get per-output names: breaks every existing example and the <code>uses:</code> form.</li>
+      <li>Masking by pattern (for example anything that looks like a key): unreliable; masking by name and type is explicit.</li>
+      <li>Adding outputs to the plan comparison: see above.</li>
+    </ul>
+
+    <h3>Dependencies</h3>
+    <p>No new tools. The script needs <code>bash</code>, <code>jq</code> and <code>perl</code>, all already used by <code>az-deploy.sh</code> (<code>perl</code> in <code>diff_safe</code>, line 15). Release: a new input and new outputs, so a minor version.</p>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet.</p>
+  </section>
+
+</main>
+</body>
+</html>
