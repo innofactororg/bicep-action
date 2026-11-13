@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: What-if comment filter (#58)</title>
+<style>
+  :root {
+    --paper: #f7f5f0; --ink: #1f2a33; --ink-soft: #55616b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #c2410c; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details { margin: 10px 0; } #notes summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: What-if comment filter (#58)</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-58)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd>issue #58 (https://github.com/innofactororg/bicep-action/issues/58), docs/adr/0005-whatif-comment-filter.md</dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0005-whatif-comment-filter/hero.png" alt="A long list of what-if changes narrowing to a shorter pull request comment" width="1152" height="768">
+    <figcaption>The full what-if stays whole; only the comment gets shorter.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Let a team hide change types (and optionally one resource type) from the what-if pull request comment, so that known noise such as a <code>Modify</code> that appears on every run stops burying real changes. The filter is presentation only: the comment says what it hid and how many, and nothing that decides or records the deployment sees it.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>Some resource types report <code>Modify</code> on every what-if although nothing changes. Reviewers learn to scroll past the diff, which is the habit that lets a real change slip through. Today the only control is Azure's own <code>--exclude-change-types</code>, which the action already uses for <code>Ignore</code> and <code>NoChange</code>, and which cannot be used for the comment without also changing what the summary and the safety checks see.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>Two plan-job settings, <code>whatif_comment_exclude_change_types</code> and <code>whatif_comment_exclude_resource_types</code>, empty by default. A new sourced script, <code>scripts/whatif-filter.sh</code>, drops matching resource blocks from the <strong>text</strong> of the what-if between the log and the comment, in classic and stack mode, and writes a tally for a visible notice. <code>Delete</code> and <code>Detach</code> fail the plan. The log, <code>whatif-summary.json</code>, the delete gate and the determinism check are produced from other inputs and are not touched. Anything the filter cannot parse is shown, never hidden.</p>
+    <figure>
+      <img src="0005-whatif-comment-filter/solution.png" alt="The what-if text splits: a filtered path to the PR comment, an unfiltered path to logs and summary" width="1152" height="768">
+      <figcaption>One input, two paths. Only the comment path has the filter.</figcaption>
+    </figure>
+    <div class="callout"><strong>Guardrails.</strong> Defaults reproduce today's comment byte for byte. <code>Delete</code> and <code>Detach</code> fail the plan before Azure is called. <code>whatif-summary.json</code> keeps schemaVersion 1 and unfiltered counts. Unknown layout or a count mismatch shows everything.</div>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+    <h3>Existing Files</h3>
+    <ul>
+<li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — classic text becomes the comment in log_output (lines 34-142); stack text becomes the diff in stack_whatif_gate (lines 388-508); write_summary (167-210) must stay untouched</li>
+<li><span class="tag existing">existing</span> <code>scripts/pr-comment.sh</code> — joins step_*.md files and enforces the 60000 / 65000 limits (#23); read only, behaviour checked by a test</li>
+<li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code> — two new inputs and two env lines in the What-if step (lines 215-245)</li>
+<li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code> — download list (lines 77-90) needs the new script; variables reach az-deploy.sh as environment automatically</li>
+<li><span class="tag existing">existing</span> <code>.azuredevops/templates/deploy-stage.yml</code> — download list (line 97 area): az-deploy.sh sources the new script, so the deploy stage needs it too</li>
+<li><span class="tag existing">existing</span> <code>.azuredevops/ms.azure.deploy.yml</code> — single-file pipeline: two download lists (lines 91-100 and 316-324) and the commented variables block</li>
+<li><span class="tag existing">existing</span> <code>.azuredevops/README.md</code> — variable list gets the two new variables</li>
+<li><span class="tag existing">existing</span> <code>docs/configuration.md</code> — settings table (line 26 on) and a new section</li>
+<li><span class="tag existing">existing</span> <code>docs/how-it-works.md</code> — &quot;The what-if&quot; (line 108) and &quot;What-if summary file&quot; (line 269): the &quot;counts match the comment&quot; bullet</li>
+<li><span class="tag existing">existing</span> <code>docs/troubleshooting.md</code> — new row for the Delete configuration error</li>
+<li><span class="tag existing">existing</span> <code>docs/examples/github/recommended.yml</code> — commented example of the new inputs</li>
+<li><span class="tag existing">existing</span> <code>docs/examples/azure-devops/multi-environment.yml</code> — commented example of the new variables</li>
+<li><span class="tag existing">existing</span> <code>README.md</code> — settings summary, as #50 did for existing_tags_resource_groups</li>
+    </ul>
+    <h3>New Files</h3>
+    <ul>
+<li><span class="tag new">new</span> <code>scripts/whatif-filter.sh</code> — sourced library: whatif_filter_validate, whatif_filter_text, whatif_filter_notice</li>
+<li><span class="tag new">new</span> <code>tests/whatif-filter.test.sh</code> — plain bash test runner, no framework</li>
+<li><span class="tag new">new</span> <code>tests/az-deploy-stub.test.sh</code> — runs az-deploy.sh with a stub az on PATH that prints fixtures; compares the .md, the log and whatif-summary.json with and without the filter</li>
+<li><span class="tag new">new</span> <code>tests/fixtures/classic-mixed.txt</code> — classic what-if text with Create, Modify, Delete, a child resource and a Scope: line</li>
+<li><span class="tag new">new</span> <code>tests/fixtures/stack-mixed.txt</code> — stack what-if text; symbols for Detach and Unsupported marked as UNCONFIRMED until captured from a real run</li>
+<li><span class="tag new">new</span> <code>tests/fixtures/whatif-summary-classic.json</code> — a normalised change list used to prove the summary does not depend on the filter</li>
+<li><span class="tag new">new</span> <code>specs/0005-whatif-comment-filter/hero.png, solution.png</code> — plan images</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+<div class="phase">
+<h3><code class="status">[]</code> Phase 1: Filter library, fixtures and tests</h3>
+<p>Build the filter as a sourced script that can be tested without Azure. Nothing is wired in yet, so this phase cannot change behaviour. Tests first: the repository has no test directory, so this phase also creates <code>tests/</code>.</p>
+<h4>1. Capture real text and settle the symbols</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Run a classic what-if and a stack what-if on a scratch subscription (or find one in a past run's logs artifact, <code>step_a1_what-if.log</code>) and copy the raw text, not the Markdown, into <code>tests/fixtures/classic-real.txt</code> and <code>tests/fixtures/stack-real.txt</code>. Remove subscription IDs and resource names that identify anyone before committing: this is a public repository.</span></li>
+<li><code class="status">[]</code> <span>Write down which symbol the stack text uses for <code>Detach</code>, <code>Unsupported</code> and <code>NoChange</code>. The existing stack <code>sed</code> (az-deploy.sh line 489) accepts <code>[-+~xv!=]</code>, but nothing in the repository maps them to change types. Add confirmed ones to the <code>sym</code> table in the awk. A symbol that stays unconfirmed stays out of the table, so those blocks are never hidden.</span></li>
+<li><code class="status">[]</code> <span>If no real stack output can be obtained before the build, ship with the hand-written <code>stack-mixed.txt</code> marked <code>UNCONFIRMED</code> in its first line and keep <code>Unsupported</code> out of the accepted values until it is confirmed (see Questionables).</span></li>
+</ul>
+<h4>2. Write the fixtures</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Create <code>tests/fixtures/classic-mixed.txt</code> with the content below. It has a legend (must not be read as blocks), a <code>Scope:</code> line, a zone, a second zone, a child record of the second zone, a create, a delete and the summary line.<pre><code>Note: The result may contain false positive predictions (noise).
+You can help us improve the accuracy of the result by opening an issue here: https://aka.ms/WhatIfIssues.
+
+Resource and property changes are indicated with these symbols:
+  - Delete
+  + Create
+  ~ Modify
+
+The deployment will update the following scope:
+
+Scope: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-app
+
+  ~ Microsoft.Network/privateDnsZones/a.example [2020-06-01]
+      ~ tags.owner: &quot;a&quot; =&gt; &quot;b&quot;
+
+  ~ Microsoft.Network/privateDnsZones/b.example [2020-06-01]
+      ~ tags.owner: &quot;a&quot; =&gt; &quot;b&quot;
+
+  ~ Microsoft.Network/privateDnsZones/b.example/A/www [2020-06-01]
+      ~ properties.ttl: 3600 =&gt; 300
+
+  + Microsoft.Storage/storageAccounts/stnew [2023-01-01]
+      location: &quot;westeurope&quot;
+      sku.name: &quot;Standard_LRS&quot;
+
+  - Microsoft.Network/privateDnsZones/old.example [2020-06-01]
+
+Resource changes: 1 to create, 3 to modify, 1 to delete.</code></pre></span></li>
+<li><code class="status">[]</code> <span>Create <code>tests/fixtures/stack-mixed.txt</code>: the same shape starting at the line <code>Resource and property changes</code>, with <code>=</code> NoChange blocks and the confirmed Detach and Unsupported symbols.</span></li>
+</ul>
+<h4>3. Write scripts/whatif-filter.sh</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Validation, sourced by az-deploy.sh. It sets <code>WHATIF_FILTER_ERROR</code> and returns 1; it never exits, so the caller decides how to fail.<pre><code># scripts/whatif-filter.sh  (sourced; POSIX awk only, so it runs on ubuntu mawk and macOS awk)
+WHATIF_ALLOWED=&#x27;create modify deploy nochange ignore noeffect unsupported&#x27;
+
+# Prints an error text and returns 1 on a bad configuration. Reads
+# WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES and WHATIF_COMMENT_EXCLUDE_RESOURCE_TYPES.
+whatif_filter_validate() {
+  local ct rt t
+  ct=$(printf &#x27;%s&#x27; &quot;${WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES-}&quot; | tr -d &#x27;[:space:]&#x27; | tr &#x27;[:upper:]&#x27; &#x27;[:lower:]&#x27;)
+  rt=$(printf &#x27;%s&#x27; &quot;${WHATIF_COMMENT_EXCLUDE_RESOURCE_TYPES-}&quot; | tr -d &#x27;[:space:]&#x27;)
+  if [ -z &quot;${ct}&quot; ] &amp;&amp; [ -z &quot;${rt}&quot; ]; then return 0; fi
+  if [ -z &quot;${ct}&quot; ]; then
+    WHATIF_FILTER_ERROR=&#x27;whatif_comment_exclude_resource_types needs whatif_comment_exclude_change_types: it narrows the change types, it does not select them.&#x27;
+    return 1
+  fi
+  for t in $(printf &#x27;%s&#x27; &quot;${ct}&quot; | tr &#x27;,&#x27; &#x27; &#x27;); do
+    case &quot;${t}&quot; in
+      delete|detach) WHATIF_FILTER_ERROR=&quot;whatif_comment_exclude_change_types cannot hide ${t}. Deletes and detaches must always be visible in the plan comment.&quot;; return 1;;
+    esac
+    case &quot; ${WHATIF_ALLOWED} &quot; in
+      *&quot; ${t} &quot;*) ;;
+      *) WHATIF_FILTER_ERROR=&quot;Unknown change type &#x27;${t}&#x27; in whatif_comment_exclude_change_types. Allowed: Create, Modify, Deploy, NoChange, Ignore, NoEffect, Unsupported.&quot;; return 1;;
+    esac
+  done
+  return 0
+}</code></pre></span></li>
+<li><code class="status">[]</code> <span>The filter. The awk program is embedded in the script in a quoted here-doc, not kept as a second file, because the Azure DevOps download lists fetch one file per name and a second file would need its own entry in four lists. It is shown here as a separate program for readability.<pre><code># whatif_filter_text TALLY_FILE &lt; raw az text &gt; kept text
+# TALLY_FILE gets lines &quot;count&lt;TAB&gt;changetype&lt;TAB&gt;resourcetype&quot; for what was hidden.
+whatif_filter_text() {
+  awk -v changes=&quot;${WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES-}&quot; \
+      -v rtypes=&quot;${WHATIF_COMMENT_EXCLUDE_RESOURCE_TYPES-}&quot; \
+      -v tallyfile=&quot;${1}&quot; &quot;${WHATIF_AWK_PROGRAM}&quot;
+}
+# the program (next block) is held in a variable, read from a quoted here-doc:
+# IFS= read -r -d &#x27;&#x27; WHATIF_AWK_PROGRAM &lt;&lt;&#x27;AWK&#x27; ... AWK
+
+function lc(s)  { return tolower(s) }
+function trim(s) { gsub(/^[ \t]+|[ \t]+$/, &quot;&quot;, s); return s }
+# &quot;Microsoft.Network/privateDnsZones/a.com/A/www [2020-06-01]&quot; -&gt; &quot;Microsoft.Network/privateDnsZones/A&quot;
+function rtype(name,   n, a, i, t) {
+  sub(/ \[.*$/, &quot;&quot;, name)
+  n = split(name, a, &quot;/&quot;)
+  t = a[1]
+  for (i = 2; i &lt;= n; i += 2) t = t &quot;/&quot; a[i]
+  return t
+}
+function flush(   hide) {
+  if (!inblock) return
+  hide = (btype != &quot;&quot; &amp;&amp; (btype in ct) &amp;&amp; (nrt == 0 || (lc(brt) in rt)))
+  if (hide) { tally[btype &quot;\t&quot; brt]++ } else { printf &quot;%s&quot;, buf }
+  buf = &quot;&quot;; inblock = 0
+}
+BEGIN {
+  n = split(changes, c, &quot;,&quot;); for (i = 1; i &lt;= n; i++) if (trim(c[i]) != &quot;&quot;) ct[lc(trim(c[i]))] = 1
+  n = split(rtypes, r, &quot;,&quot;); nrt = 0
+  for (i = 1; i &lt;= n; i++) if (trim(r[i]) != &quot;&quot;) { rt[lc(trim(r[i]))] = 1; nrt++ }
+  sym[&quot;+&quot;] = &quot;create&quot;; sym[&quot;-&quot;] = &quot;delete&quot;; sym[&quot;~&quot;] = &quot;modify&quot;; sym[&quot;!&quot;] = &quot;deploy&quot;
+  sym[&quot;=&quot;] = &quot;nochange&quot;; sym[&quot;*&quot;] = &quot;ignore&quot;; sym[&quot;x&quot;] = &quot;noeffect&quot;
+  # stack symbols for detach / unsupported: confirm from a real run before adding (Phase 1, task 1)
+}
+{
+  line = $0
+  # A block header: two spaces, a symbol, then Type/name. The legend lines
+  # (&quot;  + Create&quot;) have no &quot;/&quot; and so are not headers.
+  if (match(line, /^  [-+~=*!xv] [A-Za-z0-9.]+\/[^ ]+/)) {
+    flush()
+    s = substr(line, 3, 1); rest = substr(line, 5)
+    inblock = 1; btype = (s in sym) ? sym[s] : &quot;&quot;   # unmapped symbol: never hidden
+    brt = rtype(rest); buf = line &quot;\n&quot;; next
+  }
+  if (line ~ /^(Resource changes:|Scope:|The deployment will)/) { flush(); print line; next }
+  if (inblock) { buf = buf line &quot;\n&quot;; next }
+  print line
+}
+END {
+  flush()
+  if (tallyfile != &quot;&quot;) for (k in tally) print tally[k] &quot;\t&quot; k &gt; tallyfile
+}</code></pre></span></li>
+<li><code class="status">[]</code> <span>The notice. Print canonical change type names (<code>Modify</code>, not <code>modify</code>) with a small lookup, so the text reads as the issue's example does.<pre><code># whatif_filter_notice TALLY_FILE  -&gt; Markdown block quote on stdout, or nothing
+whatif_filter_notice() {
+  [ -s &quot;${1}&quot; ] || return 0
+  local by=&quot;whatif_comment_exclude_change_types&quot;
+  [ -n &quot;${TF_BUILD-}&quot; ] &amp;&amp; by=&quot;WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES&quot;
+  local total groups
+  total=$(awk -F&#x27;\t&#x27; &#x27;{n += $1} END {print n+0}&#x27; &quot;${1}&quot;)
+  groups=$(sort -t$&#x27;\t&#x27; -k2,2 -k3,3 &quot;${1}&quot; | awk -F&#x27;\t&#x27; -v max=8 &#x27;
+    NR &lt;= max { printf &quot;%s%d `%s` change%s on `%s`&quot;, (NR &gt; 1 ? &quot;, &quot; : &quot;&quot;), $1, $2, ($1 == 1 ? &quot;&quot; : &quot;s&quot;), $3 }
+    END { if (NR &gt; max) printf &quot; and %d more groups&quot;, NR - max }&#x27;)
+  printf &#x27;&gt; Hidden from this comment: %s, by `%s`. The full what-if is in the logs artifact. The deployment and `whatif-summary.json` are not affected.\n&#x27; &quot;${groups}&quot; &quot;${by}&quot;
+}</code></pre></span></li>
+<li><code class="status">[]</code> <span>Add <code>whatif_filter_active</code>: returns 0 when <code>WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES</code> is non-empty after trimming. Everything else short-circuits on it, so the default path never calls awk.</span></li>
+<li><code class="status">[]</code> <span>Fail open (below) belongs in <code>whatif_filter_text</code> too: when an unmapped symbol is seen or a hidden total exceeds the text's own <code>Resource changes:</code> total, print the original text and write one tally line with change type <code>_failopen</code>; <code>whatif_filter_notice</code> turns that into "could not be applied, nothing was hidden".<pre><code># fail open: compare what was hidden with what the text says exists
+# &quot;Resource changes: 1 to create, 2 to modify, 1 to delete.&quot;  (classic)
+awk -F&#x27;\t&#x27; -v line=&quot;${summary_line}&quot; &#x27;
+  BEGIN { n = split(line, p, /[,.:] */) }   # sketch: build total[type] from &quot;N to &lt;type&gt;&quot;
+  { hidden[$2] += $1 }
+  END { for (t in hidden) if (t in total &amp;&amp; hidden[t] &gt; total[t]) exit 1 }&#x27; &quot;${tally}&quot; || {
+    # show everything, add a note
+    filtered=$(cat &quot;${1}&quot;)
+    notice=&quot;&gt; The what-if comment filter could not be applied to this output, so nothing was hidden.&quot;
+}</code></pre></span></li>
+</ul>
+<h4>4. Write tests/whatif-filter.test.sh</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>A plain bash runner, no framework. It sources the library, runs the filter over the fixtures and compares. Cases: empty settings are the identity; Modify on one resource type hides the zone and its child record and keeps the create, the delete and the summary line; the tally is exact; Modify without a resource type hides every modify; the legend lines are never treated as blocks; an unmapped symbol is kept; Delete, Detach, an unknown value and resource types alone are rejected.<pre><code>#!/usr/bin/env bash
+# tests/whatif-filter.test.sh  (run: bash tests/whatif-filter.test.sh)
+set -u
+here=$(cd &quot;$(dirname &quot;${BASH_SOURCE[0]}&quot;)&quot; &amp;&amp; pwd)
+source &quot;${here}/../scripts/whatif-filter.sh&quot;
+fail=0
+check() { # name, expected, actual
+  if [ &quot;${2}&quot; = &quot;${3}&quot; ]; then echo &quot;ok   ${1}&quot;; else echo &quot;FAIL ${1}&quot;; diff &lt;(printf &#x27;%s\n&#x27; &quot;${2}&quot;) &lt;(printf &#x27;%s\n&#x27; &quot;${3}&quot;) | head -20; fail=1; fi
+}
+run() { # change types, resource types, fixture -&gt; kept text; tally in ${tally}
+  WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES=&quot;${1}&quot; WHATIF_COMMENT_EXCLUDE_RESOURCE_TYPES=&quot;${2}&quot; \
+    whatif_filter_text &quot;${tally}&quot; &lt; &quot;${here}/fixtures/${3}&quot;
+}
+tally=$(mktemp); trap &#x27;rm -f &quot;${tally}&quot;&#x27; EXIT
+
+# 1. defaults: empty settings give the input back byte for byte
+check &#x27;empty is identity&#x27; &quot;$(cat &quot;${here}/fixtures/classic-mixed.txt&quot;)&quot; &quot;$(run &#x27;&#x27; &#x27;&#x27; classic-mixed.txt)&quot;
+# 2. Modify on one type hides the zone and its child record, keeps Create and Delete
+out=$(run &#x27;Modify&#x27; &#x27;Microsoft.Network/privateDnsZones&#x27; classic-mixed.txt)
+check &#x27;zone modify hidden&#x27;    0 &quot;$(grep -c &#x27;privateDnsZones/a.example&#x27; &lt;&lt;&lt; &quot;${out}&quot;)&quot;
+check &#x27;create kept&#x27;           1 &quot;$(grep -c &#x27;storageAccounts/stnew&#x27; &lt;&lt;&lt; &quot;${out}&quot;)&quot;
+check &#x27;delete kept&#x27;           1 &quot;$(grep -c &#x27;old.example&#x27; &lt;&lt;&lt; &quot;${out}&quot;)&quot;
+check &#x27;summary line kept&#x27;     1 &quot;$(grep -c &#x27;^Resource changes:&#x27; &lt;&lt;&lt; &quot;${out}&quot;)&quot;
+check &#x27;tally&#x27; $&#x27;2\tmodify\tMicrosoft.Network/privateDnsZones\n1\tmodify\tMicrosoft.Network/privateDnsZones/A&#x27; &quot;$(sort -k3 &quot;${tally}&quot;)&quot;
+# 3. validation
+for bad in Delete delete,Modify Detach Bogus; do
+  WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES=&quot;${bad}&quot; whatif_filter_validate &amp;&amp; { echo &quot;FAIL ${bad} accepted&quot;; fail=1; } || echo &quot;ok   rejects ${bad}&quot;
+done
+WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES=&#x27;&#x27; WHATIF_COMMENT_EXCLUDE_RESOURCE_TYPES=&#x27;Microsoft.X/y&#x27; \
+  whatif_filter_validate &amp;&amp; { echo &#x27;FAIL resource types alone accepted&#x27;; fail=1; } || echo &#x27;ok   rejects resource types alone&#x27;
+exit &quot;${fail}&quot;</code></pre></span></li>
+</ul>
+<h4>5. Testing Strategy</h4>
+<p>Bash, awk, jq and shellcheck only; no Azure access. Edge cases: the awk treats any line that is not a header, a <code>Scope:</code> line or a summary line as part of the open block, so a blank line inside a multi-line property value stays in its block and the next header closes it; add that as a fixture case. Also test CRLF input and a name containing regex characters.</p>
+<ul class="checklist">
+<li><code class="status">[]</code> <span><code>bash tests/whatif-filter.test.sh</code> — all cases print &quot;ok&quot; and exit 0</span></li>
+<li><code class="status">[]</code> <span><code>shellcheck scripts/whatif-filter.sh tests/whatif-filter.test.sh</code> — no warnings; awk is invoked on both ubuntu mawk and macOS awk</span></li>
+<li><code class="status">[]</code> <span><code>bash -c &#x27;source scripts/whatif-filter.sh; WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES=Delete whatif_filter_validate; echo $?&#x27;</code> — prints 1: Delete cannot be hidden</span></li>
+<li><code class="status">[]</code> <span><code>git diff --stat -- scripts/az-deploy.sh</code> — empty: this phase changes no existing file</span></li>
+</ul>
+<div class="loop">
+🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+If any command fails, fix the cause and re-run — loop until all pass.
+</div>
+</div>
+<div class="phase">
+<h3><code class="status">[]</code> Phase 2: Wire the filter into az-deploy.sh</h3>
+<p>Call the validation early, then insert the filter between the raw text and the existing <code>sed</code> and <code>diff_safe</code> steps, for classic and stack. The order of the code is the guardrail: the summary, the gate and the checks are computed from JSON before or independently of the filter, and the filter only ever produces a different <code>.md</code> file.</p>
+<h4>1. Validate before any Azure call</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Source the library and validate in the what-if action, after the <code>rm -f "${summary_file}"</code> at lines 211-213, so a stale summary cannot survive a configuration error. A failed validation exits 1 with an <code>::error::</code> or <code>##[error]</code> line and a <code>## What-if</code> Markdown section, the same way the Bicep and subscription failures do (lines 259-267, 276-284). No <code>whatif-summary.json</code> is written, which a gate already treats as fail closed.<pre><code># scripts/az-deploy.sh, right after &quot;rm -f ${summary_file}&quot; (line 211-213), only for what-if
+if [ &quot;${SCRIPT_ACTION}&quot; = &#x27;what-if&#x27; ]; then
+  rm -f &quot;${summary_file}&quot;
+  # shellcheck source=whatif-filter.sh
+  source &quot;$(dirname &quot;${BASH_SOURCE[0]}&quot;)/whatif-filter.sh&quot;
+  if ! whatif_filter_validate; then
+    if test -n &quot;${TF_BUILD-}&quot;; then echo &quot;##[error]${WHATIF_FILTER_ERROR}&quot;; else echo &quot;::error::${WHATIF_FILTER_ERROR}&quot;; fi
+    printf &#x27;%s\n&#x27; &quot;## What-if&quot; &quot;&quot; &quot;${WHATIF_FILTER_ERROR}❗&quot; &gt; &quot;${log/.log/.md}&quot;
+    exit 1
+  fi
+fi</code></pre></span></li>
+<li><code class="status">[]</code> <span>The validate action does not receive the new variables, so it neither filters nor validates; only what-if does.</span></li>
+</ul>
+<h4>2. Classic: filter in log_output</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Filter only when <code>WHATIF_FILTER_APPLY=1</code>. The call at line 586 sets it for that one call; the <code>ERR</code> trap path (<code>error()</code>, line 31) calls <code>log_output</code> without it, so a failed what-if is always shown whole. Inside the function, <code>data</code> is built from the filtered text, the notice goes first in the section, and the 5000-character fold uses the filtered length.<pre><code># scripts/az-deploy.sh, log_output (lines 41-46), classic what-if branch only
+if [ &quot;${SCRIPT_ACTION}&quot; = &#x27;what-if&#x27; ]; then
+  local filtered tally
+  filtered=$(cat &quot;${1}&quot;)
+  if [ &quot;${WHATIF_FILTER_APPLY-}&quot; = &#x27;1&#x27; ] &amp;&amp; whatif_filter_active; then
+    tally=$(mktemp)
+    filtered=$(whatif_filter_text &quot;${tally}&quot; &lt; &quot;${1}&quot;)
+    whatif_filter_notice &quot;${tally}&quot; &gt; &quot;${tally}.md&quot;
+    rm -f &quot;${tally}&quot;
+  fi
+  data=$(printf &#x27;%s\n&#x27; &quot;${filtered}&quot; | \
+    sed -r &#x27;s/^([[:space:]]+)([-+~x])[[:space:]]/\2\1/g&#x27; | sed -e &#x27;s/^~/!/g&#x27; | diff_safe)
+  hidden_notice=$(cat &quot;${tally}.md&quot; 2&gt;/dev/null || true)
+fi
+# ...and at the output assembly (lines 87-97): notice first, then the fold decision on ${#data}
+if [ &quot;${SCRIPT_ACTION}&quot; = &#x27;what-if&#x27; ] &amp;&amp; test -n &quot;${data}&quot;; then
+  test -n &quot;${hidden_notice}&quot; &amp;&amp; output+=&quot;\n\n${hidden_notice}&quot;
+  # unchanged: fold over 5000 characters of the FILTERED data
+fi
+
+# at the call (line 585-586), so that error() -&gt; log_output never filters:
+eval &quot;${cmd}&quot; 1&gt; &gt;(tee -a &quot;${log}&quot;) 2&gt; &gt;(tee -a &quot;${log}&quot; &gt;&amp;2)
+WHATIF_FILTER_APPLY=1 log_output &quot;${log}&quot; &#x27;&#x27; &#x27;&#x27;</code></pre></span></li>
+<li><code class="status">[]</code> <span>Do not touch lines 591-621: the second, <code>ResourceIdOnly</code> what-if and <code>write_summary</code> never see the filter, so the counts are unfiltered by construction.</span></li>
+</ul>
+<h4>3. Stack: filter the diff only</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>In <code>stack_whatif_gate</code> replace only the <code>diff=</code> assignment at line 489 and append the notice to <code>body</code> after the gate text. The head line (counts), the delete and detach lists, the unsupported note, <code>gate</code> and the <code>write_summary</code> call (lines 475-488) stay as they are and above it.<pre><code># scripts/az-deploy.sh, stack_whatif_gate, line 489. The gate, summary and notes above it are not touched.
+filtered=&quot;${text}&quot;
+notice=&#x27;&#x27;
+if whatif_filter_active; then
+  tally=$(mktemp)
+  filtered=$(whatif_filter_text &quot;${tally}&quot; &lt;&lt;&lt; &quot;${text}&quot;)
+  notice=$(whatif_filter_notice &quot;${tally}&quot;)
+  rm -f &quot;${tally}&quot;
+fi
+diff=$(sed -r &#x27;s/^([[:space:]]+)([-+~xv!=])[[:space:]]/\2\1/g&#x27; &lt;&lt;&lt; &quot;${filtered}&quot; | sed -e &#x27;s/^~/!/g&#x27; | diff_safe)
+body=&quot;${head}${notes}&quot;
+if test -n &quot;${gate}&quot;; then body=&quot;:no_entry: ${gate}${nl}${nl}${body}&quot;; fi
+if test -n &quot;${notice}&quot;; then body+=&quot;${nl}${nl}${notice}&quot;; fi   # after head, notes and the gate: nothing above is changed</code></pre></span></li>
+<li><code class="status">[]</code> <span>The gate runs twice in a delete mode (once in the plan and again in the deploy job, lines 517-524). The deploy job does not set the new variables, so its <code>.md</code> is unfiltered; that is correct, because it is not the plan comment.</span></li>
+</ul>
+<h4>4. Keep the comment size handling correct</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>No change to <code>pr-comment.sh</code>. Verify with a test that the notice survives truncation: it is the first thing in the what-if section, so the 65000 cut (line 67) takes the end of the diff first. Document the one exception: a section over 60000 characters is replaced whole by the "too long" pointer (lines 24-26), and the notice goes with it.</span></li>
+</ul>
+<h4>5. Testing Strategy</h4>
+<p>Drive <code>log_output</code> and the stack diff assembly with a stub <code>az</code> on <code>PATH</code> that prints the fixture, so the real code path runs without Azure. The stub returns the fixture for <code>az deployment ... what-if</code> and canned JSON for the <code>ResourceIdOnly</code> call and for <code>az stack-whatif show</code>. Compare the produced <code>step_a1_what-if.md</code> and <code>whatif-summary.json</code> with and without the filter.</p>
+<ul class="checklist">
+<li><code class="status">[]</code> <span><code>bash tests/az-deploy-stub.test.sh</code> — with the filter unset the .md is byte-identical to the one from the unmodified script (keep a golden copy generated from the parent commit); with it set the .md differs only by the dropped blocks and the notice</span></li>
+<li><code class="status">[]</code> <span><code>cmp &lt;(jq -S . with/whatif-summary.json) &lt;(jq -S . without/whatif-summary.json)</code> — the summary is identical with and without the filter</span></li>
+<li><code class="status">[]</code> <span><code>cmp with/step_a1_what-if.log without/step_a1_what-if.log</code> — the log is identical: Azure output is kept whole</span></li>
+<li><code class="status">[]</code> <span><code>WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES=Delete bash scripts/az-deploy.sh what-if</code> — exits 1 before calling az; stdout has &quot;cannot hide delete&quot;; no summary file exists</span></li>
+<li><code class="status">[]</code> <span><code>shellcheck scripts/az-deploy.sh scripts/whatif-filter.sh</code> — no new warnings</span></li>
+<li><code class="status">[]</code> <span><code>git diff -U0 scripts/az-deploy.sh | grep -n &quot;write_summary\|summary_error\|nondeterministic\|STACK_APPROVED&quot;</code> — no changed line touches the summary, the gate or the delete check</span></li>
+</ul>
+<div class="loop">
+🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+If any command fails, fix the cause and re-run — loop until all pass.
+</div>
+</div>
+<div class="phase">
+<h3><code class="status">[]</code> Phase 3: Inputs for GitHub and Azure DevOps</h3>
+<p>Expose the two settings. GitHub gets inputs on the plan action only. Azure DevOps needs no new plumbing for the values, because pipeline variables reach <code>AzureCLI@2</code> scripts as environment variables (the way <code>IN_SEVERITY</code> does), but every download list must now fetch the new script.</p>
+<h4>1. GitHub plan action</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>In <code>.github/actions/plan/action.yml</code> add after <code>stack_approved_deletes</code> (line 56): <code>whatif_comment_exclude_change_types</code> and <code>whatif_comment_exclude_resource_types</code>, both <code>required: false</code>, <code>default: ""</code>. Descriptions: "Comma separated change types to leave out of the what-if PR comment (presentation only). Create, Modify, Deploy, NoChange, Ignore, NoEffect, Unsupported. Delete and Detach cannot be hidden: the plan fails. The what-if summary file, the logs and the delete gate always see everything." and "Limits the change types to these resource types, for example Microsoft.Network/privateDnsZones. Needs the change types input."</span></li>
+<li><code class="status">[]</code> <span>In the What-if step <code>env:</code> (after <code>STACK_APPROVED_DELETES</code>, line 240) add <code>WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES: ${{ inputs.whatif_comment_exclude_change_types }}</code> and the resource types twin. The deploy action gets no input: it never produces the plan comment.</span></li>
+<li><code class="status">[]</code> <span>Values reach the script through <code>env:</code>, never interpolated into the <code>run:</code> line, so an input value cannot inject shell.</span></li>
+</ul>
+<h4>2. Azure DevOps templates</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Add <code>"whatif-filter"</code> to the <code>SCRIPTS</code> array in <code>.azuredevops/templates/plan-stage.yml</code> (after <code>"psrule-report"</code>, around line 90) and in <code>.azuredevops/templates/deploy-stage.yml</code> (the list around line 97), because <code>az-deploy.sh</code> sources it for every action.</span></li>
+<li><code class="status">[]</code> <span>Add it to both lists in <code>.azuredevops/ms.azure.deploy.yml</code> (lines 91-100 and 316-324). This is the single-file pipeline and it duplicates the lists, so it is the one that is easiest to forget.</span></li>
+<li><code class="status">[]</code> <span>To avoid a hard failure for a pipeline pinned by <code>WORKFLOW_VERSION</code> to a release that has the new az-deploy.sh but whose lists were not updated, source the library with a check that prints a clear error naming the missing file. The lists and the scripts come from the same <code>WORKFLOW_VERSION</code>, so this only guards a hand-edited copy.</span></li>
+<li><code class="status">[]</code> <span>Add commented examples to the variables block of <code>ms.azure.deploy.yml</code>, next to the <code>EXISTING_TAGS_*</code> examples (lines 24-27): <code># - name: WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES</code> and the resource types twin.</span></li>
+</ul>
+<h4>3. Testing Strategy</h4>
+<p>Static checks of the YAML plus a grep that every download list names the script; a real pipeline run is the final proof and is listed in the global validation.</p>
+<ul class="checklist">
+<li><code class="status">[]</code> <span><code>grep -c &#x27;&quot;whatif-filter&quot;&#x27; .azuredevops/templates/plan-stage.yml .azuredevops/templates/deploy-stage.yml .azuredevops/ms.azure.deploy.yml</code> — 1, 1 and 2: every download list has it</span></li>
+<li><code class="status">[]</code> <span><code>grep -L &quot;whatif-filter&quot; $(grep -l &quot;az-deploy&quot; .azuredevops/templates/*.yml .azuredevops/ms.azure.deploy.yml)</code> — prints nothing: no file that downloads az-deploy omits the filter</span></li>
+<li><code class="status">[]</code> <span><code>actionlint .github/actions/plan/action.yml || python3 -c &quot;import yaml,sys; yaml.safe_load(open(&#x27;.github/actions/plan/action.yml&#x27;))&quot;</code> — the action is valid YAML (actionlint is not installed here; the fallback proves syntax only)</span></li>
+<li><code class="status">[]</code> <span><code>python3 -c &quot;import yaml; [yaml.safe_load(open(f)) for f in [&#x27;.azuredevops/ms.azure.deploy.yml&#x27;,&#x27;.azuredevops/templates/plan-stage.yml&#x27;,&#x27;.azuredevops/templates/deploy-stage.yml&#x27;]]&quot;</code> — the Azure DevOps files still parse</span></li>
+</ul>
+<div class="loop">
+🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+If any command fails, fix the cause and re-run — loop until all pass.
+</div>
+</div>
+<div class="phase">
+<h3><code class="status">[]</code> Phase 4: Documentation and examples</h3>
+<p>Document the settings where the existing ones are documented, correct the one sentence the feature makes untrue, and keep every example generic.</p>
+<h4>1. Configuration reference</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>In <code>docs/configuration.md</code> add two rows to the table at line 26 on, after "Approved deletes": "Hide change types from the comment | <code>whatif_comment_exclude_change_types</code> | <code>WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES</code> | P | empty" and the resource types row.</span></li>
+<li><code class="status">[]</code> <span>Add a section "What-if comment filter" after "Quality gates" (line 172): what it is, that it is presentation only, the accepted values, that Delete and Detach fail the plan, that Ignore and NoChange do nothing in classic mode, that resource types narrow and need change types, an example <code>Modify</code> on <code>Microsoft.Network/privateDnsZones</code>, and what the notice looks like. Add one row to "Recommended settings" (line 283): empty by default, set it only for a proven-noisy type.</span></li>
+</ul>
+<h4>2. How it works</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>In <code>docs/how-it-works.md</code>, section "The what-if" (line 108), add a short paragraph on the filter and the notice.</span></li>
+<li><code class="status">[]</code> <span>Fix the bullet at line 289: "Counts. <code>counts</code> match the comment." becomes "<code>counts</code> match the full what-if. They can be higher than what the comment shows when a comment filter is set." State that the summary file is never filtered.</span></li>
+</ul>
+<h4>3. Troubleshooting, examples, README</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Add a row to the table in <code>docs/troubleshooting.md</code> (near line 37): "cannot hide delete" and "needs whatif_comment_exclude_change_types" with the fix.</span></li>
+<li><code class="status">[]</code> <span>Add commented lines to <code>docs/examples/github/recommended.yml</code> (near line 37) and <code>docs/examples/azure-devops/multi-environment.yml</code> (near line 48). Use <code>Microsoft.Network/privateDnsZones</code> only; no company or customer names.</span></li>
+<li><code class="status">[]</code> <span>Add the two names to the settings summary in <code>README.md</code> and <code>.azuredevops/README.md</code>, as the <code>existing_tags_resource_groups</code> change did.</span></li>
+</ul>
+<h4>4. Testing Strategy</h4>
+<p>Docs are checked for accuracy against the code and for the repository's writing rules.</p>
+<ul class="checklist">
+<li><code class="status">[]</code> <span><code>grep -rn &quot;whatif_comment_exclude&quot; docs README.md .azuredevops/README.md | wc -l</code> — the names appear in configuration, how-it-works, troubleshooting, both examples and both READMEs</span></li>
+<li><code class="status">[]</code> <span><code>grep -n &quot;match the comment&quot; docs/how-it-works.md</code> — prints nothing: the false sentence is gone</span></li>
+<li><code class="status">[]</code> <span><code>grep -rniE &quot;acme|contoso|customer&quot; docs/configuration.md docs/how-it-works.md docs/adr specs | grep -v &quot;Customer.*owned&quot;</code> — nothing that names a customer (public repository)</span></li>
+<li><code class="status">[]</code> <span><code>grep -c &quot;—&quot; docs/adr/0005-whatif-comment-filter.md docs/configuration.md</code> — low counts: no em-dash overuse in new text</span></li>
+</ul>
+<div class="loop">
+🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+If any command fails, fix the cause and re-run — loop until all pass.
+</div>
+</div>
+<div class="phase">
+<h3><code class="status">[]</code> Phase 5: Guardrail proof and a real run</h3>
+<p>Prove the promise, "deploy exactly what was planned", is untouched, then run it once for real on both platforms.</p>
+<h4>1. Automated guardrail tests</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>Add to <code>tests/az-deploy-stub.test.sh</code>: a structural test that the filter library is only referenced inside <code>log_output</code> (classic) and the <code>diff=</code> block of <code>stack_whatif_gate</code>, and never between <code>write_summary</code> and its input. A grep over <code>az-deploy.sh</code> for <code>whatif_filter</code> must show exactly the source line, the validation, one block in <code>log_output</code> and one in the stack gate.</span></li>
+<li><code class="status">[]</code> <span>Add a delete-visibility test: with <code>Modify</code> and the zone type hidden, a stack fixture that contains a delete of a zone still shows the delete in the comment, in the "would delete" list and in <code>whatif-summary.json</code>, and the plan still fails the approved-deletes gate.</span></li>
+<li><code class="status">[]</code> <span>Add a size test: feed 400 blocks, hide all but one, and check the comment is under 65000 characters and the notice is present; feed 400 unfiltered blocks and check that the existing truncation text still appears.</span></li>
+</ul>
+<h4>2. Real runs</h4>
+<ul class="checklist">
+<li><code class="status">[]</code> <span>GitHub: a scratch repository with the plan action at the branch ref, a template that has a noisy <code>Modify</code>, the filter on. Check the PR comment, the job summary, the logs artifact and <code>whatif-summary.json</code>.</span></li>
+<li><code class="status">[]</code> <span>Azure DevOps: the same with <code>ms.azure.deploy.yml</code> and the stage templates, since each has its own download list. Confirm the ADO diff block renders the notice above the diff and that the <code>##[error]</code> line shows for <code>Delete</code>.</span></li>
+<li><code class="status">[]</code> <span>Note the observed text layout in the PR that implements this and, if it differs from the fixtures, fix the fixtures first.</span></li>
+</ul>
+<h4>3. Testing Strategy</h4>
+<p>Fixture-based tests need no Azure. The real runs need one scratch subscription each and are the only proof of the stack symbols.</p>
+<ul class="checklist">
+<li><code class="status">[]</code> <span><code>bash tests/whatif-filter.test.sh &amp;&amp; bash tests/az-deploy-stub.test.sh</code> — every automated case passes</span></li>
+<li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh tests/*.sh</code> — the whole script set is clean</span></li>
+<li><code class="status">[]</code> <span><code>git diff --stat main... -- scripts/pr-comment.sh</code> — empty: pr-comment.sh is unchanged</span></li>
+</ul>
+<div class="loop">
+🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+If any command fails, fix the cause and re-run — loop until all pass.
+</div>
+</div>
+
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+<li><code class="status">[]</code> <span><code>bash tests/whatif-filter.test.sh &amp;&amp; bash tests/az-deploy-stub.test.sh</code> — filter and wiring behave on fixtures</span></li>
+<li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh tests/*.sh</code> — scripts are clean</span></li>
+<li><code class="status">[]</code> <span><code>git diff main... -- scripts/pr-comment.sh</code> — empty: the comment builder is unchanged</span></li>
+<li><code class="status">[]</code> <span><code>git diff main... -U0 -- scripts/az-deploy.sh | grep -c &quot;write_summary(&quot;</code> — 0: no edit to the summary writer or its call sites</span></li>
+<li><code class="status">[]</code> <span>GitHub run in a scratch repo with <code>whatif_comment_exclude_change_types: Modify</code> and the resource types input: comment shows the notice, <code>whatif-summary.json</code> in the artifact has the full counts, the log has the full text.</span></li>
+<li><code class="status">[]</code> <span>Azure DevOps run with <code>WHATIF_COMMENT_EXCLUDE_CHANGE_TYPES=Modify</code> on both <code>ms.azure.deploy.yml</code> and the stage templates: same result; and with <code>Delete</code> the plan stage fails with the configuration error.</span></li>
+</ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <p>Decisions taken in this plan that the reviewer may want to change. Each has a chosen answer.</p>
+<details><summary>Do resource types narrow the change types (AND), or select their own changes (OR)?</summary><p class="qa-answer">Chosen: AND. Hiding "everything on this type" would also hide creates and would be surprising. Resource types without change types is an error. The alternative is a default of Modify when only resource types are given; simpler for users, but a hidden default.</p></details>
+<details><summary>Which symbols does the stack what-if text use for Detach, Unsupported and NoChange?</summary><p class="qa-answer">Not provable from this repository: the stack sed (line 489) only lists <code>[-+~xv!=]</code>. Phase 1 task 1 captures real output. Until then unmapped symbols are never hidden, and <code>Unsupported</code> may need to be dropped from the accepted values.</p></details>
+<details><summary>Should Detach be rejected like Delete?</summary><p class="qa-answer">Chosen: yes. A detach stops the stack managing a resource, which a reviewer must see, and the issue's accepted list does not include it. Rejecting it also keeps the guardrail simple: the two outcomes that remove something from the plan's intent can never be hidden.</p></details>
+<details><summary>Should NoEffect and Unsupported be hideable?</summary><p class="qa-answer">NoEffect is the harmless one and is accepted. Unsupported means Azure cannot evaluate the resource; hiding it removes a warning sign, although the head line and the note still count it. Chosen: allowed, counted in the notice. Reviewer may prefer to reject it too.</p></details>
+<details><summary>Filter text, or render from JSON?</summary><p class="qa-answer">Chosen: filter text. JSON is more precise but needs a full-payload what-if and a renderer, and changes the comment for everyone. The cost is dependence on the CLI text layout, mitigated by fail-open and fixtures from real runs.</p></details>
+<details><summary>Is it right that the job summary is filtered too?</summary><p class="qa-answer">It is built from the same Markdown file as the comment (pr-comment.sh lines 71-82). Chosen: yes, with the notice pointing to the logs. Splitting them needs a second Markdown file per step.</p></details>
+<details><summary>Should the summary file record that a filter was active?</summary><p class="qa-answer">Issue says unchanged. Chosen: no, schemaVersion 1 and every field stay as they are. A consumer that wants to know can read the pipeline configuration.</p></details>
+<details><summary>Wildcards in resource types?</summary><p class="qa-answer">Chosen: exact match, case-insensitive, no wildcards. A child type must be listed in full (<code>Microsoft.Network/privateDnsZones/A</code>). Prefix matching is easy to add later, but a prefix like <code>Microsoft.Network/*</code> would hide too much.</p></details>
+<details><summary>Where should the configuration error appear?</summary><p class="qa-answer">Chosen: at the top of the what-if action, before Azure is called, but after Bicep build and validate. An earlier dedicated step would fail faster but adds a step to every pipeline.</p></details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+
+<h3>Shape of the change</h3>
+<table>
+<tr><th>Piece</th><th>Reads</th><th>Sees the filter?</th></tr>
+<tr><td><code>step_*_what-if.log</code> (logs artifact)</td><td>raw az output</td><td>no</td></tr>
+<tr><td><code>whatif-summary.json</code></td><td>JSON (second what-if, or stack <code>show</code>)</td><td>no</td></tr>
+<tr><td>Delete gate, approved deletes, deterministic check</td><td>stack JSON</td><td>no</td></tr>
+<tr><td>Stack head line, delete and detach lists</td><td>stack JSON</td><td>no</td></tr>
+<tr><td><code>step_*_what-if.md</code>, comment, job summary</td><td>raw az text</td><td>yes: this is the only consumer</td></tr>
+</table>
+<h3>Things found in the current code</h3>
+<ul>
+<li><code>log_output</code> writes the file with <code>echo -e "${output}"</code> (az-deploy.sh line 114), which interprets backslashes in the what-if text. <code>pr-comment.sh</code> already avoids this ("copied verbatim", lines 52-54). Not changed here, and the notice contains no backslashes.</li>
+<li>In classic mode the what-if already excludes <code>Ignore</code> and <code>NoChange</code> (line 582), so the issue's "ignore/no-change results are already left out" is true for classic only; the stack text still shows <code>=</code> blocks.</li>
+<li>The classic summary comes from a separate what-if run (lines 591-621) and can in theory differ from the text when the environment changes between the two runs. The filter does not make this better or worse.</li>
+<li>The docs sentence "<code>counts</code> match the comment" (how-it-works.md line 289) becomes false when a filter is set, so it is part of this change.</li>
+</ul>
+<h3>Rejected, in short</h3>
+<p>Passing <code>--exclude-change-types</code> to az for the comment (changes what the checks see); rendering from JSON (large, changes every comment); filtering in pr-comment.sh (no change-type metadata). Reasons are in the ADR.</p>
+<h3>Risks</h3>
+<ul>
+<li>CLI text layout changes in a new az release. Mitigation: header pattern needs a <code>Type/name</code> token, unknown symbols are kept, fail open on count mismatch, and the fixtures come from real output.</li>
+<li>A block header inside a property value (a string that looks like <code>  + A/b</code>). Very unlikely at two-space indent; the count cross-check catches it.</li>
+<li>Four download lists for one script. Phase 3 adds a grep check so one cannot be forgotten.</li>
+</ul>
+
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet.</p>
+  </section>
+
+</main>
+</body>
+</html>
