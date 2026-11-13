@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: A separate, approval-gated destroy flow for deployment stacks</title>
+<style>
+  /* Visual identity: slate and paper, one muted red for destruction, teal for the safe path. */
+  :root {
+    --paper: #f6f4ef; --ink: #1c2530; --ink-soft: #52606b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #a32a22; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  /* Checklist rows: exactly two cells, the status marker and one <span> holding everything else. */
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details, #questionables details { margin: 10px 0; } #notes summary, #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: A separate, approval-gated destroy flow for deployment stacks</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-60)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd><a href="https://github.com/innofactororg/bicep-action/issues/60">issue #60</a>, <a href="../docs/adr/0007-stack-destroy-flow.md">docs/adr/0007-stack-destroy-flow.md</a></dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0007-stack-destroy-flow/hero.png" alt="A list of resources, a gate, and a closing door">
+    <figcaption>Destroy a stack the way it was deployed: plan it, approve it, then destroy exactly that.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Add a supported way to delete a deployment stack, as two new, explicit flows: a <strong>destroy plan</strong> that lists everything the destroy would delete or detach, and a <strong>destroy</strong> that runs only after an environment approval and only if the stack still holds exactly what the plan listed. Both flows exist on GitHub (two new composite actions) and Azure DevOps (two new stage templates). The existing plan and deploy actions and templates are not changed.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>With <code>deployment_mode: stack</code> the pipeline can create and update a stack but never remove one. Retiring an environment means running <code>az stack ... delete</code> by hand, with none of the plan, review and approval the pipeline gives a deployment. <code>Azure/bicep-deploy</code> adds <code>operation: delete</code> to its single action; that puts a deletion one input away from a deployment. bicep-action's promise is that the deploy job runs exactly what was planned, so a destroy has to carry the same promise: destroy exactly what the destroy plan listed.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>One new script, <code>scripts/az-stack-destroy.sh</code>, with two actions. <code>plan</code> reads the stack with <code>az stack {scope} show</code> (the stack what-if has no delete operation), works out what the requested unmanage setting would do, applies the existing approved-deletes list, writes <code>destroy-plan.json</code> and a Markdown section, and outputs a <strong>fingerprint</strong>: a SHA-256 over the stack ID, the unmanage settings and the sorted managed resource IDs. <code>destroy</code> runs after approval, re-reads the stack, recomputes the fingerprint, stops on any difference, runs the approved-deletes check again, then calls <code>az stack {scope} delete</code> with the planned settings and <code>--yes</code> and confirms the stack is gone. The fingerprint travels the same way <code>stack_settings</code> already does: an action output on GitHub, an <code>isOutput</code> variable on Azure DevOps.</p>
+    <figure>
+      <img src="0007-stack-destroy-flow/solution.png" alt="Plan, approve, destroy, with a fingerprint comparison">
+      <figcaption>The destroy job refuses to run if the stack's managed set is no longer the planned one.</figcaption>
+    </figure>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — stack name, scope and ID derivation (lines 348-369), the approved-deletes check (439-450), the summary writer (143-210), <code>stack_settings</code> handoff (304-325), subscription selection (273-285). Read only in this change.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/pr-comment.sh</code> — builds the comment and the step summary, always POSTs to <code>COMMENTS_URL</code>. Gets a small, opt-in <code>COMMENT_MODE=summary</code> and a destroy heading.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/pipeline-summary.sh</code> — the <code>STEPS</code> list names the steps that ran; gets the destroy step names.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/az-login.sh</code>, <code>scripts/azure-subscription.sh</code> — reused unchanged (sign-in; subscription wait).</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code>, <code>.github/actions/deploy/action.yml</code> — the pattern to copy: step order, <code>LOG_ORDER</code>, outputs, Upload logs. Not edited.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code>, <code>.azuredevops/templates/deploy-stage.yml</code> — the pattern to copy: the script download loop, <code>stageDependencies</code> outputs, the <code>deployment</code> job on an environment. Not edited.</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code> — settings table, stacks section, outputs table, Azure DevOps-only table. Updated.</li>
+      <li><span class="tag existing">existing</span> <code>docs/how-it-works.md</code> — "Deployment stacks and the delete gate", "Deploy exactly what was planned", "Logs and artifacts". Updated.</li>
+      <li><span class="tag existing">existing</span> <code>docs/examples/README.md</code> — example index. Updated.</li>
+      <li><span class="tag existing">existing</span> <code>docs/setup-github.md</code>, <code>docs/setup-azure-devops.md</code> — environment and permission setup; get a short "destroy" subsection.</li>
+    </ul>
+
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>scripts/stack-common.sh</code> — sourced helper: <code>resolve_stack</code> (name, scope, ID, scope args), <code>approved_check</code>, <code>stack_members</code>, <code>fingerprint</code>.</li>
+      <li><span class="tag new">new</span> <code>scripts/az-stack-destroy.sh</code> — <code>plan</code> and <code>destroy</code> actions.</li>
+      <li><span class="tag new">new</span> <code>.github/actions/destroy-plan/action.yml</code> — GitHub destroy plan.</li>
+      <li><span class="tag new">new</span> <code>.github/actions/destroy/action.yml</code> — GitHub destroy.</li>
+      <li><span class="tag new">new</span> <code>.azuredevops/templates/destroy-plan-stage.yml</code> — Azure DevOps destroy plan stage.</li>
+      <li><span class="tag new">new</span> <code>.azuredevops/templates/destroy-stage.yml</code> — Azure DevOps destroy stage (environment approval).</li>
+      <li><span class="tag new">new</span> <code>docs/examples/github/destroy.yml</code> — <code>workflow_dispatch</code> destroy workflow.</li>
+      <li><span class="tag new">new</span> <code>docs/examples/azure-devops/destroy.yml</code> — manual destroy pipeline using the two templates.</li>
+      <li><span class="tag new">new</span> <code>tests/destroy/run.sh</code>, <code>tests/destroy/bin/az</code>, <code>tests/destroy/fixtures/*.json</code> — a fake <code>az</code> on PATH that serves recorded <code>az stack show</code> and <code>az resource list</code> output, and the scenario runner.</li>
+      <li><span class="tag new">new</span> <code>.github/workflows/test-destroy.yml</code> — runs <code>shellcheck</code> and <code>tests/destroy/run.sh</code> on pull requests that touch the new files (only if the repository already runs shell checks in CI; otherwise skip and document the commands).</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <!-- ---------------------------------------------------------- Phase 1 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: Spike on a throwaway stack, record fixtures</h3>
+      <p>Everything later depends on three facts that cannot be read from the help text: the shape of <code>az stack show</code>, what <code>deleteAll</code> does to resource groups and to resources inside them that the stack does not manage, and whether deny settings stop <code>az stack delete</code>. Prove them first, on a scratch subscription, and record the output as test fixtures. No production code in this phase.</p>
+
+      <h4>1. Build the scratch stacks</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create a stack at subscription scope whose template creates one resource group and one storage account in it, with <code>--deny-settings-mode none</code>. Create a second with <code>denyWriteAndDelete</code>. Create a third at group scope. Create a fourth at management group scope if a scratch management group exists.</span></li>
+        <li><code class="status">[]</code> <span>In the first stack's resource group, create a storage account by hand (not through the stack). This is the "unmanaged resource inside a managed group" case.</span></li>
+      </ul>
+
+      <h4>2. Record and answer</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Save <code>az stack sub show</code>, <code>az stack group show</code> and <code>az stack mg show</code> output, with IDs replaced by fixed fake GUIDs, as <code>tests/destroy/fixtures/stack-sub.json</code>, <code>stack-group.json</code>, <code>stack-mg.json</code>, <code>stack-deny.json</code>. Note where managed resource groups appear (<code>properties.resources</code> or a separate list) and the values of <code>status</code> and <code>denyStatus</code>.</span></li>
+        <li><code class="status">[]</code> <span>Run <code>az stack sub delete --aou deleteResources</code>, then (on a fresh copy) <code>--aou deleteAll</code>, and record what remains. Confirm that <code>deleteAll</code> deletes the hand-made storage account together with the group.</span></li>
+        <li><code class="status">[]</code> <span>Run <code>az stack sub delete --aou deleteAll --yes</code> as the pipeline identity against the <code>denyWriteAndDelete</code> stack. Record whether it succeeds. If it fails, record the error code (expect <code>DenyAssignmentAuthorizationFailed</code>) and whether <code>excludedPrincipals</code> fixes it.</span></li>
+        <li><code class="status">[]</code> <span>Record the exact roles the identity needed for each case (stack delete, resource delete), for the setup docs.</span></li>
+        <li><code class="status">[]</code> <span>Write the answers into the Notes section of this plan (Amendments, appended) and into the ADR's Consequences if any assumption changed.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Manual, against Azure. The output of this phase is evidence, not code. Run in a subscription that holds nothing else.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>az stack sub show --name spike-a -o json | jq '.properties | keys'</code> — shows the real property names the later jq filters rely on.</span></li>
+        <li><code class="status">[]</code> <span><code>az resource list --resource-group spike-a-rg --query "[].id" -o tsv</code> after <code>deleteResources</code> — shows what survives.</span></li>
+        <li><code class="status">[]</code> <span><code>jq -e . tests/destroy/fixtures/*.json</code> — every fixture is valid JSON and contains no real subscription or tenant ID (<code>grep -E '[0-9a-f]{8}-[0-9a-f]{4}' tests/destroy/fixtures/*.json</code> returns only the fake GUIDs).</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------- Phase 2 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: Shared helper and the destroy plan script</h3>
+      <p>Build <code>scripts/stack-common.sh</code> and the <code>plan</code> action of <code>scripts/az-stack-destroy.sh</code>, following the structure of <code>az-deploy.sh</code>: <code>set -e</code>, the <code>ERR</code> trap, a <code>step_${LOG_ORDER}_${LOG_NAME}.log</code> and <code>.md</code> pair, <code>TF_BUILD</code> branches for Azure DevOps output and error syntax. The helper is new and used only by the new script; <code>az-deploy.sh</code> stays as it is.</p>
+
+      <h4>1. stack-common.sh</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>resolve_stack</code>: copy the logic of <code>az-deploy.sh</code> lines 348-369 (repository name fallback, <code>tr -c 'A-Za-z0-9._()-' '-'</code>, <code>cut -c1-90</code>, the <code>group</code>/<code>mg</code>/<code>sub</code> scope switch). Sets <code>stack_name</code>, <code>stack_scope</code>, <code>stack_id</code> and the array <code>stack_args</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>approved_check</code>: takes a newline list of IDs, reads <code>STACK_APPROVED_DELETES</code>, lower-cases both sides, prints the IDs that are not listed (same rule as <code>az-deploy.sh</code> 439-450). A missing or unreadable file counts as an empty list.</span></li>
+        <li><code class="status">[]</code> <span><code>stack_members</code>: reads <code>az stack show</code> JSON on stdin and prints normalised <code>{id, type, status, denyStatus}</code> objects for managed resources, managed resource groups and managed management groups, using the property names recorded in Phase 1.</span></li>
+        <li><code class="status">[]</code> <span><code>fingerprint</code>: SHA-256 of a canonical JSON document; see the code below.</span></li>
+      </ul>
+<pre><code># stack-common.sh (sketch)
+fingerprint() {   # $1 stack id, $2 unmanage, $3 resources-without-delete-support, stdin: show JSON
+  local canon
+  canon=$(stack_members | jq -S -c --arg id "${1,,}" --arg u "${2}" --arg r "${3}" \
+    -s '{id: $id, unmanage: $u, rwd: $r,
+         managed: (map({id: (.id | ascii_downcase), status}) | sort_by(.id))}')
+  printf '%s' "${canon}" | sha256sum | cut -d' ' -f1   # shasum -a 256 on macOS
+}</code></pre>
+
+      <h4>2. az-stack-destroy.sh plan</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Select the subscription with <code>select_subscription</code> from <code>azure-subscription.sh</code> (the same block as <code>az-deploy.sh</code> 273-285), so the subscription wait works for destroy too.</span></li>
+        <li><code class="status">[]</code> <span>Fail early if <code>STACK_CONFIRM_NAME</code> is set and is not equal to the resolved <code>stack_name</code> (case-sensitive). Fail if the scope is <code>tenant</code> (no stacks there). Fail if <code>az stack</code> is missing.</span></li>
+        <li><code class="status">[]</code> <span>Read the stack: <code>az stack "${stack_scope}" show --name "${stack_name}" "${stack_args[@]}" -o json</code>. Not found: fail with "stack not found" and write <code>destroy-plan.json</code> with an <code>error</code> field (same convention as <code>summary_error</code>, <code>az-deploy.sh</code> 159-163). A <code>provisioningState</code> other than <code>succeeded</code>: fail, because a stack that is mid-update or failed has an unreliable resource list.</span></li>
+        <li><code class="status">[]</code> <span>Work out the effect. <code>detachAll</code>: deletes empty, every managed ID in <code>detaches</code>. <code>deleteResources</code>: managed non-group resources in <code>deletes</code>, groups in <code>detaches</code>. <code>deleteAll</code>: everything managed in <code>deletes</code>; plus <code>collateral</code>, every resource in each managed group that is not managed (<code>az resource list --resource-group ... --query "[].id"</code> minus managed IDs).</span></li>
+        <li><code class="status">[]</code> <span>Gate: <code>approved_check</code> on <code>deletes</code> plus <code>collateral</code>. Any unlisted ID sets <code>blocked: true</code> with <code>blockedReason</code> and fails the step. A <code>detachAll</code> plan has nothing to approve and passes.</span></li>
+        <li><code class="status">[]</code> <span>Write <code>${LOG_PATH}/destroy-plan.json</code> (schema below) through a <code>.tmp</code> file and validate it with <code>jq -e</code> before publishing it, like <code>write_summary</code> does. A failed plan leaves no file.</span></li>
+        <li><code class="status">[]</code> <span>Write the Markdown section to <code>step_a1_destroy_plan.md</code>: a one-line headline with counts, the delete list, the detach list, the collateral list, any <code>denyStatus</code> other than <code>none</code>, and a <code>```json</code> block holding a ready-to-commit approved list when the plan is blocked.</span></li>
+        <li><code class="status">[]</code> <span>Set the outputs <code>destroy_plan</code> (file path) and <code>destroy_fingerprint</code> (<code>stack-destroy;id=&lt;stack id&gt;;unmanage=&lt;mode&gt;;rwd=&lt;mode&gt;;sha256=&lt;hash&gt;</code>), using the same <code>TF_BUILD</code> / <code>GITHUB_OUTPUT</code> branch as <code>summary_output</code> (<code>az-deploy.sh</code> 152-158).</span></li>
+      </ul>
+<pre><code>// destroy-plan.json, schemaVersion 1
+{
+  "schemaVersion": 1,
+  "mode": "destroy",
+  "scope": "sub",
+  "stack": { "name": "app-test", "id": "/subscriptions/.../deploymentStacks/app-test" },
+  "settings": { "actionOnUnmanage": "deleteAll",
+                "resourcesWithoutDeleteSupport": "fail",
+                "denySettingsMode": "denyDelete" },
+  "counts": { "managed": 7, "delete": 7, "detach": 0, "collateral": 1 },
+  "deletes": ["/subscriptions/.../resourceGroups/app-rg", "..."],
+  "detaches": [],
+  "collateral": ["/subscriptions/.../storageAccounts/handmade"],
+  "denied": ["/subscriptions/.../storageAccounts/app"],
+  "blocked": false,
+  "blockedReason": null,
+  "fingerprint": "sha256 hex",
+  "createdAt": "2026-11-13T10:00:00Z",
+  "error": null
+}</code></pre>
+      <p>The counts, <code>deletes</code> and <code>detaches</code> keep the names used by <code>whatif-summary.json</code>, so the approval-gate example that reads that file can read this one with the same jq.</p>
+
+      <h4>3. Comment and summary plumbing</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>scripts/pr-comment.sh</code>: add <code>COMMENT_MODE</code>. When it is <code>summary</code>, write the comment file and the step summary (<code>$GITHUB_STEP_SUMMARY</code> or <code>##vso[task.uploadsummary]</code>) but skip the <code>curl</code> POST. Unset keeps today's behaviour exactly. Add a heading case for <code>destroy_plan_comment</code>: "Destroy plan for ...", and for <code>destroy_comment</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>scripts/pipeline-summary.sh</code>: add <code>"destroy_plan:Destroy plan"</code> and <code>"destroy:Destroy"</code> to <code>STEPS</code>.</span></li>
+      </ul>
+
+      <h4>4. Testing Strategy</h4>
+      <p>The unit-level test is a fake <code>az</code> on PATH: a small bash script that answers <code>az stack * show</code>, <code>az resource list</code>, <code>az account show/set</code> from the Phase 1 fixtures, and records every other call to a file so a test can assert that no <code>delete</code> was ever called by the plan. Scenarios are run by <code>tests/destroy/run.sh</code>, each setting environment variables and asserting on the exit code, <code>destroy-plan.json</code> and the output lines.</p>
+      <table>
+        <thead><tr><th>Scenario</th><th>Setup</th><th>Expected</th></tr></thead>
+        <tbody>
+          <tr><td>detachAll, no approved list</td><td><code>stack-sub.json</code>, <code>unmanage=detachAll</code></td><td>exit 0, <code>deletes: []</code>, all managed IDs in <code>detaches</code>, fingerprint set</td></tr>
+          <tr><td>deleteResources, nothing approved</td><td>approved file missing</td><td>exit 1, <code>blocked: true</code>, every resource listed in the reason, file still written</td></tr>
+          <tr><td>deleteResources, all approved</td><td>approved file holds every ID, in different case</td><td>exit 0, case ignored, groups under <code>detaches</code></td></tr>
+          <tr><td>deleteAll with collateral</td><td>group holds an unmanaged resource, not approved</td><td>exit 1, the collateral ID is named, because it would be deleted with the group</td></tr>
+          <tr><td>wrong confirmation</td><td><code>STACK_CONFIRM_NAME=other</code></td><td>exit 1 before any <code>az stack show</code> call</td></tr>
+          <tr><td>stack not found</td><td>fake <code>az</code> returns <code>ResourceNotFound</code></td><td>exit 1, <code>error</code> set, no counts</td></tr>
+          <tr><td>stack still updating</td><td><code>provisioningState: deploying</code></td><td>exit 1</td></tr>
+          <tr><td>read-only</td><td>any</td><td>the fake az call log holds no <code>delete</code> and no <code>create</code></td></tr>
+        </tbody>
+      </table>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/stack-common.sh scripts/az-stack-destroy.sh scripts/pr-comment.sh</code> — no new findings (the repository already uses shellcheck directives, for example in <code>azure-subscription.sh</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/destroy/run.sh plan</code> — every scenario in the table passes.</span></li>
+        <li><code class="status">[]</code> <span><code>git diff --stat origin/main -- scripts/az-deploy.sh scripts/az-login.sh scripts/azure-subscription.sh</code> — empty: nothing existing changed.</span></li>
+        <li><code class="status">[]</code> <span><code>LOG_PATH=$(mktemp -d) JOB_STATUS=success COMMENT_MODE=summary GITHUB_STEP_SUMMARY=/dev/null bash scripts/pr-comment.sh</code> with a stub step file — exits 0 and makes no network call (run with <code>COMMENTS_URL</code> unset); without <code>COMMENT_MODE</code> it behaves as before.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------- Phase 3 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: The destroy action of the script</h3>
+      <p>Add the <code>destroy</code> action to <code>scripts/az-stack-destroy.sh</code>. It is the part that makes the promise: it deletes only a stack whose managed set still matches the plan.</p>
+
+      <h4>1. Behaviour</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Require <code>PLAN_DESTROY_FINGERPRINT</code>. Empty, or still containing an unexpanded <code>$(</code> (the Azure DevOps case <code>az-deploy.sh</code> handles at line 317), fails with "A destroy needs the destroy plan's fingerprint (destroy_fingerprint)". Parse the planned <code>unmanage</code>, <code>rwd</code> and <code>sha256</code> from the string; the stack ID in it must equal the resolved <code>stack_id</code>.</span></li>
+        <li><code class="status">[]</code> <span>Fail if the settings given to the destroy (<code>STACK_ACTION_ON_UNMANAGE</code>, <code>STACK_RESOURCES_WITHOUT_DELETE_SUPPORT</code>) differ from the planned ones, naming both. This mirrors <code>check_plan_settings</code> (<code>az-deploy.sh</code> 304-325): <code>deleteAll</code> after a <code>detachAll</code> plan must fail.</span></li>
+        <li><code class="status">[]</code> <span>Re-read the stack, require <code>provisioningState</code> <code>succeeded</code>, recompute the fingerprint with the same function. On a mismatch fail with "The stack changed since the destroy plan. Run the destroy plan again." and, when <code>PLAN_DESTROY_FILE</code> points at the plan file, list the IDs added and removed (<code>comm</code> on the two sorted lists).</span></li>
+        <li><code class="status">[]</code> <span>Run the same effect calculation and <code>approved_check</code> again on the current state, so a destroy can never delete something the committed list does not hold today.</span></li>
+        <li><code class="status">[]</code> <span>Run the delete, then verify. Never pass <code>--bypass-stack-out-of-sync-error</code> unless <code>STACK_BYPASS_OUT_OF_SYNC=true</code>; when set, print a warning that names the risk.</span></li>
+      </ul>
+<pre><code>cmd=(az stack "${stack_scope}" delete --name "${stack_name}" "${stack_args[@]}"
+     --action-on-unmanage "${unmanage}"
+     --resources-without-delete-support "${rwd}" --yes)
+[ "${STACK_BYPASS_OUT_OF_SYNC-}" = true ] &amp;&amp; cmd+=(--bypass-stack-out-of-sync-error true)
+echo "Run: ${cmd[*]}"
+"${cmd[@]}" 1> >(tee -a "${log}") 2> >(tee -a "${log}" &gt;&amp;2)
+# The stack must be gone.
+if az stack "${stack_scope}" show --name "${stack_name}" "${stack_args[@]}" &gt;/dev/null 2&gt;&amp;1; then
+  fail "az stack delete returned success but the stack still exists."
+fi</code></pre>
+      <p>Note that <code>az stack group delete</code> uses <code>--resource-group</code> and <code>az stack mg delete</code> uses <code>--management-group-id</code>; <code>stack_args</code> from <code>resolve_stack</code> already carries the right flag, but the <code>--location</code> that <code>az-deploy.sh</code> adds for <code>sub</code> and <code>mg</code> creates must be left out (delete and show do not take it).</p>
+
+      <h4>2. Testing Strategy</h4>
+      <p>Same fake <code>az</code>. The fake serves the stack JSON from a file the test can swap between the plan call and the destroy call, which is how the "added after the plan" scenario is made.</p>
+      <table>
+        <thead><tr><th>Scenario</th><th>Setup</th><th>Expected</th></tr></thead>
+        <tbody>
+          <tr><td>happy path</td><td>plan, then destroy with the plan's fingerprint, unchanged stack</td><td>exit 0; exactly one <code>az stack sub delete</code> call carrying <code>--action-on-unmanage</code> and <code>--yes</code></td></tr>
+          <tr><td><strong>resource added after the plan</strong></td><td>plan; add a resource ID to the served stack JSON; destroy</td><td>exit 1; message names the added ID; <strong>no delete call</strong> in the fake az log</td></tr>
+          <tr><td>resource removed after the plan</td><td>remove one ID from the served JSON</td><td>exit 1, no delete call</td></tr>
+          <tr><td>status changed</td><td>one resource goes <code>managed</code> to <code>deleteFailed</code></td><td>exit 1 (status is in the hash)</td></tr>
+          <tr><td>settings differ</td><td>plan with <code>detachAll</code>, destroy with <code>deleteAll</code></td><td>exit 1 before any <code>show</code></td></tr>
+          <tr><td>no fingerprint</td><td>empty, and <code>$(plan.destroy_fingerprint)</code> literal</td><td>exit 1 both times</td></tr>
+          <tr><td>approved list edited after the plan</td><td>remove one ID from the file between plan and destroy</td><td>exit 1 (second gate), no delete call</td></tr>
+          <tr><td>delete succeeds but the stack remains</td><td>fake <code>show</code> keeps answering after delete</td><td>exit 1</td></tr>
+          <tr><td>bypass flag</td><td><code>STACK_BYPASS_OUT_OF_SYNC=true</code></td><td>the flag appears in the call, with a warning line; absent otherwise</td></tr>
+        </tbody>
+      </table>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>bash tests/destroy/run.sh destroy</code> — every scenario passes, and the "resource added" scenario asserts the delete call count is zero.</span></li>
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/az-stack-destroy.sh</code> — clean.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/destroy/run.sh resolve-parity</code> — <code>resolve_stack</code> gives the same name, scope and ID as <code>az-deploy.sh</code> for ten inputs (long names, characters outside the allowed set, each scope). The test extracts the derivation lines from <code>az-deploy.sh</code> by running its stack branch with the fake az and <code>DEPLOYMENT_MODE=stack</code>, and reads the ID from its log.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------- Phase 4 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: GitHub composite actions</h3>
+      <p>Two actions modelled on <code>.github/actions/plan/action.yml</code> and <code>.github/actions/deploy/action.yml</code>. They share the same step skeleton (scripts on PATH, install tools, Azure login, work, debug info, upload logs) and none of the template, PSRule, cost or snapshot steps.</p>
+
+      <h4>1. destroy-plan action</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>.github/actions/destroy-plan/action.yml</code> with the branding of the plan action (a different icon, for example <code>list</code>) and inputs: <code>azure_client_id</code>, <code>azure_client_secret</code>, <code>azure_tenant_id</code>, <code>azure_subscription_id</code>, <code>subscription_wait_minutes</code>, <code>scope</code>, <code>resource_group</code>, <code>management_group</code>, <code>stack_name</code>, <code>stack_action_on_unmanage</code> (default <code>detachAll</code>), <code>resources_without_delete_support</code> (default <code>fail</code>), <code>stack_approved_deletes</code>, <code>confirm_stack_name</code>, <code>log_severity</code>, <code>artifact_identifier</code>, <code>token</code>. Same names and defaults as the plan action wherever the setting is the same.</span></li>
+        <li><code class="status">[]</code> <span>Outputs: <code>destroy_fingerprint</code>, <code>destroy_plan</code> (path), both from <code>steps.destroy_plan.outputs</code>.</span></li>
+        <li><code class="status">[]</code> <span>Steps in order: Add scripts to system path, Install tools (<code>LOG_ORDER: b1</code>), Azure login (<code>az-login.sh</code>, <code>b2</code>), Destroy plan (<code>id: destroy_plan</code>, <code>az-stack-destroy.sh plan</code>, <code>LOG_NAME: destroy_plan</code>, <code>LOG_ORDER: a1</code>), Job status steps, Add comment, Job summary, Show debug info, Upload logs as <code>destroy_plan_logs[_id]</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add comment runs on <code>pull_request</code> events as in the plan action. A second step, Job summary, runs on every other event with <code>COMMENT_MODE: summary</code> and <code>LOG_NAME: destroy_plan_comment</code>, so a <code>workflow_dispatch</code> run gets its summary.</span></li>
+      </ul>
+
+      <h4>2. destroy action</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>.github/actions/destroy/action.yml</code> with the same connection inputs plus <code>plan_destroy_fingerprint</code> (required, described as the destroy-plan action's output), <code>plan_destroy_file</code> (optional), <code>stack_bypass_out_of_sync</code> (default <code>false</code>), and the unmanage and approved-deletes inputs, which must equal the plan's.</span></li>
+        <li><code class="status">[]</code> <span>Steps: Add scripts to system path, Install tools, Azure login, Destroy (<code>az-stack-destroy.sh destroy</code>, <code>LOG_NAME: destroy</code>, <code>LOG_ORDER: a1</code>), Job status, Add comment or Job summary (as above, <code>destroy_comment</code>), Show debug info, Upload logs as <code>destroy_logs[_id]</code>. No auto merge: there is nothing to merge.</span></li>
+      </ul>
+
+      <h4>3. Workflow shape (the example)</h4>
+<pre><code>on:
+  workflow_dispatch:
+    inputs:
+      confirm_stack_name: { description: "Type the stack name to confirm", required: true }
+      action_on_unmanage: { type: choice, options: [detachAll, deleteResources, deleteAll], default: detachAll }
+concurrency: { group: azure-deploy-app, cancel-in-progress: false }   # same group as deployments
+permissions: {}
+jobs:
+  destroy_plan:
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, id-token: write }
+    outputs:
+      fingerprint: ${{ steps.plan.outputs.destroy_fingerprint }}
+      plan_file:   ${{ steps.plan.outputs.destroy_plan }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        uses: innofactororg/bicep-action/.github/actions/destroy-plan@v1
+        with: { ..., stack_name: app-test, confirm_stack_name: ${{ inputs.confirm_stack_name }},
+                stack_action_on_unmanage: ${{ inputs.action_on_unmanage }},
+                stack_approved_deletes: infra/approved-deletes.json }
+  destroy:
+    needs: destroy_plan
+    runs-on: ubuntu-24.04
+    environment: test-destroy          # required reviewers; a separate environment from deploys
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: innofactororg/bicep-action/.github/actions/destroy@v1
+        with: { ..., plan_destroy_fingerprint: ${{ needs.destroy_plan.outputs.fingerprint }} }</code></pre>
+      <div class="callout">The <code>destroy</code> job checks out the same ref the plan job did only because <code>workflow_dispatch</code> pins one commit per run. The approved-deletes file is read at that commit by both jobs, so editing the file after the plan needs a new run.</div>
+
+      <h4>4. Testing Strategy</h4>
+      <p>actionlint is not installed here; install it in CI or locally with <code>go install github.com/rhysd/actionlint/cmd/actionlint@latest</code>. Behaviour is covered by the script tests; these checks cover the wiring.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>actionlint .github/actions/destroy-plan/action.yml .github/actions/destroy/action.yml docs/examples/github/destroy.yml</code> — no errors.</span></li>
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/actions/destroy*/action.yml</code> — parses.</span></li>
+        <li><code class="status">[]</code> <span><code>diff &lt;(yq '.inputs | keys' .github/actions/plan/action.yml) &lt;(yq '.inputs | keys' .github/actions/destroy-plan/action.yml)</code> — review: every shared setting kept the same name.</span></li>
+        <li><code class="status">[]</code> <span>Dispatch the example workflow from a fork against the scratch subscription with a wrong <code>confirm_stack_name</code> — the plan job fails and the destroy job never starts. Dispatch again with the right name — the destroy job waits for the environment and shows the pending review.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------- Phase 5 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Azure DevOps stage templates</h3>
+      <p>Two templates with the same parameters as <code>plan-stage.yml</code> and <code>deploy-stage.yml</code>. The script download loop is hand-maintained in each template, so the new templates list exactly the scripts they use: <code>az-stack-destroy</code>, <code>stack-common</code>, <code>azure-subscription</code>, <code>install-tools</code>, <code>pr-comment</code>. A missing entry fails at download time, which the testing section checks.</p>
+
+      <h4>1. destroy-plan-stage.yml</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Parameters: <code>stageName</code> (<code>DestroyPlan</code>), <code>displayName</code>, <code>dependsOn</code>, <code>condition</code>, <code>variables</code>, <code>serviceConnection</code>. Variables block as in <code>plan-stage.yml</code> (<code>LOG_PATH</code>, <code>RUN_ID</code>, <code>SOURCE_PATH</code>, merged caller variables).</span></li>
+        <li><code class="status">[]</code> <span>One job <code>destroy_plan</code>: checkout (the approved-deletes file is in the repository), Install tools, <code>AzureCLI@2</code> step named <code>destroy_plan</code> running <code>./az-stack-destroy.sh plan</code> (so its outputs are <code>destroy_plan.destroy_fingerprint</code> and <code>destroy_plan.destroy_plan</code>), Pipeline summary, Add comment (on <code>PullRequest</code> only, as today) and a <code>COMMENT_MODE=summary</code> variant for every other <code>Build.Reason</code>, Upload logs as <code>destroy_plan_logs_$(ARTIFACT_IDENTIFIER)_$(System.JobAttempt)</code>.</span></li>
+      </ul>
+
+      <h4>2. destroy-stage.yml</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Parameters as <code>deploy-stage.yml</code>: <code>environmentName</code> (default <code>Destroy</code>, a different default from <code>Deploy</code>), <code>planStageName</code> (<code>DestroyPlan</code>), <code>planJobName</code> (<code>destroy_plan</code>), <code>dependsOn</code> (<code>[DestroyPlan]</code>).</span></li>
+        <li><code class="status">[]</code> <span>A <code>deployment</code> job on the environment, with <code>PLAN_DESTROY_FINGERPRINT: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['destroy_plan.destroy_fingerprint'] ]</code> in the job variables (the same expression form as <code>PLAN_STACK_SETTINGS</code> in <code>deploy-stage.yml</code> line 73). The approval check on that environment is the gate. Steps: checkout, Install tools, Destroy, Pipeline summary, Upload logs as <code>destroy_logs_...</code>.</span></li>
+      </ul>
+
+      <h4>3. Example pipeline</h4>
+<pre><code>trigger: none
+pr: none
+parameters:
+  - name: confirmStackName
+    type: string
+    displayName: Type the stack name to confirm
+  - name: actionOnUnmanage
+    type: string
+    default: detachAll
+    values: [detachAll, deleteResources, deleteAll]
+stages:
+  - template: .azuredevops/templates/destroy-plan-stage.yml@bicep_action
+    parameters:
+      serviceConnection: test_arm_connection
+      variables:
+        SUBSCRIPTION_ID: 11111111-1111-1111-1111-111111111111
+        STACK_NAME: app-test
+        STACK_CONFIRM_NAME: ${{ parameters.confirmStackName }}
+        STACK_ACTION_ON_UNMANAGE: ${{ parameters.actionOnUnmanage }}
+        STACK_APPROVED_DELETES: infra/approved-deletes.json
+  - template: .azuredevops/templates/destroy-stage.yml@bicep_action
+    parameters:
+      environmentName: test-destroy
+      serviceConnection: test_arm_connection
+      variables: { ...same values... }</code></pre>
+
+      <h4>4. Testing Strategy</h4>
+      <p>Azure DevOps cannot be run locally. Validate the YAML structurally, run the scripts under <code>TF_BUILD=1</code> in the fake-az harness to prove the <code>##vso</code> output lines, then run once on a scratch Azure DevOps project.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>TF_BUILD=1 bash tests/destroy/run.sh plan</code> — the scenarios pass with <code>##vso[task.setvariable variable=destroy_fingerprint;isOutput=true]</code> in the output and no <code>GITHUB_OUTPUT</code> write.</span></li>
+        <li><code class="status">[]</code> <span><code>yq '.stages' .azuredevops/templates/destroy-plan-stage.yml .azuredevops/templates/destroy-stage.yml</code> — parses; <code>grep -c 'environment:' .azuredevops/templates/destroy-stage.yml</code> prints at least 1 (the approval hook exists).</span></li>
+        <li><code class="status">[]</code> <span><code>for s in az-stack-destroy stack-common azure-subscription install-tools pr-comment; do test -f scripts/$s.sh || echo MISSING $s; done</code> — every script the templates download exists on the branch.</span></li>
+        <li><code class="status">[]</code> <span>Run the example pipeline on the scratch project, with <code>WORKFLOW_VERSION</code> set to this branch. The destroy stage must stop at the environment approval; approve it once and see the stack deleted; run again after adding a resource to a copy of the stack and see the destroy stage fail with the mismatch message.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------- Phase 6 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 6: Documentation and examples</h3>
+      <p>The existing docs state the plan-equals-deploy promise in one place and list every setting in one table. Extend both rather than adding a parallel document, and keep the new text short.</p>
+
+      <h4>1. Reference and explanation</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>: add a "Destroying a stack" section after "Deployment mode and stacks", and rows to the settings-at-a-glance table for <code>confirm_stack_name</code> / <code>STACK_CONFIRM_NAME</code>, <code>resources_without_delete_support</code> / <code>STACK_RESOURCES_WITHOUT_DELETE_SUPPORT</code>, <code>stack_bypass_out_of_sync</code> / <code>STACK_BYPASS_OUT_OF_SYNC</code>, <code>plan_destroy_fingerprint</code> / automatic, <code>plan_destroy_file</code>. Job column values: <code>DP</code> (destroy plan) and <code>DD</code> (destroy). Add the two outputs to the Outputs table (<code>destroy_fingerprint</code> = <code>destroy_plan.destroy_fingerprint</code>; <code>destroy_plan</code> = <code>destroy_plan.destroy_plan</code>) and <code>PLAN_DESTROY_FINGERPRINT</code> to the "do not set yourself" sentence under Azure DevOps only.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/how-it-works.md</code>: add "Destroying a stack" after "Deployment stacks and the delete gate" with a mermaid flowchart (plan, gate, approval, re-read, fingerprint compare, delete, verify), a table of what each unmanage setting deletes (resources, groups, management groups, collateral), the fingerprint contents, the destroy-plan.json schema, and the known residual window between the final re-read and the delete call. Add one bullet to "Deploy exactly what was planned" and rows to the artifact table in "Logs and artifacts" (<code>destroy_plan_logs_...</code>, <code>destroy_logs_...</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>docs/setup-github.md</code> and <code>docs/setup-azure-devops.md</code>: how to create the <code>*-destroy</code> environment with required reviewers (a different reviewer group from deployments is recommended), and the roles the identity needs from the Phase 1 spike. Say that deny settings are not a replacement for the approval.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/troubleshooting.md</code>: entries for "stack changed since the destroy plan", "unapproved delete in the destroy plan", "DenyAssignmentAuthorizationFailed on destroy" and "resource without delete support".</span></li>
+      </ul>
+
+      <h4>2. Examples</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Write <code>docs/examples/github/destroy.yml</code> (workflow above, filled in, with the generic placeholder IDs the other examples use) and <code>docs/examples/azure-devops/destroy.yml</code>. Each starts with a comment block that says when to use it and what the reviewer should read.</span></li>
+        <li><code class="status">[]</code> <span>Add both to the tables in <code>docs/examples/README.md</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add a short pointer under "Deployment stacks" in <code>README.md</code> if the README lists features there.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Docs are checked for broken anchors and for drift against the code: every setting named in the docs must exist as an input or variable, and the other way round.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>grep -ho '`[a-z_]*`' docs/configuration.md | sort -u</code> compared with <code>yq '.inputs | keys' .github/actions/destroy*/action.yml</code> — every input is documented.</span></li>
+        <li><code class="status">[]</code> <span><code>npx -y markdown-link-check docs/configuration.md docs/how-it-works.md docs/examples/README.md docs/adr/0007-stack-destroy-flow.md</code> — no dead links or anchors.</span></li>
+        <li><code class="status">[]</code> <span><code>actionlint docs/examples/github/destroy.yml</code> and <code>yq . docs/examples/azure-devops/destroy.yml</code> — both examples parse.</span></li>
+        <li><code class="status">[]</code> <span><code>git diff origin/main --stat</code>, then read the full diff once — no real subscription, tenant or client IDs, and no customer or company names in docs, fixtures, examples or tests; only the placeholder GUIDs the other examples use.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------- Phase 7 -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 7: End-to-end on a scratch subscription</h3>
+      <p>The fake az proves the logic; only Azure proves the commands. Run both platforms against throwaway stacks and record the results in the pull request.</p>
+
+      <h4>1. Scenarios</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>GitHub, <code>detachAll</code>: stack record deleted, resources untouched.</span></li>
+        <li><code class="status">[]</code> <span>GitHub, <code>deleteAll</code> with the full approved list: group and everything in it gone, destroy job waited for the reviewer.</span></li>
+        <li><code class="status">[]</code> <span>GitHub, <code>deleteAll</code> with a hand-made resource in the group and no approval for it: the plan fails and names it.</span></li>
+        <li><code class="status">[]</code> <span><strong>Resource added after the plan:</strong> run the plan; before approving, redeploy the stack with one extra resource (or add it with the stack's template); approve. The destroy job fails with the mismatch, deletes nothing, and the stack is still there.</span></li>
+        <li><code class="status">[]</code> <span>Same four scenarios on Azure DevOps with the templates.</span></li>
+        <li><code class="status">[]</code> <span>A <code>denyWriteAndDelete</code> stack, destroyed by the pipeline identity: record the result against the Phase 1 expectation.</span></li>
+      </ul>
+
+      <h4>2. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>az stack sub list -o table</code> and <code>az group list -o table</code> after each scenario — show exactly the expected survivors.</span></li>
+        <li><code class="status">[]</code> <span><code>jq -e '.schemaVersion == 1 and .mode == "destroy" and (.fingerprint | length == 64)' destroy-plan.json</code> on the downloaded logs artifact of each plan run — the file is the documented shape.</span></li>
+        <li><code class="status">[]</code> <span>Existing flows unchanged: run the existing <code>recommended.yml</code> and <code>ms.azure.deploy.yml</code> examples once against the branch — they still plan and deploy as before.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh</code> — the whole script folder, old and new, is clean.</span></li>
+      <li><code class="status">[]</code> <span><code>bash tests/destroy/run.sh all</code> — every plan, destroy and parity scenario passes, including "resource added after the plan stops the destroy".</span></li>
+      <li><code class="status">[]</code> <span><code>TF_BUILD=1 bash tests/destroy/run.sh all</code> — the same on the Azure DevOps output path.</span></li>
+      <li><code class="status">[]</code> <span><code>actionlint .github/actions/*/action.yml docs/examples/github/*.yml</code> — all actions and examples are valid.</span></li>
+      <li><code class="status">[]</code> <span><code>git diff --stat origin/main -- scripts/az-deploy.sh .github/actions/plan .github/actions/deploy .azuredevops/templates/plan-stage.yml .azuredevops/templates/deploy-stage.yml</code> — empty: existing plan and deploy are untouched.</span></li>
+      <li><code class="status">[]</code> <span><code>grep -rnE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' docs tests specs | grep -vE '(00000000-0000|11111111-1111|22222222-2222)'</code> — prints nothing: only placeholder GUIDs are present.</span></li>
+      <li><code class="status">[]</code> <span>Phase 7 results are recorded in the pull request description.</span></li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <details>
+      <summary>What does <code>az stack show</code> return for resource groups and management groups, and what does <code>deleteAll</code> do to unmanaged resources in a managed group?</summary>
+      <p class="qa-answer">The plan assumes managed resource groups are listed with the managed resources, and that deleting a group deletes everything in it. Phase 1 proves both on a throwaway stack. If the shape differs, only <code>stack_members</code> changes; if <code>deleteAll</code> behaves differently, the collateral rule changes.</p>
+    </details>
+    <details>
+      <summary>Do deny settings block <code>az stack delete</code> for the pipeline's own identity?</summary>
+      <p class="qa-answer">Microsoft's stack documentation presents the stack as the party that removes its own resources, so deny settings should not block it, and the ADR is written that way. It is not proved here. Phase 1 tests <code>denyWriteAndDelete</code> with the pipeline identity. If it fails, the options are listing the identity in <code>excludedPrincipals</code> at deploy time (a change to the deploy flow, so out of scope here) or documenting a one-off update step. <code>--bypass-stack-out-of-sync-error</code> is not a deny-settings workaround and is off by default.</p>
+    </details>
+    <details>
+      <summary>Default for <code>resources_without_delete_support</code>: <code>fail</code> or <code>detach</code>?</summary>
+      <p class="qa-answer">The plan proposes <code>fail</code>: a destroy never leaves a resource behind without saying so. The cost is a half-finished destroy when a resource type cannot be deleted, which then needs a manual step or a second run with <code>detach</code>. The destroy plan cannot know which types lack delete support, so it cannot warn in advance.</p>
+    </details>
+    <details>
+      <summary>One approved-deletes file for deploys and destroys, or a separate input?</summary>
+      <p class="qa-answer">The plan reuses <code>stack_approved_deletes</code> so there is one reviewed list and one mental model. The risk: an ID approved for a one-off delete during a deployment also approves it for a destroy. A separate <code>destroy_approved_deletes</code> input costs one setting and removes that overlap. Needs a decision before Phase 4.</p>
+    </details>
+    <details>
+      <summary>Should <code>systemData.lastModifiedAt</code> be part of the fingerprint?</summary>
+      <p class="qa-answer">Including it means any redeploy of the stack, even a no-op one, invalidates a destroy plan. That is stricter than "same managed set" but simpler to explain: the stack changed, plan again. Leaving it out means a changed deny setting or template slips past the check. Proposed: leave it out of the hash, and print a warning in the destroy job if it differs.</p>
+    </details>
+    <details>
+      <summary>Should a destroy plan expire?</summary>
+      <p class="qa-answer">A plan approved a week later is still checked by the fingerprint, so it is safe against drift but not against forgotten context. An optional <code>plan_max_age_minutes</code> (default off) would use <code>createdAt</code>. Cheap to add; the question is the default.</p>
+    </details>
+    <details>
+      <summary>Separate identity and environment for destroy?</summary>
+      <p class="qa-answer">Recommended in the docs, not enforced: a federated credential scoped to the <code>*-destroy</code> environment, with delete rights, so the deploy identity never holds them. This changes setup effort for adopters, so it is guidance rather than a check.</p>
+    </details>
+    <details>
+      <summary>Should the destroy plan also run on pull requests?</summary>
+      <p class="qa-answer">It will, because the comment step is wired like the plan action's. The open point is whether to document a pull request trigger at all. Proposed: no, only the manual trigger in the examples, so that merging a pull request never starts a destruction.</p>
+    </details>
+    <details>
+      <summary>When do the stack helpers move out of <code>az-deploy.sh</code>?</summary>
+      <p class="qa-answer">After this change merges, in its own pull request, with the parity test from Phase 3 as the safety net. Doing it here would touch the script every deployment runs.</p>
+    </details>
+    <details>
+      <summary>Does the flow protect against deleting a stack another pipeline owns?</summary>
+      <p class="qa-answer">Not beyond the name and the confirmation. Two pipelines that use the same <code>stack_name</code> at the same scope share one stack, and the destroy cannot tell them apart. The existing docs already say to give each pipeline its own name; the destroy docs repeat it.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+
+    <h3>What the destroy actually does, per setting</h3>
+    <table>
+      <thead><tr><th><code>stack_action_on_unmanage</code></th><th>Managed resources</th><th>Managed resource groups</th><th>Managed management groups</th><th>Needs approved list</th></tr></thead>
+      <tbody>
+        <tr><td><code>detachAll</code></td><td>detached</td><td>detached</td><td>detached</td><td>no</td></tr>
+        <tr><td><code>deleteResources</code></td><td>deleted</td><td>detached</td><td>detached</td><td>yes</td></tr>
+        <tr><td><code>deleteAll</code></td><td>deleted</td><td>deleted, with everything inside (collateral)</td><td>deleted</td><td>yes, including collateral</td></tr>
+      </tbody>
+    </table>
+    <p>The stack record itself is deleted in every case.</p>
+
+    <h3>Why a fingerprint and not the plan file</h3>
+    <p>The existing handoff between plan and deploy is a string output (<code>stack_settings</code>, <code>bicep_version</code>, <code>providers</code>). There is no file handoff today: <code>whatif-summary.json</code> only travels in the logs artifact. A fingerprint reuses the proven mechanism on both platforms and needs no download step. The plan file stays an optional input used only to explain a mismatch.</p>
+
+    <h3>Residual risk</h3>
+    <p>Azure offers no precondition (such as an ETag) on stack delete. Between the destroy job's last re-read and the delete call a resource could still be added; the window is seconds, and it is stated in the docs. The approval, the fingerprint, the second approved-deletes check and the environment reviewers are the controls; none of them is a lock.</p>
+
+    <h3>Dependencies</h3>
+    <p>No new runtime tools: <code>az</code>, <code>jq</code>, <code>sha256sum</code> (the script falls back to <code>shasum -a 256</code> on macOS) and <code>curl</code>, all already used. Test-only: <code>shellcheck</code> (installed), <code>actionlint</code> and <code>yq</code> (to install).</p>
+
+    <h3>Rejected approaches</h3>
+    <ul>
+      <li><code>operation: delete</code> on the existing actions: one input from a deployment to a deletion, and it carries template steps a destroy does not need.</li>
+      <li>A destroy plan built on <code>az stack-whatif</code> with an empty template: models an update, not the delete command, and ignores <code>--resources-without-delete-support</code>.</li>
+      <li>A pull request that deletes the template as the trigger: the plan job cannot build a missing entry point, and it ties an irreversible act to a merge.</li>
+    </ul>
+
+    <h3>Future work</h3>
+    <p>Move the stack helpers out of <code>az-deploy.sh</code>; a plan-age limit; an example that reads <code>destroy-plan.json</code> to route small destroys to a lighter reviewer group; an option to destroy a list of stacks in one run.</p>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet.</p>
+  </section>
+
+</main>
+</body>
+</html>
