@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Run the Azure DevOps scripts from a checkout of bicep-action (ADR 0008)</title>
+<style>
+  :root {
+    --paper: #f7f5f0; --ink: #1f2a33; --ink-soft: #55616b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #c2410c; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details, #questionables details { margin: 10px 0; } #notes summary, #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: Run the Azure DevOps scripts from a checkout of bicep-action</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-61)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd><a href="https://github.com/innofactororg/bicep-action/issues/61">issue #61</a>, <a href="../docs/adr/0008-bundle-ado-scripts.md">docs/adr/0008-bundle-ado-scripts.md</a></dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0008-bundle-ado-scripts/hero.png" alt="Two repository folders on one agent, no download from the cloud">
+    <figcaption>The workload repository and bicep-action side by side on the agent. The scripts come from the second folder, not from the internet.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Make the Azure DevOps stage templates and the single-file pipeline run the scripts from a checkout of this repository, at the same <code>ref</code> as the templates. One version to pin, no run-time download of code, and no dependence on <code>github.com</code> for the scripts. This is the implementation plan for <a href="../docs/adr/0008-bundle-ado-scripts.md">ADR 0008</a> and issue #61.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>The templates are read through a <code>resources.repositories</code> entry, but each job then <code>curl</code>s the scripts from <code>github.com/.../raw/${WORKFLOW_VERSION}/scripts/</code> (<code>plan-stage.yml:78-104</code>, <code>deploy-stage.yml:94-115</code>) and the debug and summary scripts from <code>raw.githubusercontent.com</code> (<code>plan-stage.yml:262,299</code>, <code>deploy-stage.yml:189,226</code>). Users must set <code>ref</code> and <code>WORKFLOW_VERSION</code> to the same tag, the pipeline runs code fetched from a mutable tag, and an agent without access to GitHub fails. The scripts are also written into the workload repository, so they appear in its working tree and in the PSRule input.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>Add a step template that checks out <code>self</code> and the template repository side by side (explicit paths), then prepends <code>&lt;checkout&gt;/scripts</code> to <code>PATH</code>, the way <code>.github/actions/plan/action.yml:134-138</code> already does for GitHub. Every script step keeps the workload repository as its working directory through <code>workingDirectory: $(WORKLOAD_PATH)</code>. The repository alias becomes a template parameter (default <code>bicep_action</code>). <code>WORKFLOW_VERSION</code> is deprecated: it is ignored for script resolution, and the reported version is derived from the checkout. The single-file pipeline gets its own repository resource and the same checkout.</p>
+    <figure>
+      <img src="0008-bundle-ado-scripts/solution.png" alt="One ref gives the templates and scripts, which flow into a pipeline job checkout">
+      <figcaption>One <code>ref</code> selects the templates and the scripts together.</figcaption>
+    </figure>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code> — download loop 78-104, debug and summary downloads 262 and 299, <code>SOURCE_PATH</code> 55, PSRule <code>INPUT_PATH</code> 184, every script step 106-332.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/deploy-stage.yml</code> — download loop 94-115, debug and summary downloads 189 and 226, <code>SOURCE_PATH</code> 62, script steps 117-258.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/ms.azure.deploy.yml</code> — download loops 89-115 and 310-336, <code>WORKFLOW_VERSION</code> 61-62, <code>SOURCE_PATH</code> 69 and 286, PSRule <code>INPUT_PATH</code> 195, script steps 117-270 and 338-410.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/README.md</code> — file table and parameter table (lines 9-12, 25-33).</li>
+      <li><span class="tag existing">existing</span> <code>docs/setup-azure-devops.md</code> — line 51 (<code>WORKFLOW_VERSION</code>), line 56 (self-hosted agent requirements), step 5 table (37-41).</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code> — line 67 (script version row) and line 251 (<code>WORKFLOW_VERSION</code>).</li>
+      <li><span class="tag existing">existing</span> <code>docs/how-it-works.md</code> — line 61 (Install tools row).</li>
+      <li><span class="tag existing">existing</span> <code>docs/examples/README.md</code> line 29; <code>docs/examples/azure-devops/multi-environment.yml</code> lines 5-8, 34; <code>variable-group.yml</code> lines 9, 28.</li>
+      <li><span class="tag existing">existing</span> <code>README.md</code> line 101 — pin instruction.</li>
+      <li><span class="tag existing">existing</span> <code>.github/workflows/release.yml</code> — <code>innofactororg/code-release@v2</code>; read only, no change expected.</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml:134-138</code>, <code>.github/actions/deploy/action.yml:116-120</code> — already run scripts from the action checkout; unchanged, used as the model.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/*.sh</code> — unchanged. They source siblings with <code>$(dirname "${BASH_SOURCE[0]}")</code>, so they run from any folder.</li>
+    </ul>
+
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>.azuredevops/templates/steps/checkout-and-scripts.yml</code> — the two checkouts, the Locate scripts step and the deprecation warning, shared by both stage templates.</li>
+      <li><span class="tag new">new</span> <code>docs/adr/0008-bundle-ado-scripts.md</code> and <code>specs/0008-bundle-ado-scripts.html</code> — this ADR and plan.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 0: Spike the multi-checkout layout</h3>
+      <p>The design rests on three platform facts that the documentation states loosely: where <code>path:</code> is rooted, what <code>Build.SourcesDirectory</code> is in a multi-checkout job, and whether <code>resources.repositories[...].ref</code> is readable at compile time. Settle them on a real agent before editing any template. No repository files change in this phase except the ADR if a fact turns out different.</p>
+
+      <h4>1. Build a throwaway pipeline</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>In a scratch Azure DevOps project, create a pipeline with a <code>type: github</code> repository resource <code>bicep_action</code> (ref <code>refs/heads/feat/61-bundle-ado-scripts</code>, GitHub service connection) and a second pipeline that uses a <code>type: git</code> mirror of the repository in the same project.</span></li>
+        <li><code class="status">[]</code> <span>Two jobs, one <code>job</code> and one <code>deployment</code> with <code>environment</code>. Each runs <code>checkout: self</code> with <code>path: workload</code>, then <code>checkout: bicep_action</code> with <code>path: bicep-action</code>, both <code>fetchDepth: 1</code>.</span></li>
+        <li><code class="status">[]</code> <span>Print and record: <code>pwd</code>, <code>$(Build.SourcesDirectory)</code>, <code>$(System.DefaultWorkingDirectory)</code>, <code>$(Build.Repository.LocalPath)</code>, <code>$(Pipeline.Workspace)</code>, <code>ls -la $(Pipeline.Workspace)/s</code>, and <code>${{ resources.repositories['bicep_action'].ref }}</code> and <code>.version</code> as a compile-time expression.</span></li>
+        <li><code class="status">[]</code> <span>Try <code>path: workload</code> and <code>path: s/workload</code>, and a path outside <code>s</code>. Record which of them lands where. The plan below assumes <code>path: workload</code> gives <code>$(Pipeline.Workspace)/s/workload</code>. If not, only the two stage variables in phase 1 change.</span></li>
+        <li><code class="status">[]</code> <span>In the same run, check that the GitHub credential is not left in <code>bicep-action/.git/config</code> (no <code>persistCredentials</code>) and is left in <code>workload/.git/config</code> (with it).</span></li>
+      </ul>
+
+      <h4>2. Testing Strategy</h4>
+      <p>Observation on a Microsoft-hosted <code>ubuntu-latest</code> agent. Pass criterion: the folders and variables match the table in the ADR consequences section, or the ADR and this plan are corrected before phase 1 starts.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>az pipelines runs show --id &lt;run&gt; --open</code> then read the log of both jobs — the spike log lists every path above for both a <code>job</code> and a <code>deployment</code> job.</span></li>
+        <li><code class="status">[]</code> <span>Repeat for the <code>type: git</code> mirror — confirms the checkout works without a GitHub endpoint and shows what permission the build service needs.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: The shared checkout step template</h3>
+      <p>One place for the two checkouts, the <code>PATH</code> setup, the version derivation and the deprecation warning. Both stage templates include it, so the plan and deploy jobs cannot drift. Relative <code>- template:</code> includes resolve inside the repository that owns the including template, so this works when the caller reaches the stage template as <code>@bicep_action</code>.</p>
+
+      <h4>1. Create <code>.azuredevops/templates/steps/checkout-and-scripts.yml</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Parameters: <code>bicepActionRepository</code> (string, default <code>bicep_action</code>). The step list is the only content.</span></li>
+        <li><code class="status">[]</code> <span>Checkout of the workload repository keeps today's options and adds the folder. The template repository is checked out without credentials. A checkout step needs a literal or template-time repository name, so the parameter is used as <code>${{ parameters.bicepActionRepository }}</code>.</span></li>
+        <li><code class="status">[]</code> <span>The Locate step fails early if the checkout is incomplete, adds the folder to <code>PATH</code>, derives the version and warns about <code>WORKFLOW_VERSION</code>.
+<pre><code>parameters:
+  - name: bicepActionRepository
+    type: string
+    default: bicep_action
+
+steps:
+  - checkout: self
+    displayName: Checkout workload repository
+    path: workload
+    fetchDepth: 1
+    persistCredentials: true
+
+  - checkout: ${{ parameters.bicepActionRepository }}
+    displayName: Checkout bicep-action
+    path: bicep-action
+    fetchDepth: 1
+    persistCredentials: false
+
+  - task: Bash@3
+    displayName: Locate scripts
+    env:
+      BICEP_ACTION_REF: ${{ resources.repositories[parameters.bicepActionRepository].ref }}
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        scripts="$(BICEP_ACTION_PATH)/scripts"
+        if [ ! -f "${scripts}/install-tools.sh" ]; then
+          echo "##[error]${scripts}/install-tools.sh not found. Is the repository resource '${{ parameters.bicepActionRepository }}' the bicep-action repository?"
+          exit 1
+        fi
+        chmod +x "${scripts}"/*.sh
+        echo "##vso[task.prependpath]${scripts}"
+        sha=$(git -C "$(BICEP_ACTION_PATH)" rev-parse --short HEAD)
+        echo "##vso[task.setvariable variable=BICEP_ACTION_VERSION]${BICEP_ACTION_REF##*/} (${sha})"
+        if [ -n "${WORKFLOW_VERSION:-}" ] &amp;&amp; [ "${WORKFLOW_VERSION}" != "${BICEP_ACTION_REF##*/}" ]; then
+          echo "##vso[task.logissue type=warning]WORKFLOW_VERSION (${WORKFLOW_VERSION}) is deprecated and ignored. The scripts come from the repository ref (${BICEP_ACTION_REF}). Remove WORKFLOW_VERSION."
+        elif [ -n "${WORKFLOW_VERSION:-}" ]; then
+          echo "##vso[task.logissue type=warning]WORKFLOW_VERSION is deprecated and ignored. Remove it."
+        fi</code></pre></span></li>
+        <li><code class="status">[]</code> <span>If phase 0 shows that <code>resources.repositories[...].ref</code> is not available at compile time, drop <code>BICEP_ACTION_REF</code> and report only the short commit (<code>git rev-parse</code>) plus <code>git describe --tags --always</code> after <code>fetchTags: true</code>. Record the outcome in the ADR.</span></li>
+      </ul>
+
+      <h4>2. Variables every stage declares</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>The step template reads <code>$(BICEP_ACTION_PATH)</code>, so each stage template defines both paths once under <code>variables:</code> (done in phases 2 and 3):
+<pre><code>variables:
+  WORKLOAD_PATH: $(Pipeline.Workspace)/s/workload
+  BICEP_ACTION_PATH: $(Pipeline.Workspace)/s/bicep-action
+  SOURCE_PATH: $(Pipeline.Workspace)/s/workload</code></pre></span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>YAML syntax and template expansion. Azure DevOps has no local compiler, so use the pipeline preview API against a scratch pipeline that includes the new file.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys; yaml.safe_load(open('.azuredevops/templates/steps/checkout-and-scripts.yml'))"</code> — the file parses.</span></li>
+        <li><code class="status">[]</code> <span><code>shellcheck -s bash</code> on the Locate script body pasted into a temp file — no quoting errors in the one new piece of shell.</span></li>
+        <li><code class="status">[]</code> <span><code>az devops invoke --area pipelines --resource preview --route-parameters pipelineId=&lt;id&gt; project=&lt;p&gt; --http-method post --in-file preview.json --api-version 7.1</code> — the final YAML shows both checkouts with the expected paths and the resolved <code>BICEP_ACTION_REF</code>.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: Plan stage template</h3>
+      <p>File: <code>.azuredevops/templates/plan-stage.yml</code>. Replace the checkout and download with the step template, then make every script step run in the workload folder. In a multi-checkout job the default working directory is the parent of both repositories, so a step without <code>workingDirectory</code> would not find <code>main.bicep</code>, <code>ps-rule.yaml</code> or the committed snapshot.</p>
+
+      <h4>1. Parameters, header and variables (lines 7-58)</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add parameter <code>bicepActionRepository</code> (string, default <code>bicep_action</code>) after <code>serviceConnection</code> (line 42-43) and document it in the header comment (lines 7-21). Remove <code>WORKFLOW_VERSION</code> from "Required Variables" (line 20) and note it is deprecated.</span></li>
+        <li><code class="status">[]</code> <span>Stage <code>variables:</code> (52-58): change <code>SOURCE_PATH</code> (line 55) and add <code>WORKLOAD_PATH</code> and <code>BICEP_ACTION_PATH</code> as in phase 1. <code>SOURCE_PATH</code> is used by <code>az-bicep.sh:35</code>, <code>az-deploy.sh:49</code> and <code>bicep-snapshot.sh:120-121</code> to strip the prefix from output, so it must be the workload path or file names in comments get long.</span></li>
+      </ul>
+
+      <h4>2. Replace checkout and Install tools (lines 63-104)</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Delete lines 63-66 (<code>checkout: self</code>) and insert:
+<pre><code>- template: steps/checkout-and-scripts.yml
+  parameters:
+    bicepActionRepository: ${{ parameters.bicepActionRepository }}</code></pre></span></li>
+        <li><code class="status">[]</code> <span>Install tools (68-104): delete the <code>SCRIPTS</code> array, the <code>curl</code> loop and the <code>chmod</code> (lines 78-103). The script becomes <code>inlineScript: install-tools.sh</code> and the task gains <code>workingDirectory: $(WORKLOAD_PATH)</code>. <code>install-tools.sh:41</code> reads <code>IN_TEMPLATE</code>, which is relative to the workload root.</span></li>
+      </ul>
+
+      <h4>3. Every other script step gets the workload folder</h4>
+      <p>Enumerated so none is missed. Remove the leading <code>./</code> so the script resolves through <code>PATH</code>, and add the input.</p>
+      <table>
+        <thead><tr><th>Step (lines)</th><th>Task</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td>Existing tags (106-116)</td><td>AzureCLI@2</td><td><code>inlineScript: existing-tags.sh</code>; add <code>workingDirectory</code>.</td></tr>
+          <tr><td>Bicep build (118-129)</td><td>AzureCLI@2</td><td><code>az-bicep.sh build</code>; <code>workingDirectory</code>. Output file path is <code>readlink -f</code> of a path under the workload folder, so the <code>bicep_build.file</code> output stays valid.</td></tr>
+          <tr><td>Bicep build params (131-142)</td><td>AzureCLI@2</td><td><code>az-bicep.sh build-params</code>; <code>workingDirectory</code>.</td></tr>
+          <tr><td>Validate (144-154), What-if (156-166)</td><td>AzureCLI@2</td><td><code>az-deploy.sh validate</code> and <code>what-if</code>; <code>workingDirectory</code>.</td></tr>
+          <tr><td>PSRule config (168-178)</td><td>Bash@3</td><td><code>psrule-config.sh</code>; <code>workingDirectory</code>. <code>RULE_OPTION</code> is a path relative to the workload root.</td></tr>
+          <tr><td>PSRule analysis (180-189)</td><td>Bash@3</td><td><code>psrule-analysis.sh</code>; <code>workingDirectory</code>; change <code>INPUT_PATH</code> (line 184) from <code>$(Build.SourcesDirectory)</code> to <code>$(WORKLOAD_PATH)</code>. Without this PSRule would scan both repositories.</td></tr>
+          <tr><td>PSRule report (191-200)</td><td>Bash@3</td><td><code>psrule-report.sh</code>; <code>workingDirectory</code>.</td></tr>
+          <tr><td>Cost estimate (202-214)</td><td>AzureCLI@2</td><td><code>azure-cost.sh</code>; <code>workingDirectory</code>.</td></tr>
+          <tr><td>Bicep snapshot (216-226)</td><td>AzureCLI@2</td><td><code>bicep-snapshot.sh</code>; <code>workingDirectory</code>. It reads the committed snapshot beside <code>IN_TEMPLATE_PARAMS</code>.</td></tr>
+          <tr><td>Debug information (228-272)</td><td>Bash@3</td><td>Replace the curl block (261-272) with <code>debug-info.sh</code>. In <code>env:</code> set <code>SOURCE_PATH: $(WORKLOAD_PATH)</code> (line 252) and <code>WORKFLOW_VERSION: $(BICEP_ACTION_VERSION)</code> (line 257). Leave <code>workingDirectory</code> unset on this step: <code>debug-info.sh:126-128</code> lists <code>SOURCE_PATH</code> only when it differs from <code>pwd</code>, so the default (parent) directory makes it print the workload folder.</td></tr>
+          <tr><td>Pipeline summary (274-309)</td><td>Bash@3</td><td>Replace lines 297-309 with <code>pipeline-summary.sh</code>. <code>WORKFLOW_VERSION: $(BICEP_ACTION_VERSION)</code> (line 294).</td></tr>
+          <tr><td>Add comment (311-332)</td><td>Bash@3</td><td><code>pr-comment.sh</code> (line 332); <code>workingDirectory: $(WORKLOAD_PATH)</code> so <code>LOG_PATH</code> and any relative file reads match the other steps.</td></tr>
+          <tr><td>Upload logs (334-341)</td><td>PublishPipelineArtifact@1</td><td>No change: <code>$(Pipeline.Workspace)/logs</code> is outside both checkouts.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><strong>Condition on PATH.</strong> <code>task.prependpath</code> applies to the steps after the one that sets it, for the rest of the job. Steps that run <code>condition: always()</code> after a failure still see it. If the Locate step itself fails, the later steps are skipped or fail on "command not found", which is the right outcome.</div>
+
+      <h4>4. Testing Strategy</h4>
+      <p>Template expansion checks, then a real run in each scenario of the final phase. Guard against regressions with greps that prove nothing downloads and nothing still assumes the old layout.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>! grep -nE 'curl|raw\.githubusercontent|github\.com/innofactororg|WORKFLOW_VERSION=|\./[a-z-]+\.sh' .azuredevops/templates/plan-stage.yml</code> — no download and no <code>./script.sh</code> call remains (the <code>WORKFLOW_VERSION</code> env mapping to <code>$(BICEP_ACTION_VERSION)</code> is allowed).</span></li>
+        <li><code class="status">[]</code> <span><code>grep -c 'workingDirectory: $(WORKLOAD_PATH)' .azuredevops/templates/plan-stage.yml</code> — is 12: Install tools, Existing tags, Bicep build, Bicep build params, Validate, What-if, PSRule config, PSRule analysis, PSRule report, Cost estimate, Bicep snapshot and Add comment. Debug, Summary and Upload logs are the exceptions.</span></li>
+        <li><code class="status">[]</code> <span>Preview API on the multi-environment example — the expanded YAML has the checkout template once per plan stage and no <code>${{ }}</code> left.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: Deploy stage template</h3>
+      <p>File: <code>.azuredevops/templates/deploy-stage.yml</code>. The job is a <code>deployment</code> job with <code>environment</code>. It has <code>download: none</code> and an explicit checkout today, so no implicit checkout changes. The same template include works under <code>strategy.runOnce.deploy.steps</code>. Include <code>download: none</code> first, then the step template.</p>
+
+      <h4>1. Parameters, header and variables (lines 7-65)</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add <code>bicepActionRepository</code> after <code>serviceConnection</code> (50-51); update the header (7-21, remove <code>WORKFLOW_VERSION</code> at line 21).</span></li>
+        <li><code class="status">[]</code> <span>Stage <code>variables:</code> (59-65): same three variables as the plan stage (<code>SOURCE_PATH</code> at line 62 changes). The job-level <code>variables</code> (70-73) that read plan outputs are unchanged.</span></li>
+      </ul>
+
+      <h4>2. Replace checkout and Install tools (lines 78-115)</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Keep <code>- download: none</code> (line 78). Replace lines 79-82 with the step template include (indented under <code>steps:</code>, as in phase 2).</span></li>
+        <li><code class="status">[]</code> <span>Install tools: delete 94-114, script becomes <code>install-tools.sh</code>, add <code>workingDirectory</code>.</span></li>
+      </ul>
+
+      <h4>3. Remaining steps</h4>
+      <table>
+        <thead><tr><th>Step (lines)</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td>Existing tags (117-127)</td><td><code>existing-tags.sh</code>, <code>workingDirectory</code>.</td></tr>
+          <tr><td>Check Azure providers (129-146)</td><td>Inline script keeps its guard; last line becomes <code>azure-providers.sh</code>; <code>workingDirectory</code>.</td></tr>
+          <tr><td>Deploy (148-157)</td><td><code>az-deploy.sh create</code>, <code>workingDirectory</code>. The deploy reads the template and parameters from the workload checkout, so the same <code>ref</code> of the workload repository that produced the plan must be checked out; unchanged from today.</td></tr>
+          <tr><td>Debug information (159-199)</td><td>Replace 188-199 with <code>debug-info.sh</code>; <code>SOURCE_PATH: $(WORKLOAD_PATH)</code> (180), <code>WORKFLOW_VERSION: $(BICEP_ACTION_VERSION)</code> (184).</td></tr>
+          <tr><td>Pipeline summary (201-236)</td><td>Replace 225-236 with <code>pipeline-summary.sh</code>; <code>WORKFLOW_VERSION</code> (221) as above.</td></tr>
+          <tr><td>Add comment (238-258)</td><td><code>pr-comment.sh</code> (258), <code>workingDirectory</code>.</td></tr>
+          <tr><td>Upload logs (260-267)</td><td>No change.</td></tr>
+        </tbody>
+      </table>
+
+      <h4>4. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>! grep -nE 'curl|raw\.githubusercontent|github\.com/innofactororg|\./[a-z-]+\.sh' .azuredevops/templates/deploy-stage.yml</code> — nothing downloaded, no <code>./</code> calls.</span></li>
+        <li><code class="status">[]</code> <span>Preview API on <code>variable-group.yml</code> — expansion succeeds with the <code>deployment</code> job and the environment.</span></li>
+        <li><code class="status">[]</code> <span>Run plan and deploy in scenario A (final phase) — confirms <code>BICEP_VERSION</code> and the providers output still flow through and the stack deploys from the workload folder.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: Single-file pipeline</h3>
+      <p>File: <code>.azuredevops/ms.azure.deploy.yml</code>. It is copied into the workload repository, so there is no calling pipeline to define a repository resource. Decision: option 2 of the issue. The file gets its own <code>resources.repositories</code> entry and the same checkout. It cannot include <code>steps/checkout-and-scripts.yml</code> because that file is in the repository that this checkout is supposed to fetch, so the steps are inlined once per stage. The README describes the stage templates as the recommended route for more than one environment.</p>
+
+      <h4>1. Resource and variables</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Insert before <code>variables:</code> (line 11):
+<pre><code>resources:
+  repositories:
+    - repository: bicep_action
+      type: github
+      name: innofactororg/bicep-action
+      ref: refs/tags/v1
+      endpoint: github_connection   # a GitHub service connection in this project</code></pre></span></li>
+        <li><code class="status">[]</code> <span>Delete the <code>WORKFLOW_VERSION</code> variable (lines 61-62). Stage variables <code>SOURCE_PATH</code> (69, 286) change to <code>$(Pipeline.Workspace)/s/workload</code>; add <code>WORKLOAD_PATH</code> and <code>BICEP_ACTION_PATH</code> to both stages.</span></li>
+      </ul>
+
+      <h4>2. Steps</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Plan: replace <code>checkout: self</code> (74-77) and the Install tools loop (79-115) with the two checkouts and the Locate step from phase 1 (inlined), then <code>inlineScript: install-tools.sh</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add <code>workingDirectory: $(WORKLOAD_PATH)</code> and drop <code>./</code> for the steps at lines 117-127, 129-140, 142-153, 155-165, 167-177, 179-189, 191-200, 202-211, 213-225, 227-237 and the Add comment step (about 245-259). Change <code>INPUT_PATH</code> (line 195) to <code>$(WORKLOAD_PATH)</code>.</span></li>
+        <li><code class="status">[]</code> <span>Deploy: same edits at 300-336 (checkout and Install tools), 338-348, 350-366, 367-376, and the Add comment step (about 380-395). The two "Show debug info" steps (261-270, 400-410) only print the environment; leave them.</span></li>
+        <li><code class="status">[]</code> <span>Add a comment above the repository resource explaining that <code>ref</code> is the only version to set, and that a mirror in Azure Repos uses <code>type: git</code> with <code>name: &lt;project&gt;/&lt;repo&gt;</code> and no <code>endpoint</code>.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>! grep -nE 'curl|WORKFLOW_VERSION|github\.com/innofactororg/bicep-action/raw' .azuredevops/ms.azure.deploy.yml</code> — the only remaining <code>github.com/innofactororg</code> text is the repository <code>name:</code>.</span></li>
+        <li><code class="status">[]</code> <span>Copy the file into a scratch repository, create the pipeline, open a pull request with a trivial Bicep change — plan, comment and deploy succeed (scenario A).</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Documentation and examples</h3>
+      <p>Stop asking for two matching versions. Describe the new folder layout and the deprecation. Plain, direct text.</p>
+
+      <h4>1. Edits</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/examples/azure-devops/multi-environment.yml</code>: rewrite lines 5-8 ("Pin <code>ref</code> to a release tag. The templates and the scripts both come from that ref."); delete <code>WORKFLOW_VERSION: v1</code> (line 34). Add a commented <code>type: git</code> alternative to the repository resource (25-29). Add a one-line note under <code>- template:</code> that <code>bicepActionRepository</code> is needed only when the alias is not <code>bicep_action</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/examples/azure-devops/variable-group.yml</code>: remove <code>WORKFLOW_VERSION</code> from the variable list (line 9) and fix the comment at line 28 (<code>ref: refs/tags/v1 # the only version to set</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>docs/examples/README.md:29</code>: "Azure DevOps: set <code>ref</code> on the repository resource. Templates and scripts come from it."</span></li>
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>: row at line 67 shows <code>ref</code> instead of <code>WORKFLOW_VERSION</code>; line 251 becomes "Deprecated. Ignored. The scripts come from the repository <code>ref</code>. Remove it." Add the <code>bicepActionRepository</code> parameter to the Azure DevOps section.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/setup-azure-devops.md</code>: line 51 drops "Set <code>WORKFLOW_VERSION</code>…" and says to set <code>ref</code>; line 56 adds <code>git</code> to the self-hosted agent list and notes that the scripts need no access to GitHub, but Bicep, PSRule and the cost estimator downloads do; add a short "Where the repository is checked out" paragraph: <code>$(Pipeline.Workspace)/s/workload</code> and <code>$(WORKLOAD_PATH)</code> for extra steps; add a "Mirror in Azure Repos" subsection (<code>type: git</code>, read access for the build service of the project).</span></li>
+        <li><code class="status">[]</code> <span><code>docs/how-it-works.md:61</code>: "Logs the Azure CLI version and installs Bicep; in Azure DevOps, the scripts come from the checked-out bicep-action repository."</span></li>
+        <li><code class="status">[]</code> <span><code>.azuredevops/README.md</code>: the file table says <code>ms.azure.deploy.yml</code> needs a repository resource; add <code>bicepActionRepository</code> to the parameter table (lines 25-33); add a "Migrating" note: remove <code>WORKFLOW_VERSION</code>, keep <code>ref</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>README.md:101</code>: "Pin a release tag: <code>@v1</code> on GitHub, and <code>ref: refs/tags/v1</code> on the repository resource in Azure DevOps."</span></li>
+        <li><code class="status">[]</code> <span>Check <code>docs/troubleshooting.md</code> for an entry on a failed script download and replace it with "bicep-action checkout failed: check the service connection and the repository alias".</span></li>
+      </ul>
+
+      <h4>2. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>grep -rn WORKFLOW_VERSION README.md docs .azuredevops</code> — every hit is a deprecation note or the env mapping in the stage templates.</span></li>
+        <li><code class="status">[]</code> <span><code>npx -y markdownlint-cli2 "docs/**/*.md" "README.md" ".azuredevops/README.md"</code> — no new lint findings (compare to a run on <code>main</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>for f in docs/examples/azure-devops/*.yml; do python3 -c "import yaml,sys; yaml.safe_load(open('$f'))"; done</code> — examples still parse.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 6: Release and compatibility</h3>
+      <p>No code change in the release workflow. <code>.github/workflows/release.yml</code> calls <code>innofactororg/code-release@v2</code>, which creates the release tag and moves only the <code>v2026</code> major tag. The <code>v1</code> tag, which the examples pin, is moved by hand. That is where the change reaches users, so the order matters.</p>
+
+      <h4>1. Release order</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Merge to <code>main</code>. Run the Release workflow with a new patch tag (<code>v1.0.8</code> or the next free one).</span></li>
+        <li><code class="status">[]</code> <span>Before moving <code>v1</code>, run scenario D below against the new tag. Only then <code>git tag -f v1 &lt;sha&gt; &amp;&amp; git push -f origin v1</code>. Pipelines pinned to <code>v1.0.0</code> to <code>v1.0.7</code> keep their old templates and the old download.</span></li>
+        <li><code class="status">[]</code> <span>Release notes (via <code>.github/release.yml</code> categories) say: "Azure DevOps: scripts now come from the checkout. Remove <code>WORKFLOW_VERSION</code>. If you pin <code>ref</code> to a branch and <code>WORKFLOW_VERSION</code> to a tag, the scripts now follow <code>ref</code>."</span></li>
+      </ul>
+
+      <h4>2. Testing Strategy</h4>
+      <p>Four scenarios, each run on a Microsoft-hosted agent unless stated.</p>
+      <table>
+        <thead><tr><th>Scenario</th><th>Setup</th><th>Pass criteria</th></tr></thead>
+        <tbody>
+          <tr><td>A. GitHub service connection</td><td><code>multi-environment.yml</code> with <code>type: github</code>, <code>ref</code> set to the feature branch, no <code>WORKFLOW_VERSION</code>.</td><td>Plan, PR comment and deploy succeed. The log of Locate scripts shows the branch and short commit. Changing only <code>ref</code> to another tag changes the reported commit.</td></tr>
+          <tr><td>B. Mirror in Azure Repos</td><td>Mirror the repository into the same project, resource <code>type: git</code>, <code>name: &lt;project&gt;/bicep-action</code>, no <code>endpoint</code>. Repeat once with the mirror in another project.</td><td>Same results. The cross-project case shows the permission the build service needs; write it in the docs.</td></tr>
+          <tr><td>C. No access to github.com</td><td>Self-hosted agent whose firewall blocks <code>github.com</code> and <code>raw.githubusercontent.com</code>, with a mirror (scenario B), Bicep CLI and PSRule modules preinstalled, <code>VERSION_ACE</code> empty.</td><td>All steps pass. Any <code>curl</code> to GitHub in the log fails the scenario. Without the preinstalls the run still fails at <code>az bicep install</code>; that is expected and is documented.</td></tr>
+          <tr><td>D. Legacy variable</td><td>A pipeline that still sets <code>WORKFLOW_VERSION: v1</code> and <code>ref: refs/tags/v1</code>, and one with <code>ref</code> on the feature branch.</td><td>Both run. The first logs the short deprecation warning; the second logs the mismatch warning and uses the scripts of <code>ref</code>.</td></tr>
+          <tr><td>E. Layout regression</td><td>A user step added after the template that runs <code>ls</code> and <code>git status</code> in <code>$(WORKLOAD_PATH)</code>.</td><td>The working tree has no downloaded scripts and no changes.</td></tr>
+        </tbody>
+      </table>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Scenarios A to E pass and their run URLs are added to the pull request description.</span></li>
+        <li><code class="status">[]</code> <span><code>gh run list -R innofactororg/bicep-action --workflow release.yml -L 1</code> — the release run completed; <code>git ls-remote --tags origin v1</code> shows the new SHA.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>! grep -rnE 'curl .*(github\.com|githubusercontent)|raw\.githubusercontent\.com/innofactororg' .azuredevops</code> — no script download is left in any Azure DevOps file.</span></li>
+      <li><code class="status">[]</code> <span><code>git diff --stat main -- scripts .github</code> — empty; the scripts and the GitHub actions did not change.</span></li>
+      <li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh</code> — still clean (nothing changed, guards against accidental edits).</span></li>
+      <li><code class="status">[]</code> <span><code>for f in .azuredevops/*.yml .azuredevops/templates/*.yml .azuredevops/templates/steps/*.yml docs/examples/azure-devops/*.yml; do python3 -c "import yaml; yaml.safe_load(open('$f'))" || echo FAIL $f; done</code> — every YAML file parses.</span></li>
+      <li><code class="status">[]</code> <span>Scenarios A to E from phase 6 — the behaviour in the acceptance criteria of issue #61 is proven on a real agent.</span></li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <details>
+      <summary>Does <code>path: workload</code> land at <code>$(Pipeline.Workspace)/s/workload</code>?</summary>
+      <p class="qa-answer">Assumed, from the documented rule that custom paths are rooted at the sources folder. The documentation also says <code>Build.SourcesDirectory</code> is the parent in multi-checkout, which the design does not depend on. Phase 0 settles it. If wrong, only the two path variables change.</p>
+    </details>
+    <details>
+      <summary>Is the single-file pipeline still worth keeping once it needs a GitHub service connection?</summary>
+      <p class="qa-answer">It used to need nothing but the file. Option 2 adds a connection, which is a step back for the quick start. Alternatives: keep a documented SHA-pinned download variant for users without a connection (issue option 3, more maintenance), or retire the file and point to the stage templates (issue option 1, which still leaves the curl). The plan picks option 2; the maintainers may prefer to keep an offline-capable variant.</p>
+    </details>
+    <details>
+      <summary>Ignore <code>WORKFLOW_VERSION</code>, or honour it when it differs from <code>ref</code>?</summary>
+      <p class="qa-answer">Ignoring it is the simple reading of the issue, and the only way to get one version. The cost is a silent change for users who set <code>ref: main</code> and <code>WORKFLOW_VERSION: v1</code> on purpose. The plan logs a warning in that case. Removal of the variable can be announced for the next major release.</p>
+    </details>
+    <details>
+      <summary>Warn once, or fail, when the workload repository path assumption breaks user steps?</summary>
+      <p class="qa-answer">Users with extra steps in the same job that use <code>$(Build.SourcesDirectory)</code> as the repository root will break silently. The docs cover it; a compile-time check is not possible. A release note and the E scenario are the only guard.</p>
+    </details>
+    <details>
+      <summary>Should <code>BICEP_ACTION_VERSION</code> come from the resource <code>ref</code> or from <code>git describe</code>?</summary>
+      <p class="qa-answer">The ref is cheap but may be a branch. <code>git describe</code> needs <code>fetchTags</code> and a deeper fetch. The plan uses the ref plus the short commit, which is enough to identify the scripts. Confirm that the compile-time <code>resources.repositories[...].ref</code> expression works in phase 0.</p>
+    </details>
+    <details>
+      <summary>Who owns moving <code>v1</code>, and is a major tag for the new behaviour cleaner?</summary>
+      <p class="qa-answer">The tag is moved by hand today. Because the new templates need a repository resource in the single-file pipeline and change the folder layout, a maintainer may prefer a <code>v2</code> tag for the Azure DevOps side. The plan keeps <code>v1</code> because the stage-template contract (parameters, variables) is unchanged.</p>
+    </details>
+    <details>
+      <summary>Is the "no access to github.com" criterion achievable?</summary>
+      <p class="qa-answer">Only for the scripts. <code>az bicep install</code> (<code>install-tools.sh:43</code>, <code>bicep-version.sh:44,56</code>), PSRule from the PowerShell Gallery (<code>psrule-analysis.sh:115</code>) and the cost estimator from GitHub releases (<code>azure-cost.sh:163-164</code>) still reach out. The issue text implies a fully offline run; this plan delivers script independence and documents the rest. A follow-up could cache those tools.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+    <h3>Surprises in the current code</h3>
+    <ul>
+      <li>The single-file pipeline has no <code>debug-info.sh</code> or <code>pipeline-summary.sh</code> download; its "Show debug info" step only prints the environment. The issue says the single file "does the same" for all downloads; it only does for the Install tools loops.</li>
+      <li><code>WORKFLOW_VERSION</code> is not read by any script. Only the URLs, two error messages and <code>env:</code> blocks use it.</li>
+      <li>Downloaded scripts land in the workload working tree today, so PSRule's <code>INPUT_PATH</code> (the sources directory) includes them. PATH-based execution removes that.</li>
+      <li>The GitHub composite actions already run the bundled scripts through <code>GITHUB_ACTION_PATH</code> and are unaffected.</li>
+    </ul>
+    <h3>Rejected approaches</h3>
+    <ul>
+      <li>Copying the scripts into the workload checkout: repeats the tree pollution.</li>
+      <li>Pipeline artifact or container image for the scripts: needs a publishing pipeline for a public repository, more than a checkout.</li>
+      <li>SHA pinning with a checksum file: still a run-time fetch and a second thing to publish.</li>
+    </ul>
+    <h3>Risks</h3>
+    <ul>
+      <li>A repository resource that is not authorised for the pipeline prompts for permission on the first run. This already applies to template expansion, so no new prompt is expected for <code>type: github</code>. For a mirror in another project, project settings "Limit job authorization scope" may block the checkout.</li>
+      <li>A step template include inside a <code>deployment</code> job strategy is allowed; confirm in phase 0 that <code>checkout</code> with <code>path</code> works there.</li>
+    </ul>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+  </section>
+
+</main>
+</body>
+</html>
