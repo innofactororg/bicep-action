@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Inline parameters, recorded in the plan and enforced at deploy</title>
+<style>
+  /* Visual identity: set the :root tokens for this plan's subject. Keep every layout rule below. */
+  :root {
+    --paper: #f6f7f4; --ink: #17212b; --ink-soft: #4f5b66; --rule: #d6d9d2;
+    --accent: #0b6e6e; --accent-2: #b4531a; --muted: #6b7280; --warn: #b45309; --code-bg: #eceee8;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  /* Checklist rows: exactly two cells — the status marker and one <span> holding everything else. Never put a third child in the li. */
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details { margin: 10px 0; } #notes summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  #questionables details { margin: 10px 0; } #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: Inline parameters, recorded in the plan and enforced at deploy</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-59)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd><a href="https://github.com/innofactororg/bicep-action/issues/59">issue #59</a>, <a href="../docs/adr/0006-inline-parameters.md">docs/adr/0006-inline-parameters.md</a></dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0006-inline-parameters/hero.png" alt="A value passes from the plan to the deploy under a lock" width="1152" height="768">
+    <figcaption>An inline value is fixed in the plan and checked again at deploy.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Add a <code>parameters</code> input to the plan and deploy actions, GitHub and Azure DevOps, so values that change on every run (an image tag, a build number, a commit hash) can be supplied without editing a file. Inline values win over the parameters file, work for classic and stack deployments, and are part of the plan/deploy contract: the plan records them, the deploy refuses to run if it receives different ones, and a secure value never reaches a log, a comment, an artifact or a summary file.</p>
+    <p>Design decisions and the alternatives that were rejected are in the ADR: <a href="../docs/adr/0006-inline-parameters.md">docs/adr/0006-inline-parameters.md</a>. This plan is the build sequence.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>Today parameters come only from <code>template_parameters</code> (<code>IN_TEMPLATE_PARAMS</code>): a file, or the file followed by <code>KEY=VALUE</code> pairs. The pairs reach az as one string on the command line (<code>scripts/az-deploy.sh:561-563</code>), which is echoed in the <code>Run:</code> line (<code>:584</code>) and <code>eval</code>ed (<code>:585</code>), so any secret in it is in the log and in <code>argv</code>. The pairs are not part of what the plan records, so a deploy can use different values than the plan showed. The deploy does not reuse any plan artifact: it recompiles from the checkout. The only things the plan hands to the deploy are <code>bicep_version</code> and <code>stack_settings</code>.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>A new script <code>scripts/inline-parameters.sh</code>, called by <code>az-deploy.sh</code> and <code>azure-cost.sh</code> only when inline parameters are in play. It parses the input, finds each parameter's type in the compiled template, marks <code>securestring</code> and <code>secureObject</code> as secure, masks those values, and writes one merged parameters file (mode 600, runner temp directory, outside the logs folder). <code>az-deploy.sh</code> then passes <code>--parameters &lt;that file&gt;</code>, so no value is on a command line. In the what-if step the script also emits a record, one salted SHA-256 per inline parameter, as the new output <code>inline_parameters</code>. The deploy receives it as <code>plan_inline_parameters</code>, hashes its own values with the plan's salt, and fails on any difference, naming parameters, never values. With <code>parameters</code> empty nothing changes.</p>
+    <figure>
+      <img src="0006-inline-parameters/solution.png" alt="File and inline values merge, are hashed, and are matched at deploy" width="1152" height="768">
+      <figcaption>Merge once, hash each inline value, compare at deploy.</figcaption>
+    </figure>
+    <h4>What was verified before writing this plan</h4>
+    <ul>
+      <li>Azure CLI 2.87.0, <code>custom.py</code>: a <code>.bicepparam</code> can be combined with <code>key=value</code> items (no JSON object), implemented by passing them to Bicep as <code>BICEP_PARAMETERS_OVERRIDES</code>, minimum Bicep 0.22.6. The stack commands use the same code path.</li>
+      <li>Bicep 0.37.4, run locally: <code>BICEP_PARAMETERS_OVERRIDES='{"tag":"t"}' az bicep build-params --file x.bicepparam --stdout</code> overrides assigned values, supplies required parameters the file does not assign (without it: <code>BCP258</code>), adds parameters that have defaults, and fails with <code>BCP259</code> for a name the template does not declare. A <code>securestring</code> can be overridden. The <code>--stdout</code> output holds both <code>parametersJson</code> and <code>templateJson</code>.</li>
+      <li>az does the type coercion for <code>key=value</code> itself (<code>_try_parse_key_value_object</code>): string and securestring stay strings, <code>int</code>, <code>bool</code>, JSON for array, object and secureObject. The new script must reproduce that, because it builds the JSON itself.</li>
+    </ul>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — builds every az command; parameters at <code>:235-253</code> (URL download), <code>:256</code> (Bicep selection), <code>:378-381</code> (stack), <code>:561-563</code> (classic); plan-setting checks at <code>:306-325</code> and <code>:541-551</code>; <code>write_summary</code> at <code>:167</code>; EXIT trap <code>cleanup</code> at <code>:17</code>.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/azure-cost.sh</code> — passes <code>--inline k=v</code> at <code>:185-191</code>.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/az-bicep.sh</code> — compiles <code>.bicepparam</code> and copies the result into the logs artifact (<code>:125-135</code>); left unchanged, noted in the docs.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/debug-info.sh</code>, <code>scripts/pipeline-summary.sh</code> — print <code>IN_*</code> variables and the parameters string (<code>:69</code>, <code>:196</code>; <code>:40-41</code>).</li>
+      <li><span class="tag existing">existing</span> <code>scripts/pr-comment.sh</code> — posts every <code>step_*.md</code> in name order (<code>:46</code>); no change needed.</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code>, <code>.github/actions/deploy/action.yml</code> — inputs, step env, outputs.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code>, <code>.azuredevops/templates/deploy-stage.yml</code>, <code>.azuredevops/ms.azure.deploy.yml</code> — script download lists, step env, plan outputs, <code>PLAN_STACK_SETTINGS</code> wiring (<code>deploy-stage.yml:71-73</code>, <code>ms.azure.deploy.yml:291-294</code>).</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code> (<code>:43-49</code> settings table, <code>:115-121</code>, <code>:164</code>, <code>:254-262</code>, <code>:281</code>), <code>docs/how-it-works.md</code> (<code>:55-80</code>, <code>:96-106</code>, <code>:269</code>), <code>docs/troubleshooting.md</code> (<code>:53</code>), <code>docs/examples/**</code>, <code>.azuredevops/README.md</code>.</li>
+    </ul>
+
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>scripts/inline-parameters.sh</code> — parse, type, mask, merge, record, compare, comment section.</li>
+      <li><span class="tag new">new</span> <code>tests/inline-parameters.test.sh</code> — plain bash harness, needs only <code>bash</code>, <code>jq</code>, <code>perl</code>, <code>az</code> with Bicep; no Azure login.</li>
+      <li><span class="tag new">new</span> <code>tests/fixtures/inline/main.bicep</code>, <code>main.bicepparam</code>, <code>params.json</code> — fixture template with string, int, bool, object, <code>@secure()</code> string and <code>@secure()</code> object parameters.</li>
+      <li><span class="tag new">new</span> <code>tests/bin/az</code> — a shim that runs the real <code>az bicep ...</code> and records any other <code>az</code> call, so <code>az-deploy.sh</code> can run without Azure.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <!-- ============================ PHASE 1 ============================ -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: The resolver script</h3>
+      <p>Build <code>scripts/inline-parameters.sh</code> and its test harness first, with no wiring. It is a child process, not a sourced library, on purpose: <code>az-deploy.sh</code> has an ERR trap that prints <code>$BASH_COMMAND</code> and runs <code>eval echo</code> on it (<code>:9</code>, <code>:65</code>). A failing command that holds a secret in a variable would print it. The script has its own trap that prints a fixed message and never the command, and keeps values out of <code>argv</code> (<code>jq</code> reads them from stdin or files, never <code>--arg</code>).</p>
+
+      <h4>1. Contract</h4>
+      <table>
+        <tr><th>Environment</th><th>Meaning</th></tr>
+        <tr><td><code>INLINE_PARAMETERS</code></td><td>The raw input. Never printed.</td></tr>
+        <tr><td><code>PLAN_INLINE_PARAMETERS</code></td><td>The plan's record. A value containing <code>$(</code> (an unresolved Azure DevOps macro) counts as empty, like <code>PLAN_STACK_SETTINGS</code> at <code>az-deploy.sh:317</code>.</td></tr>
+        <tr><td><code>INLINE_ACTION</code></td><td><code>validate</code>, <code>what-if</code>, <code>create</code> or <code>cost</code>. Only <code>what-if</code> makes a record; only <code>create</code> compares; <code>what-if</code> and <code>create</code> write the comment section.</td></tr>
+        <tr><td><code>IN_TEMPLATE</code>, <code>IN_TEMPLATE_PARAMS</code></td><td>As the caller resolved them (downloaded file names). The first token of <code>IN_TEMPLATE_PARAMS</code> is the base file; any <code>=</code> token after it is a legacy pair and is an error when <code>INLINE_PARAMETERS</code> is set.</td></tr>
+        <tr><td><code>OUT_DIR</code></td><td>A <code>mktemp -d</code> directory made by the caller, removed by the caller. Receives <code>parameters.json</code>, <code>typed.json</code>, <code>secrets.list</code>.</td></tr>
+        <tr><td><code>LOG_PATH</code></td><td>Receives <code>step_a0_inline_parameters.md</code> and <code>inline-parameters.json</code> (what-if and create only).</td></tr>
+      </table>
+      <p>Exit 0: <code>OUT_DIR/parameters.json</code> exists when inline values are set; nothing is written when both inputs are empty. Exit 1: a fixed error line on stdout as an annotation, the same text in the Markdown file, no values anywhere.</p>
+      <pre><code>#!/usr/bin/env bash
+set +x
+umask 077
+trap 'echo "::error::inline-parameters failed (line $LINENO)"' ERR   # Azure DevOps: ##[error]
+# never "set -e" the whole script with BASH_COMMAND in the message; check each step
+fail() { annotate "$1"; write_md ":x: $1"; exit 1; }
+annotate() { if test -n "${TF_BUILD-}"; then echo "##[error]$1"; else echo "::error::$1"; fi; }</code></pre>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>scripts/inline-parameters.sh</code> with the header used by the other scripts (copyright, <code>SPDX-License-Identifier: BSD-3-Clause</code>), the contract above, <code>chmod +x</code>.</span></li>
+        <li><code class="status">[]</code> <span>Return at once, silently, when <code>INLINE_PARAMETERS</code> is empty and not (<code>INLINE_ACTION=create</code> and a usable <code>PLAN_INLINE_PARAMETERS</code>). That keeps the default path unchanged.</span></li>
+      </ul>
+
+      <h4>2. Parse the input</h4>
+      <p>First non-space character <code>{</code>: JSON object. Otherwise lines of <code>name=value</code>; blank lines and lines starting with <code>#</code> are skipped; the name must match <code>^[A-Za-z_][A-Za-z0-9_]*$</code>; the value is everything after the first <code>=</code> with a trailing <code>\r</code> removed. Duplicate names are an error. A JSON array, a scalar, or a value wrapped as <code>{"value": ...}</code> at the top level is not accepted: the form is name to value, as in the issue. Write <code>raw.json</code> as <code>{name: {line: true|false, v: &lt;string|json&gt;}}</code> into <code>OUT_DIR</code>.</p>
+      <pre><code># jq_in=(-Rs) for the line form (read the text as one string), jq_in=() for the JSON form
+printf '%s' "${INLINE_PARAMETERS}" | jq "${jq_in[@]}" -c --argjson isjson "$is_json" '
+  if $isjson then (if type == "object" then with_entries(.value |= {line: false, v: .}) else error("shape") end)
+  else split("\n") | map(sub("\r$"; "")) | map(select(length &gt; 0 and (startswith("#") | not)))
+       | map(capture("^(?&lt;k&gt;[A-Za-z_][A-Za-z0-9_]*)=(?&lt;v&gt;(?s:.*))$") // error("line"))
+       | (group_by(.k) | map(select(length &gt; 1)) | if length &gt; 0 then error("dup") else . end) as $_
+       | map({(.k): {line: true, v: .v}}) | add // {}
+  end' &gt; "${OUT_DIR}/raw.json" 2&gt;/dev/null || fail "The parameters input is not a JSON object or name=value lines."</code></pre>
+      <p>jq's own messages can quote the input, so stderr is discarded and the message above is fixed. Shell redirection of stdin does not put the value on <code>argv</code>.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement the parser as above; both forms; the duplicate, name-syntax and shape errors; an empty object <code>{}</code> counts as "no inline values".</span></li>
+      </ul>
+
+      <h4>3. Find the types and coerce</h4>
+      <p>The types always come from <code>IN_TEMPLATE</code> alone, not from the <code>.bicepparam</code> (line values need the types before the overrides for the compile in task 5 can be built): a <code>.bicep</code> file is compiled with <code>az bicep build --file "$IN_TEMPLATE" --stdout --only-show-errors</code> (the Bicep version is already selected by the caller); a <code>.json</code> file is read; a template spec ID uses <code>az ts show --template-spec "$IN_TEMPLATE" --query mainTemplate -o json</code>. If none of these gives JSON with a <code>parameters</code> object, the template is "unknown": every inline value is treated as secure, line values are kept as strings, and the comment says so.</p>
+      <pre><code>def rtype($t; $n):
+  ($t.parameters[$n] // null) as $p
+  | if $p == null then null
+    else (if ($p | has("$ref"))
+          then ($t.definitions[($p["$ref"] | ltrimstr("#/definitions/"))] // {})
+          else $p end).type // "unknown"
+    end;
+
+def coerce($ty; $line; $v):
+  ($ty | ascii_downcase) as $t
+  | try (
+      if $line then
+        if   $t == "string" or $t == "securestring" then $v
+        elif $t == "int"  then ($v | tonumber | if . == floor then . else error("t") end)
+        elif $t == "bool" then ($v | ascii_downcase | if . == "true" then true elif . == "false" then false else error("t") end)
+        elif $t == "array" then ($v | fromjson | if type == "array" then . else error("t") end)
+        elif $t == "object" or $t == "secureobject" then ($v | fromjson | if type == "object" then . else error("t") end)
+        else $v end
+      else
+        if   ($t == "string" or $t == "securestring") and ($v | type) == "string" then $v
+        elif $t == "int"  and ($v | type) == "number" and $v == ($v | floor) then $v
+        elif $t == "bool" and ($v | type) == "boolean" then $v
+        elif $t == "array" and ($v | type) == "array" then $v
+        elif ($t == "object" or $t == "secureobject") and ($v | type) == "object" then $v
+        elif $t == "unknown" then $v
+        else error("t") end
+      end
+    ) catch {"__err": ("expected " + $t)};</code></pre>
+      <p>Run it as a jq program that reads <code>raw.json</code> and a <code>types.json</code> (<code>{name: type}</code>, made from the template with <code>rtype</code>), and writes <code>typed.json</code> (<code>{name: typedValue}</code>) and <code>names.json</code> (<code>{name: {secure: bool, type}}</code>). Any <code>__err</code>, and any name whose type is <code>null</code> (not declared by the template), is collected as <code>name: reason</code> and the script fails with those lines. Names and expected types are not secrets; values are never in the message.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement template loading for <code>.bicep</code>, <code>.json</code>, template spec and the "unknown" fallback, with the Bicep-missing case giving a fixed message.</span></li>
+        <li><code class="status">[]</code> <span>Implement <code>rtype</code> (including <code>$ref</code>) and <code>coerce</code>; secure means type lower-cased is <code>securestring</code> or <code>secureobject</code>, or the template is unknown.</span></li>
+        <li><code class="status">[]</code> <span>Collect all errors before failing, so one run reports every bad parameter.</span></li>
+      </ul>
+
+      <h4>4. Mask and prepare the scrub list</h4>
+      <p>Before anything else uses the values, emit mask commands for every secure value, then write <code>secrets.list</code> (NUL separated) for the caller's scrub. For a string: the value, its JSON-escaped form (<code>tojson | .[1:-1]</code>, because az prints JSON), and each non-empty line. For a <code>secureObject</code>: the compact JSON and every string leaf of four or more characters.</p>
+      <pre><code>mask() {   # stdin: one value per line (a line of a multi-line value is its own mask)
+  while IFS= read -r line; do
+    test -z "$line" &amp;&amp; continue
+    if test -n "${TF_BUILD-}"; then echo "##vso[task.setsecret]${line}"; else echo "::add-mask::${line}"; fi
+  done
+}
+jq -r --slurpfile n "${OUT_DIR}/names.json" '
+  to_entries[] | select($n[0][.key].secure) | .value
+  | if type == "string" then ., tojson[1:-1] else (tojson), ([.. | strings | select(length &gt;= 4)][]) end' \
+  "${OUT_DIR}/typed.json" | mask
+jq -j '... same selection ... | (., "\u0000")' "${OUT_DIR}/typed.json" &gt; "${OUT_DIR}/secrets.list"</code></pre>
+      <p><code>mask</code> reads values from a pipe, so nothing is in <code>argv</code>; the <code>echo</code> is a shell builtin. The runner masks the stdout of the step, which includes the child's.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement <code>mask</code> for GitHub (<code>::add-mask::</code>) and Azure DevOps (<code>##vso[task.setsecret]</code>) and <code>secrets.list</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add <code>scrub_file &lt;list&gt; &lt;file&gt;</code>, used by the callers (see phase 2): <code>LIST="$1" perl -0777 -i -pe 'BEGIN{ open(my $f,"&lt;",$ENV{LIST}) or exit; local $/="\0"; @s = sort { length($b) &lt;=> length($a) } grep { length } map { chomp; $_ } &lt;$f&gt; } for my $s (@s) { s/\Q$s\E/[redacted]/g }' "$2"</code>. The marker is <code>[redacted]</code>, not asterisks, because Azure DevOps colours a run of three asterisks in a diff block as a comment (<code>az-deploy.sh:11-16</code>).</span></li>
+      </ul>
+
+      <h4>5. Merge into one parameters file</h4>
+      <pre><code># base = first token of IN_TEMPLATE_PARAMS (may be empty)
+# wrap = { "name": { "value": typed } }
+wrap=$(jq 'with_entries(.value |= {value: .})' "${OUT_DIR}/typed.json")
+case "${base}" in
+  *.bicepparam)
+    # Bicep applies the overrides: required parameters missing from the file are supplied (BCP258 otherwise)
+    BICEP_PARAMETERS_OVERRIDES="$(cat "${OUT_DIR}/typed.json")" \
+      az bicep build-params --file "${base}" --stdout --only-show-errors 2&gt;"${OUT_DIR}/err" \
+      | jq -r '.parametersJson' &gt; "${OUT_DIR}/base.json" || fail "Unable to compile ${base} with the inline parameters. ..."
+    ;;
+  *.json) cp "${base}" "${OUT_DIR}/base.json" ;;
+  '')     echo '{"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#","contentVersion":"1.0.0.0","parameters":{}}' &gt; "${OUT_DIR}/base.json" ;;
+esac
+# inline wins again, whatever the base was; a file may wrap values in "parameters"
+jq --argjson w "${wrap}" '(.parameters // .) as $p | {"$schema": (."$schema" // "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#"), contentVersion: (.contentVersion // "1.0.0.0"), parameters: ($p + $w)}' \
+  "${OUT_DIR}/base.json" &gt; "${OUT_DIR}/parameters.json"</code></pre>
+      <p>Notes. <code>--argjson w "${wrap}"</code> would put values on <code>argv</code>: write <code>wrap</code> to a file and use <code>--slurpfile</code> instead. The compile errors of Bicep (<code>BCP</code> codes, file and line) can be shown, but the stderr file is first passed through <code>scrub</code> with <code>secrets.list</code> (a Bicep error can quote a value). Key Vault references in a base JSON file are kept as they are. <code>using none</code> and registry <code>using</code> targets are whatever <code>az bicep build-params</code> supports; if it fails the message suggests a JSON parameters file.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement the merge for <code>.bicepparam</code>, JSON file, no file. Use <code>--slurpfile</code>, not <code>--argjson</code>, for values.</span></li>
+        <li><code class="status">[]</code> <span>Reject legacy <code>KEY=VALUE</code> tokens in <code>IN_TEMPLATE_PARAMS</code> when <code>INLINE_PARAMETERS</code> is set: "Move the KEY=VALUE pairs from template_parameters into parameters."</span></li>
+        <li><code class="status">[]</code> <span>Check the Bicep version is 0.22.6 or later when the base is a <code>.bicepparam</code> and say so if not (<code>az bicep version</code>).</span></li>
+      </ul>
+
+      <h4>6. Record, compare, outputs, comment section</h4>
+      <pre><code>hash() { sha256sum 2&gt;/dev/null || shasum -a 256; }
+# $1 = salt. Prints {"name":"hex",...}. The value goes through a pipe, not argv.
+hashes() {
+  local n h out='{}'
+  for n in $(jq -r 'keys[]' "${OUT_DIR}/typed.json"); do          # names are validated: safe to word-split
+    h=$(jq -cS --arg n "$n" '.[$n]' "${OUT_DIR}/typed.json" | { printf '%s|%s|' "$1" "$n"; cat; } | hash | cut -d' ' -f1)
+    out=$(jq -c --arg n "$n" --arg h "$h" '. + {($n): $h}' &lt;&lt;&lt; "$out")
+  done
+  printf '%s' "$out"
+}
+# what-if: salt=$(openssl rand -hex 8 2&gt;/dev/null || od -An -N8 -tx1 /dev/urandom | tr -d ' \n')
+record=$(jq -cn --arg s "$salt" --argjson p "$(hashes "$salt")" '{v: 1, salt: $s, params: $p}')
+echo "inline_parameters=${record}" &gt;&gt; "${GITHUB_OUTPUT:-/dev/null}"            # Azure DevOps: ##vso[task.setvariable variable=inline_parameters;isOutput=true]
+# create: salt from the plan, then compare per name
+planned=$(jq -c . &lt;&lt;&lt; "${PLAN_INLINE_PARAMETERS}")   # v must be 1
+current=$(hashes "$(jq -r .salt &lt;&lt;&lt; "$planned")")
+jq -n --argjson p "$planned" --argjson c "$current" '
+  {changed: [$c | keys[] | select($p.params[.] != null and $p.params[.] != $c[.])],
+   added:   [$c | keys[] | select($p.params[.] == null)],
+   removed: [$p.params | keys[] | select($c[.] == null)]}'</code></pre>
+      <p>Outcomes at <code>create</code>: both empty, return silently; inline values and no plan record: <code>The deployment has inline parameters (names) but the plan has no record of any. Pass the plan's inline_parameters output (plan_inline_parameters).</code>; a plan record and no inline values: <code>The plan used inline parameters (names) but this deployment has none.</code>; otherwise any of <code>changed</code>, <code>added</code>, <code>removed</code> non-empty fails with the three lists. The plan's record carries hashes only, so for the "plan record and no inline values" message the names come from the record keys.</p>
+      <p>Comment section <code>step_a0_inline_parameters.md</code>, at what-if and create:</p>
+      <pre><code>## Inline parameters
+
+These values were applied over the parameters file. At deploy they must match the plan.
+
+| Parameter | Value |
+|---|---|
+| `imageTag` | `1.4.2` |
+| `replicas` | `3` |
+| `adminPassword` | secure, hidden |</code></pre>
+      <p>Values are rendered with the pipe character escaped, newlines shown as <code>⏎</code>, and cut at 200 characters with the original length noted. <code>inline-parameters.json</code> in <code>LOG_PATH</code>: <code>{"schemaVersion":1,"parameters":[{"name":"imageTag","secure":false,"value":"1.4.2"},{"name":"adminPassword","secure":true}]}</code>, no value for a secure one. Never write <code>typed.json</code>, <code>parameters.json</code> or <code>secrets.list</code> outside <code>OUT_DIR</code>.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement <code>hashes</code>, the record, the three comparison failures, and the success path that prints <code>Inline parameters match the plan (N)</code>.</span></li>
+        <li><code class="status">[]</code> <span>Write the comment section and <code>inline-parameters.json</code> for <code>what-if</code> and <code>create</code> only.</span></li>
+        <li><code class="status">[]</code> <span>Handle <code>v</code> other than 1 in the plan record with a fixed message ("made by a different version of bicep-action").</span></li>
+      </ul>
+
+      <h4>7. Testing Strategy</h4>
+      <p>A plain bash harness, <code>tests/inline-parameters.test.sh</code>, that creates a temp directory per case, copies <code>tests/fixtures/inline/*</code> in, sets the environment from the contract, runs the script, and asserts on files and on captured stdout/stderr. The fixture template declares: <code>name</code> (string, in the file), <code>tag</code> (string, required, not in the file), <code>count</code> (int), <code>enabled</code> (bool), <code>tags</code> (object), <code>adminPassword</code> (<code>@secure()</code> string, default none), <code>conn</code> (<code>@secure()</code> object), plus one parameter of a user-defined <code>@secure()</code> type to cover <code>$ref</code>. No Azure login is needed: the script only calls <code>az bicep</code>.</p>
+      <p>Edge cases: a numeric-looking string for a string parameter (<code>1234</code> must stay a string in line form, and be rejected as a number in JSON form); a value with <code>"</code>, <code>\</code>, <code>$</code>, a backtick, a space, a newline and a non-ASCII character; an empty string; a name the template does not declare; a duplicate name; unknown template (template spec path stubbed to fail); legacy pair together with <code>parameters</code>.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck -x scripts/inline-parameters.sh tests/inline-parameters.test.sh</code> — no warnings.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh parse</code> — both input forms, typing per parameter type, every error case; asserts <code>typed.json</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh merge</code> — <code>.bicepparam</code> with a required parameter supplied only inline compiles; inline beats the file; the JSON-file base; no base; the result is valid for <code>jq -e '.parameters | type == "object"'</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh secrets</code> — with the awkward secret from the edge cases: no line of the script's stdout and stderr other than <code>::add-mask::</code>/<code>##vso[task.setsecret]</code> lines contains it (raw or JSON-escaped); neither does any file in <code>LOG_PATH</code>; <code>scrub_file</code> removes it from a file that does contain it.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh record</code> — what-if gives a record with one hash per name and no value; a create with the same values passes; one changed value, one added, one removed, an empty deploy, an empty plan record, and an unresolved <code>$(...)</code> record each give the specified outcome, and the failure text names parameters and contains no value.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ============================ PHASE 2 ============================ -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: Wire the scripts</h3>
+      <p>Call the resolver from <code>az-deploy.sh</code> and <code>azure-cost.sh</code>, replace the parameters argument with the merged file, scrub on exit, and keep everything else byte-identical when <code>parameters</code> is empty.</p>
+
+      <h4>1. <code>scripts/az-deploy.sh</code></h4>
+      <p>Insert after the subscription selection (after line 285) and before the stack block (line 286). That is after the Bicep CLI has been selected (<code>:256-269</code>, which needs the original <code>IN_TEMPLATE_PARAMS</code> to see a <code>.bicepparam</code>) and after the parameters URL has been downloaded (<code>:235-253</code>).</p>
+      <pre><code># Inline parameters (see inline-parameters.sh). With none set and no plan record, nothing here runs.
+if test -n "${INLINE_PARAMETERS-}" || \
+   { [ "${SCRIPT_ACTION}" = 'create' ] &amp;&amp; test -n "${PLAN_INLINE_PARAMETERS-}" &amp;&amp; [[ "${PLAN_INLINE_PARAMETERS}" != *'$('* ]]; }; then
+  inline_dir=$(mktemp -d "${RUNNER_TEMP:-${AGENT_TEMPDIRECTORY:-${TMPDIR:-/tmp}}}/inline-parameters.XXXXXX")
+  if INLINE_ACTION="${SCRIPT_ACTION}" OUT_DIR="${inline_dir}" \
+     "$(dirname "${BASH_SOURCE[0]}")/inline-parameters.sh"; then
+    if test -f "${inline_dir}/parameters.json"; then
+      IN_TEMPLATE_PARAMS="${inline_dir}/parameters.json"
+    fi
+  else
+    exit 1   # in an if, so the ERR trap does not overwrite the Markdown the script wrote
+  fi
+fi</code></pre>
+      <p>Also: set <code>inline_dir=''</code> near the top, before the traps. Extend <code>cleanup()</code> (<code>:17</code>) to scrub then remove:</p>
+      <pre><code>if test -n "${inline_dir-}" &amp;&amp; test -d "${inline_dir}"; then
+  if test -f "${inline_dir}/secrets.list"; then
+    for f in "${LOG_PATH}/step_${LOG_ORDER}_${LOG_NAME}."* "${summary_file}"; do
+      test -f "$f" &amp;&amp; scrub_file "${inline_dir}/secrets.list" "$f"
+    done
+  fi
+  rm -rf "${inline_dir}"
+fi</code></pre>
+      <p><code>scrub_file</code> moves to a small sourced helper or is duplicated in <code>az-deploy.sh</code> and <code>azure-cost.sh</code>; prefer one definition in <code>inline-parameters.sh</code> reachable as <code>inline-parameters.sh scrub &lt;list&gt; &lt;file&gt;</code> so there is one copy. The classic <code>--parameters</code> line (<code>:561-563</code>) and the stack <code>read -ra</code> (<code>:378-381</code>) need no change: the string is now one path with no spaces, unless the temp directory has spaces, so quote it: change <code>cmd+=" --parameters ${IN_TEMPLATE_PARAMS}"</code> to keep the original unquoted form for the legacy path and use <code>printf '%q'</code> only for the merged path.</p>
+      <p><code>whatif-summary.json</code> gets an additive field <code>inlineParameters</code>: <code>null</code>, or <code>{"names": [...], "secure": [...]}</code> read from <code>${LOG_PATH}/inline-parameters.json</code> (no values). In <code>write_summary</code> (<code>:167-210</code>) add <code>--slurpfile</code>-free reading: <code>inline=$(jq -c 'select(.schemaVersion==1) | {names: [.parameters[].name], secure: [.parameters[] | select(.secure) | .name]}' "${LOG_PATH}/inline-parameters.json" 2&gt;/dev/null || echo null)</code> and <code>--argjson inline "${inline:-null}"</code>; <code>schemaVersion</code> stays 1 because the change is additive. <code>docs/how-it-works.md:269</code> documents it.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add the block, the <code>inline_dir</code> initialisation and the <code>cleanup()</code> change in <code>scripts/az-deploy.sh</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add the <code>inlineParameters</code> field to <code>write_summary</code> and its two callers (<code>:480-487</code>, <code>:607-611</code>).</span></li>
+        <li><code class="status">[]</code> <span>Confirm the <code>Run:</code> line (<code>:584</code>) and the stack <code>Run:</code> lines show only the merged file path when inline values are set, and are unchanged otherwise.</span></li>
+      </ul>
+
+      <h4>2. <code>scripts/azure-cost.sh</code></h4>
+      <p>At <code>:182-191</code>, when <code>INLINE_PARAMETERS</code> is set, replace the two branches: call the resolver with <code>INLINE_ACTION=cost</code>, and pass <code>--parameters "${inline_dir}/parameters.json"</code> to the estimator. Skip <code>--inline</code> (secrets on argv) and the compiled <code>TEMPLATE_PARAMS_FILE</code>. Use the existing <code>fail</code> helper on error and the same scrub-and-remove on exit. The cost step needs <code>INLINE_PARAMETERS</code> in its environment (phases 3 and 4).</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Edit <code>scripts/azure-cost.sh</code>: resolver call, <code>--parameters</code> merged file, scrub and remove on exit.</span></li>
+      </ul>
+
+      <h4>3. Keep it out of the debug output</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>scripts/debug-info.sh:196</code>: add <code>grep -v -E '^(INLINE_|PLAN_INLINE_)'</code> to the filter. The variable name <code>INLINE_PARAMETERS</code> already does not match <code>^IN_</code>, so this is a second guard; Azure DevOps puts every pipeline variable in the environment of every task.</span></li>
+        <li><code class="status">[]</code> <span><code>scripts/pipeline-summary.sh:40-41</code>: print <code>Inline parameters: set (names only)</code> from <code>INLINE_PARAMETERS</code> when set, by listing names with <code>jq</code> or the line parser, never values. If that is too much, print only <code>Inline parameters: set</code>.</span></li>
+      </ul>
+
+      <h4>4. Testing Strategy</h4>
+      <p>Run <code>az-deploy.sh</code> for real against a shim. <code>tests/bin/az</code> runs <code>exec "$REAL_AZ" "$@"</code> for <code>bicep ...</code> and <code>version</code>, and for everything else appends its arguments to <code>$AZ_CALLS</code> and prints a canned JSON result (<code>what-if</code> succeeded with an empty <code>changes</code> array; <code>validate</code> with <code>properties.providers</code>). Put it first on <code>PATH</code>. The test inspects <code>$AZ_CALLS</code> and the output files. Needs <code>LOG_PATH</code>, <code>LOG_NAME</code>, <code>LOG_ORDER</code>, <code>RUN_ID</code>, <code>IN_SCOPE=group</code>, <code>IN_RESOURCE_GROUP</code>, <code>IN_LOCATION</code> and, for the golden test, no <code>INLINE_PARAMETERS</code>.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck -x scripts/az-deploy.sh scripts/azure-cost.sh scripts/debug-info.sh scripts/pipeline-summary.sh</code> — no new findings (run it first on a clean <code>origin/main</code> checkout and diff the two outputs).</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh golden</code> — with <code>INLINE_PARAMETERS</code> and <code>PLAN_INLINE_PARAMETERS</code> unset, the recorded az argument list for classic what-if, classic create, stack what-if and stack create is identical to the one recorded from <code>origin/main</code> (the test stores the expected lists in <code>tests/fixtures/inline/golden-*.txt</code>, generated once from the unmodified script).</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh wired</code> — classic and stack what-if with inline values: <code>--parameters</code> is one path in the temp directory, the path is gone after the script ends, the <code>step_a0_inline_parameters.md</code> file exists, <code>inline_parameters</code> is in <code>$GITHUB_OUTPUT</code>, and with <code>TF_BUILD=1</code> the <code>##vso[task.setvariable ...isOutput=true]</code> form is printed.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh wired-secret</code> — run what-if then create with a <code>@secure()</code> value; <code>grep -rF "$SECRET" "$LOG_PATH" "$AZ_CALLS"</code> finds nothing (including the JSON-escaped form); the stub's canned output is made to echo the secret, to prove the scrub removes it from the step log and Markdown.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh deploy-mismatch</code> — create with a changed value exits non-zero before any <code>az deployment ... create</code> or <code>az stack ... create</code> call is recorded.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh cost</code> — <code>azure-cost.sh</code> with a stubbed estimator binary is given <code>--parameters &lt;merged&gt;</code> and no <code>--inline</code>.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ============================ PHASE 3 ============================ -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: GitHub actions and examples</h3>
+      <p>Add the inputs, pass them only to the steps that need them, expose the plan output, and update the examples so the new output is wired the way <code>stack_settings</code> is.</p>
+
+      <h4>1. <code>.github/actions/plan/action.yml</code></h4>
+      <pre><code>inputs:
+  parameters:
+    description: "Inline parameter values, a JSON object or name=value lines, merged over template_parameters (inline wins). Pass secure values only from secrets. The plan records them; the deploy refuses different ones."
+    required: false
+    default: ""
+outputs:
+  inline_parameters:
+    description: The plan's record of the inline parameters (hashes, no values). Pass it to the deploy action as plan_inline_parameters.
+    value: ${{ steps.what_if.outputs.inline_parameters }}</code></pre>
+      <p>Add <code>INLINE_PARAMETERS: ${{ inputs.parameters }}</code> to the env of the <code>Validate</code> (<code>:205</code>), <code>What-if</code> (<code>:224</code>) and <code>Cost estimate</code> (<code>:287</code>) steps. Do <strong>not</strong> add it to <code>Show debug info</code> (<code>:357</code>), which prints its env, or to the PSRule or snapshot steps. The step ids are unchanged.</p>
+
+      <h4>2. <code>.github/actions/deploy/action.yml</code></h4>
+      <pre><code>inputs:
+  parameters: {description: "...same as the plan...", required: false, default: ""}
+  plan_inline_parameters:
+    description: "The plan action's inline_parameters output. A deployment whose inline parameters differ from the plan fails; inline parameters require it."
+    required: false
+    default: ""</code></pre>
+      <p>Add <code>INLINE_PARAMETERS: ${{ inputs.parameters }}</code> and <code>PLAN_INLINE_PARAMETERS: ${{ inputs.plan_inline_parameters }}</code> to <code>Create deployment</code> (<code>:175</code>). The deploy's <code>Show debug info</code> step has its own short env list; leave it.</p>
+
+      <h4>3. Examples</h4>
+      <p>In <code>docs/examples/github/recommended.yml</code>, <code>minimal.yml</code>, <code>multi-environment.yml</code>, <code>auto-approve-safe-plans.yml</code>: add <code>inline_parameters: ${{ steps.plan.outputs.inline_parameters }}</code> to the plan job outputs (next to <code>stack_settings</code>) and <code>plan_inline_parameters: ${{ needs.plan.outputs.inline_parameters }}</code> to the deploy step. In <code>recommended.yml</code> add a commented example under the plan and deploy <code>with:</code>:</p>
+      <pre><code># parameters: |                           # values that change per run; the same text in plan and deploy
+#   imageTag=${{ github.run_number }}
+#   adminPassword=${{ secrets.ADMIN_PASSWORD }} # secure values only from secrets, never a literal</code></pre>
+      <p>Because the deploy compares against the plan, the text must be the same in both jobs and must not depend on anything that differs between them. In <code>auto-approve-safe-plans.yml</code> add a check that fails closed when <code>whatif-summary.json</code> has <code>inlineParameters.secure</code> non-empty, so a plan that carries secure inline values is not auto-approved without a human; this is an example only.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Edit <code>.github/actions/plan/action.yml</code>: input, output, env on three steps.</span></li>
+        <li><code class="status">[]</code> <span>Edit <code>.github/actions/deploy/action.yml</code>: two inputs, two env entries.</span></li>
+        <li><code class="status">[]</code> <span>Update the four example workflows and <code>docs/examples/README.md</code> (one sentence).</span></li>
+      </ul>
+
+      <h4>4. Testing Strategy</h4>
+      <p>The actions cannot run a real Azure deployment in CI here, so check structure and wiring statically, then run the scripts through the Phase 2 harness with the same environment the action would give them. A pull request on this repository has no workflow that exercises the actions, so also do one manual run in a sandbox repository against a test resource group using <code>what-if</code> only for the plan and a throw-away resource group for the deploy.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>yq '.' .github/actions/plan/action.yml .github/actions/deploy/action.yml &gt; /dev/null</code> — both parse.</span></li>
+        <li><code class="status">[]</code> <span><code>actionlint .github/actions/*/action.yml docs/examples/github/*.yml</code> — if <code>actionlint</code> is not installed, <code>brew install actionlint</code> or <code>go run github.com/rhysd/actionlint/cmd/actionlint@latest</code>; no errors. (Composite action metadata is only partly linted; the example workflows are the main target.)</span></li>
+        <li><code class="status">[]</code> <span><code>yq '[.runs.steps[] | select(.name == "Show debug info") | .env | keys | .[] | select(test("INLINE"))] | length' .github/actions/plan/action.yml</code> — prints <code>0</code>: the debug step does not receive the input. Same for the deploy action.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -n "INLINE_PARAMETERS" .github/actions/plan/action.yml</code> — exactly three steps (Validate, What-if, Cost estimate).</span></li>
+        <li><code class="status">[]</code> <span>Manual, sandbox repository: plan with <code>parameters</code> including a secret from <code>secrets.*</code>, check the PR comment shows the names and non-secret values, the secret as hidden, and that the workflow log and the <code>plan_logs</code> artifact do not contain the secret; then change the deploy's <code>parameters</code> and confirm the deploy fails before deploying.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ============================ PHASE 4 ============================ -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: Azure DevOps templates and single-file pipeline</h3>
+      <p>Three files carry the same logic: <code>.azuredevops/templates/plan-stage.yml</code>, <code>.azuredevops/templates/deploy-stage.yml</code> and <code>.azuredevops/ms.azure.deploy.yml</code> (plan and deploy stages inline). Azure DevOps scripts are downloaded at run time from <code>WORKFLOW_VERSION</code>, so the new script must be in every download list or the run fails with a 404.</p>
+
+      <h4>1. Script download lists</h4>
+      <p>Add <code>"inline-parameters"</code> to the <code>SCRIPTS</code> array in: <code>plan-stage.yml</code> (Install tools, around <code>:84</code>), <code>deploy-stage.yml</code> (around <code>:93</code>), and both stages of <code>ms.azure.deploy.yml</code> (plan around <code>:88</code>, deploy around <code>:314</code>). <code>chmod +x</code> runs for every entry already.</p>
+
+      <h4>2. Variable and step environment</h4>
+      <p>Azure DevOps maps pipeline variables to the environment of every task, but not secret variables, and the stage templates take their settings from the <code>variables</code> object. To be certain a secret reference expands, give the stage templates a string parameter and write it in the step <code>env:</code>, where <code>$(secretVar)</code> macros are expanded at run time:</p>
+      <pre><code># plan-stage.yml and deploy-stage.yml
+parameters:
+  - name: inlineParameters
+    type: string
+    default: ''
+...
+# on the Validate, What-if and Cost estimate tasks (plan) and the Deploy task (deploy):
+            env:
+              INLINE_PARAMETERS: ${{ parameters.inlineParameters }}
+              PLAN_INLINE_PARAMETERS: $(PLAN_INLINE_PARAMETERS)      # deploy only</code></pre>
+      <p>The same plan and deploy value is passed by the caller, for example <code>inlineParameters: '{"imageTag":"$(Build.BuildId)","adminPassword":"$(adminPassword)"}'</code>; the text is single-quoted in YAML so the JSON braces and quotes are literal. For <code>ms.azure.deploy.yml</code>, add a commented variable <code>INLINE_PARAMETERS</code> and the same step <code>env:</code> line <code>INLINE_PARAMETERS: $(INLINE_PARAMETERS)</code> on the four tasks. Do <strong>not</strong> add it to the Debug information and Pipeline summary tasks (their <code>env</code> lists are explicit, but see below).</p>
+      <div class="callout"><strong>Check on a real pipeline.</strong> Azure DevOps puts every <em>non-secret</em> pipeline variable in every task's environment, including the Debug information task. A variable named <code>INLINE_PARAMETERS</code> defined in <code>variables:</code> would be there too, and a secret macro nested in its value may or may not be expanded. The step-level <code>env:</code> above is the documented way and is the one to rely on. The Debug information filter (<code>debug-info.sh</code>) already drops the name; verify in the first run that no log shows the value.</div>
+
+      <h4>3. Plan output and deploy wiring</h4>
+      <p>The what-if task is already <code>name: what_if</code>, so the child's <code>##vso[task.setvariable variable=inline_parameters;isOutput=true]</code> is available as <code>what_if.inline_parameters</code>. In <code>deploy-stage.yml:71-73</code> and <code>ms.azure.deploy.yml:291-294</code> add next to <code>PLAN_STACK_SETTINGS</code>:</p>
+      <pre><code>PLAN_INLINE_PARAMETERS: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['what_if.inline_parameters'] ]
+# ms.azure.deploy.yml:
+PLAN_INLINE_PARAMETERS: $[ stageDependencies.Plan.plan.outputs['what_if.inline_parameters'] ]</code></pre>
+      <p>When the plan set no inline parameters the output does not exist and the expression gives an empty string, which is the "both empty" case. An unwired template gives the literal <code>$(PLAN_INLINE_PARAMETERS)</code>, which the script treats as empty; with inline values set at deploy it then fails with "no plan record", the safe direction.</p>
+
+      <h4>4. Examples and docs</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add <code>"inline-parameters"</code> to the four <code>SCRIPTS</code> arrays.</span></li>
+        <li><code class="status">[]</code> <span>Add the <code>inlineParameters</code> template parameter and the task <code>env:</code> lines in <code>plan-stage.yml</code> and <code>deploy-stage.yml</code>; update the header comment blocks listing parameters.</span></li>
+        <li><code class="status">[]</code> <span>Add <code>PLAN_INLINE_PARAMETERS</code> to the deploy job variables in <code>deploy-stage.yml</code> and <code>ms.azure.deploy.yml</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add the commented <code>INLINE_PARAMETERS</code> variable and the task <code>env:</code> lines to <code>ms.azure.deploy.yml</code> (Validate, What-if, Cost estimate, Deploy).</span></li>
+        <li><code class="status">[]</code> <span>Add a commented <code>inlineParameters</code> to <code>docs/examples/azure-devops/multi-environment.yml</code> and <code>variable-group.yml</code>; one paragraph in <code>.azuredevops/README.md</code>.</span></li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <p>Static checks locally; the secret expansion and output wiring can only be proven by a run. Use a sandbox Azure DevOps project, <code>WORKFLOW_VERSION</code> set to the feature branch, a resource group with <code>what-if</code> only for the plan and a throw-away group for the deploy.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>yq '.' .azuredevops/ms.azure.deploy.yml .azuredevops/templates/*.yml &gt; /dev/null</code> — all parse (the <code>${{ }}</code> and <code>$[ ]</code> expressions are plain scalars to <code>yq</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>grep -c '"inline-parameters"' .azuredevops/ms.azure.deploy.yml .azuredevops/templates/plan-stage.yml .azuredevops/templates/deploy-stage.yml</code> — <code>2</code>, <code>1</code>, <code>1</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -n "PLAN_INLINE_PARAMETERS" .azuredevops/ms.azure.deploy.yml .azuredevops/templates/deploy-stage.yml</code> — the variable and the step env in both.</span></li>
+        <li><code class="status">[]</code> <span>Manual, sandbox project: run the single-file pipeline with <code>INLINE_PARAMETERS</code> containing a secret variable. Confirm: the secret is expanded (the deployment receives it); it is masked in every task log, including Debug information; the PR thread shows names and non-secret values; <code>Pipeline.Workspace/logs</code> artifact has no occurrence (<code>grep -rF</code> after download); changing the deploy stage's value fails the Deploy task before the deployment; a stage template run with <code>inlineParameters</code> behaves the same.</span></li>
+        <li><code class="status">[]</code> <span>Manual: a pull-request run where the plan stage has no inline values and the deploy stage has none — behaviour and logs are unchanged from <code>main</code>.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ============================ PHASE 5 ============================ -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Documentation</h3>
+      <p>The docs currently tell users the opposite of what is now possible: <code>docs/configuration.md:281</code> says inline <code>KEY=VALUE</code> parameters appear in logged commands and must not be used for secrets. That stays true for the legacy form and must say what to use instead.</p>
+
+      <h4>1. <code>docs/configuration.md</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Settings table (<code>:43-49</code>): add <code>Inline parameters | parameters | INLINE_PARAMETERS | P D | empty</code> after Template parameters, and <code>Plan inline parameters | plan_inline_parameters | automatic | D | empty</code> after Plan stack settings.</span></li>
+        <li><code class="status">[]</code> <span>New section <code>### parameters / INLINE_PARAMETERS</code> after <code>template_parameters</code> (<code>:115-121</code>): both formats with one example each; inline wins; types (line form typed from the template; JSON must match); unknown names fail; works in classic and stack; empty by default; the same text in plan and deploy; plan and deploy must run in the same workflow or pipeline run; secure values (below); what is not covered (PSRule and the Bicep snapshot read the repository files only).</span></li>
+        <li><code class="status">[]</code> <span>Mark the <code>KEY=VALUE</code> bullet in <code>template_parameters</code> as legacy: it is passed to az as written, appears in logs, is not recorded in the plan and cannot be combined with <code>parameters</code>; prefer <code>parameters</code>.</span></li>
+        <li><code class="status">[]</code> <span>New <code>### plan_inline_parameters</code> next to <code>plan_stack_settings</code> (<code>:164</code>); and for Azure DevOps, the <code>inline_parameters</code> row in the plan outputs table (<code>:262</code>) and the note at <code>:254</code> (the deploy stage also reads <code>PLAN_INLINE_PARAMETERS</code>).</span></li>
+        <li><code class="status">[]</code> <span>Rewrite the secrets paragraph (<code>:281</code>): secure inline values must come from a GitHub secret or an Azure DevOps secret variable, never a literal in the workflow file; they are masked and scrubbed; they are never in the plan record (only a salted hash); a hash of a short or guessable secret can be brute-forced by someone who can read the logs artifact, so use long random values; the compiled <code>*.parameters.json</code> copy in the logs artifact (from <code>az-bicep.sh</code>) is of the repository file and still has file values, so keep secrets out of that file; <code>readEnvironmentVariable()</code> in a <code>.bicepparam</code> remains the recommended route for secrets.</span></li>
+      </ul>
+
+      <h4>2. <code>docs/how-it-works.md</code> and others</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>how-it-works.md:96-106</code> (Deploy exactly what was planned): add a bullet "The same inline parameters" beside the Bicep version and stack settings bullets, with the failure messages.</span></li>
+        <li><code class="status">[]</code> <span><code>how-it-works.md:55-80</code>: add a row to the plan-job table "Inline parameters" (between Bicep build params and Validate: merges, masks, records) and a line to the deploy-job description; renumber the table.</span></li>
+        <li><code class="status">[]</code> <span>New short section <code>## Inline parameters</code> in <code>how-it-works.md</code>: the merge order, how <code>.bicepparam</code> is compiled with overrides, how secure is detected (<code>securestring</code>, <code>secureObject</code>, <code>$ref</code>, unknown template means all secure), the record format, the comparison, the PR comment section, the files that never hold values.</span></li>
+        <li><code class="status">[]</code> <span><code>how-it-works.md:269</code>: document <code>inlineParameters</code> in <code>whatif-summary.json</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/troubleshooting.md:53</code> table: add the rows "The deployment has inline parameters but the plan has no record", "The plan used inline parameters but this deployment has none", and "Inline parameters differ from the plan (names)".</span></li>
+        <li><code class="status">[]</code> <span><code>README.md</code>: one bullet in the feature list if it has one.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Docs are tested by checking them against the code they describe. Every input and variable name in the docs must exist in the actions or templates, and every message quoted in troubleshooting must exist in <code>inline-parameters.sh</code>.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>for n in INLINE_PARAMETERS PLAN_INLINE_PARAMETERS plan_inline_parameters inline_parameters; do grep -rlq "$n" docs scripts .github .azuredevops || echo "missing $n"; done</code> — prints nothing.</span></li>
+        <li><code class="status">[]</code> <span>For each message in the new troubleshooting rows: <code>grep -F "<em>message start</em>" scripts/inline-parameters.sh</code> — found.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn "KEY=VALUE" docs | grep -v legacy</code> — each remaining hit is read and either marked legacy or removed.</span></li>
+        <li><code class="status">[]</code> <span>Open the changed Markdown in a previewer or <code>npx -y markdown-link-check docs/configuration.md docs/how-it-works.md docs/adr/0006-inline-parameters.md</code> — no broken relative links.</span></li>
+        <li><code class="status">[]</code> <span>Read the docs for customer names or details: <code>git diff origin/main --stat</code> then <code>grep -rniE -f ~/.customer-denylist docs scripts tests specs</code> — nothing. The repository is public; examples use generic names only.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <!-- ============================ PHASE 6 ============================ -->
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 6: End-to-end scenarios and release check</h3>
+      <p>Run the scenarios in a sandbox subscription, one resource group, with a small template (a storage account with a <code>tag</code>, <code>count</code> as a tag value, an <code>@secure()</code> string that feeds a Key Vault secret or a deployment script output). Each scenario is run for GitHub and for Azure DevOps; stack mode repeats S1, S3, S4.</p>
+      <table>
+        <tr><th>#</th><th>Scenario</th><th>Expected</th></tr>
+        <tr><td>S1</td><td>Inline <code>imageTag</code> beats the same name in the <code>.bicepparam</code></td><td>The what-if shows the inline value; the comment lists it; <code>whatif-summary.json</code> has <code>inlineParameters.names</code>.</td></tr>
+        <tr><td>S2</td><td>A required parameter only supplied inline (not in the <code>.bicepparam</code>)</td><td>Compiles and plans; without inline it fails with <code>BCP258</code> as today.</td></tr>
+        <tr><td>S3</td><td>Deploy with a changed inline value</td><td>Fails before any deployment; names the parameter; no values in the message.</td></tr>
+        <tr><td>S4</td><td>Deploy with an added or removed inline parameter</td><td>Fails; lists the name under added or removed.</td></tr>
+        <tr><td>S5</td><td>A secure value from a secret, awkward characters</td><td>Not in any log, comment, artifact or summary file; shown as hidden in the comment.</td></tr>
+        <tr><td>S6</td><td>Unknown parameter name, wrong type, duplicate name</td><td>Plan fails with a fixed message listing names; nothing is deployed.</td></tr>
+        <tr><td>S7</td><td>JSON parameters file as the base, and no base file</td><td>Same merge result as S1.</td></tr>
+        <tr><td>S8</td><td>Template spec as the template</td><td>Either the template is read (types known) or all values are treated as secure and the comment says so.</td></tr>
+        <tr><td>S9</td><td>No <code>parameters</code>, no <code>plan_inline_parameters</code></td><td>The same az command lines and the same comment as <code>main</code>.</td></tr>
+        <tr><td>S10</td><td><code>parameters</code> and legacy pairs in <code>template_parameters</code></td><td>Fails with the move-the-pairs message.</td></tr>
+        <tr><td>S11</td><td>Plan in a pull request run, deploy in a later run</td><td>Fails for a per-run value such as <code>github.sha</code>; passes for a stable value. Documented, not a defect.</td></tr>
+      </table>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Run S1 to S11 on GitHub; record the run URLs in the pull request description, not in this plan's committed text with any customer detail.</span></li>
+        <li><code class="status">[]</code> <span>Run S1, S3, S5, S9 on Azure DevOps with the single-file pipeline, and S1, S3 with the stage templates.</span></li>
+        <li><code class="status">[]</code> <span>Download the logs artifact of S5 from both platforms and search it: <code>grep -rF "$SECRET" . ; grep -rF "$(printf '%s' "$SECRET" | jq -Rs '.[1:-1]')" .</code> — no output.</span></li>
+        <li><code class="status">[]</code> <span>Update this plan's metadata (<code>commits</code>, forward refs) and mark phases complete.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>shellcheck -x scripts/*.sh tests/*.sh tests/bin/az</code> — no new findings against <code>origin/main</code>.</span></li>
+      <li><code class="status">[]</code> <span><code>bash tests/inline-parameters.test.sh all</code> — every case passes: parse, merge, secrets, record, golden, wired, wired-secret, deploy-mismatch, cost.</span></li>
+      <li><code class="status">[]</code> <span><code>yq '.' .github/actions/*/action.yml .azuredevops/ms.azure.deploy.yml .azuredevops/templates/*.yml &gt; /dev/null</code> — every YAML file parses.</span></li>
+      <li><code class="status">[]</code> <span><code>actionlint docs/examples/github/*.yml</code> — no errors (install if missing).</span></li>
+      <li><code class="status">[]</code> <span><code>git diff origin/main -- scripts/az-deploy.sh | grep -E '^[-+]' | grep -vE '^(\+\+\+|---)' | wc -l</code> — reviewed by reading: only the inserted block, the <code>cleanup()</code> lines and <code>write_summary</code> changes.</span></li>
+      <li><code class="status">[]</code> <span><code>grep -rniE -f ~/.customer-denylist docs scripts tests specs .github .azuredevops</code> — nothing.</span></li>
+      <li><code class="status">[]</code> <span>Phase 6 scenarios S1 to S11 recorded as passed in the pull request.</span></li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <p>Open decisions. Each one has a default so the build can start; change the default here before building if you disagree.</p>
+
+    <details>
+      <summary>When the template cannot be read (a template spec, an offline URL), should every inline value count as secure?</summary>
+      <p class="qa-answer">Default: yes. The plan then hides every value in the comment and masks them all, and says why, because treating a secret as plain is the failure that cannot be undone. Alternative: fail the plan and ask for a readable template. That is stricter but blocks template-spec users who have no secrets.</p>
+    </details>
+
+    <details>
+      <summary>Is a per-name salted SHA-256 enough for secure values, or should the record hold no hash of a secure value at all?</summary>
+      <p class="qa-answer">Default: hash everything, as the issue says ("hash for anything marked secure"). The salt is in the record, so it stops rainbow tables only; a short or guessable secret can be brute-forced by anyone who can read the plan output. Options: a slow KDF (PBKDF2 through <code>openssl</code>, a second of work per value), or one combined digest over all values (nothing per name to attack, but the deploy cannot say which name changed). Needs a decision before release.</p>
+    </details>
+
+    <details>
+      <summary>Should a plan in a pull request run and a deploy in a later run be supported when inline values differ only by run?</summary>
+      <p class="qa-answer">Default: no, and documented. Values such as <code>github.sha</code> or a run number differ between runs, so the deploy fails, which is the contract working. The recommended layout (plan and deploy jobs in one workflow run, as in the examples) is unaffected. If a pipeline plans on the pull request and deploys on merge, it must pass stable values only, or use the file.</p>
+    </details>
+
+    <details>
+      <summary>PSRule and the Bicep snapshot do not see inline values. Acceptable?</summary>
+      <p class="qa-answer">Default: yes. A snapshot is a committed file, so a per-run value would make it fail on every run; PSRule expands the repository files itself. The what-if and the cost estimate use the merged file and show the real effect. Alternative: pass the overrides to <code>bicep snapshot</code> and to PSRule's expansion, and require users to commit a snapshot built with the same values, which defeats per-run values.</p>
+    </details>
+
+    <details>
+      <summary>Should secure values be allowed inline at all, or only through <code>readEnvironmentVariable()</code>?</summary>
+      <p class="qa-answer">Default: allowed, with masking and scrubbing, because the issue asks for it and a pipeline secret is the better source than a file. The action cannot tell whether a value came from a secret or from a literal; the documentation is the only control. Alternative: a separate <code>secure_parameters</code> input whose values must be passed as environment variables, never in the <code>with:</code> block. Clearer, but a second input to keep in step across two actions and four templates.</p>
+    </details>
+
+    <details>
+      <summary>Name: <code>INLINE_PARAMETERS</code> instead of <code>IN_PARAMETERS</code>.</summary>
+      <p class="qa-answer">Default: <code>INLINE_PARAMETERS</code>, breaking the <code>IN_*</code> convention on purpose, because <code>debug-info.sh:196</code> prints every <code>IN_*</code> variable and Azure DevOps puts every variable in every task's environment. The filter is also extended, so renaming later is cheap if you prefer the convention.</p>
+    </details>
+
+    <details>
+      <summary>Legacy <code>KEY=VALUE</code> pairs in <code>template_parameters</code>: deprecate, or leave alone?</summary>
+      <p class="qa-answer">Default: leave working and unchanged, mark legacy in the docs, error only when combined with <code>parameters</code>. Adding a warning when they are used is a one-line change if you want it.</p>
+    </details>
+
+    <details>
+      <summary>Add <code>inlineParameters</code> (names and secure flags) to <code>whatif-summary.json</code>?</summary>
+      <p class="qa-answer">Default: yes, additive, <code>schemaVersion</code> stays 1, no values. It lets an approval gate refuse to auto-approve a plan with secure inline values. Drop it if the summary file should stay about resource changes only.</p>
+    </details>
+
+    <details>
+      <summary>Azure DevOps: does a secret macro nested in a variable's value expand, or only in a step <code>env:</code>?</summary>
+      <p class="qa-answer">Not testable locally. The plan uses the step-level <code>env:</code>, which is documented to work, and tests the variable form in the sandbox run. If the variable form works it can be offered as a shorter alternative for the single-file pipeline.</p>
+    </details>
+
+    <details>
+      <summary>Minimum Bicep version.</summary>
+      <p class="qa-answer">Compiling a <code>.bicepparam</code> with overrides needs Bicep 0.22.6 or later (az enforces the same). The plan uses the latest release and the deploy the plan's, so this only matters for a pinned old version. The script reports it rather than failing in a confusing way.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+
+    <h3>Surprises in the current code and the issue text</h3>
+    <ul>
+      <li>The issue says the plan records the values "in the plan artifact". There is no plan artifact the deploy reads: the deploy recompiles from the checkout and gets <code>bicep_version</code> and <code>stack_settings</code> as step outputs. The record is therefore a step output, like <code>stack_settings</code>, plus a human-readable file in the logs artifact.</li>
+      <li><code>scripts/az-deploy.sh:237</code> reads <code>file="${file##*/}"</code> in the parameters-URL block, using <code>file</code> from the template download rather than <code>uri</code>; with a URL template and a URL parameters file the parameters file name would be wrong. Not part of this change; worth its own issue.</li>
+      <li>After a parameters URL is downloaded, <code>IN_TEMPLATE_PARAMS</code> becomes the file name (<code>:252</code>), dropping any <code>KEY=VALUE</code> tokens that followed the URL.</li>
+      <li>The ERR handler runs <code>eval echo "${3}"</code> on the failed command's text (<code>:65</code>). That expands variables in the text, so secrets must never be held in variables in <code>az-deploy.sh</code>; this is why the resolver is a child process.</li>
+      <li>The plan's debug step prints its whole environment (<code>action.yml:387-398</code>) at any severity above <code>ERROR</code>. A step that is given <code>INLINE_PARAMETERS</code> and is also a debug step would print it.</li>
+      <li>GitHub drops a job output that contains a registered secret. The record holds only hex hashes and parameter names, so it is not affected.</li>
+    </ul>
+
+    <h3>Dependencies</h3>
+    <p>No new libraries. The script uses <code>bash</code>, <code>jq</code>, <code>perl</code> (already used by <code>diff_safe</code>), <code>sha256sum</code> or <code>shasum</code>, <code>openssl</code> or <code>/dev/urandom</code>, and <code>az bicep</code>. All are on the GitHub and Azure DevOps Ubuntu images; <code>sha256sum</code> is missing on macOS, so the helper falls back to <code>shasum -a 256</code> for local runs.</p>
+
+    <h3>Rejected approaches</h3>
+    <p>See the ADR: passing <code>key=value</code> to az, baking values into a plan artifact, storing values in the plan output, one combined digest, a separate <code>secure_parameters</code> input, and relying only on <code>BICEP_PARAMETERS_OVERRIDES</code> in the environment.</p>
+
+    <h3>Risks</h3>
+    <ul>
+      <li><strong>Masking gaps.</strong> A secret that is split across lines in an az error message, or rewritten by a tool, may not match. The scrub removes the value and its JSON-escaped form; the real control is that values are never put in output by this code. Phase 2 tests the stub echoing the secret.</li>
+      <li><strong>A secure value embedded in a non-secure parameter.</strong> A template that builds a connection string from a secure parameter and exposes it as a normal output or resource property is outside what this change can detect; the documentation says to mark such parameters <code>@secure()</code>.</li>
+      <li><strong>Behaviour of <code>az bicep build-params --stdout</code> across az versions.</strong> It exists from az 2.5x; the repository installs the latest az on the runners. Pin check: <code>az bicep build-params --help | grep -- --stdout</code> in the harness.</li>
+      <li><strong>Temp file left behind.</strong> The merged file is removed by the EXIT trap; a killed runner step leaves it in the runner temp directory, which the runner cleans. Mode 600 in a mode 700 directory.</li>
+    </ul>
+
+    <h3>Future work</h3>
+    <p>Secure values from Key Vault references as inline values; passing inline values to PSRule; deprecating the legacy pairs; a signed plan record if the plan/deploy contract ever needs to survive across repositories.</p>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet. Entries are added when the plan changes after it was first executed.</p>
+  </section>
+
+</main>
+</body>
+</html>
