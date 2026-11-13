@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Stack deny settings, description and tags (#55)</title>
+<style>
+  :root {
+    --paper: #f7f5f0; --ink: #1f2a33; --ink-soft: #55616b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #c2410c; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details, #questionables details { margin: 10px 0; } #notes summary, #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: Stack deny settings, description and tags (#55)</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-55)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd>issue #55 (https://github.com/innofactororg/bicep-action/issues/55), docs/adr/0002-stack-deny-settings.md</dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0002-stack-deny-settings/hero.png" alt="A shield around a stack of boxes, with a key passing through a gap">
+    <figcaption>Deny settings protect the stack's resources; excluded principals are the deliberate gap.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Let a stack deployment set the deny-settings exclusions (principals and actions), apply deny settings to child scopes, and set a stack description and tags. The settings must be recorded in the plan, enforced at deploy, and shown in the PR comment, like every other setting that changes what gets deployed. Defaults must reproduce today's behaviour exactly. See <code>docs/adr/0002-stack-deny-settings.md</code> for the decision record.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>Today <code>scripts/az-deploy.sh</code> passes only <code>--action-on-unmanage</code> and <code>--deny-settings-mode</code> to <code>az stack</code> (the <code>common</code> array, line 382). <code>denyWriteAndDelete</code> then also blocks break-glass accounts and any platform pipeline that writes to the managed resources, so few teams can turn it on. The stack description and tags cannot be set. The plan/deploy contract (<code>check_plan_settings</code>, line 306) compares one string, <code>stack;id=...;unmanage=...;deny=...</code> (line 384), so any new setting that is not added to that string would be applied at deploy without having been planned.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>Five optional inputs (<code>stack_deny_settings_excluded_principals</code>, <code>stack_deny_settings_excluded_actions</code>, <code>stack_deny_settings_apply_to_child_scopes</code>, <code>stack_description</code>, <code>stack_tags</code>) and their Azure DevOps variables. A new sourced helper, <code>scripts/stack-settings.sh</code>, parses and validates them, normalises them (sorted, lower-case GUIDs), builds the <code>az stack</code> arguments and extra <code>stack_settings</code> segments. The segments are appended only when a setting is non-default, so the default string is unchanged and old plans still match. The deploy recomputes the string, fails on a mismatch naming the differing fields, and after creating the stack reads it back and checks the stored deny settings. The PR comment gains one line, only when a new setting is used.</p>
+    <figure>
+      <img src="0002-stack-deny-settings/solution.png" alt="Plan and Deploy boxes with matching settings cards and a check mark">
+      <figcaption>The deploy compares its settings with the plan's before it touches Azure.</figcaption>
+    </figure>
+    <h4>Exact CLI facts (Azure CLI 2.87.0, <code>az stack {group|sub|mg} create --help</code>)</h4>
+    <table>
+      <tr><th>Flag</th><th>Shape</th><th>Constraint</th></tr>
+      <tr><td><code>--deny-settings-excluded-principals</code> / <code>--ep</code></td><td>list of AAD object IDs</td><td>Up to 5</td></tr>
+      <tr><td><code>--deny-settings-excluded-actions</code> / <code>--ea</code></td><td>list of RBAC operations</td><td>Up to 200</td></tr>
+      <tr><td><code>--deny-settings-apply-to-child-scopes</code> / <code>--cs</code></td><td>boolean flag, no value</td><td>Present at group, sub and mg</td></tr>
+      <tr><td><code>--description</code></td><td>string</td><td>None stated by the CLI</td></tr>
+      <tr><td><code>--tags</code></td><td>space-separated <code>key[=value]</code>; <code>''</code> clears existing tags</td><td>Applied to the stack resource, not to the resources it manages</td></tr>
+    </table>
+    <p>Not verifiable here: <code>az stack-whatif</code> is not a recognised command in the installed CLI (2.87.0), although the script gates on it (<code>az stack-whatif --help</code>, line 346). Which flags it accepts is therefore confirmed in phase 1.</p>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — stack block (lines 273 to 535): <code>stack_fail</code> (295), <code>check_plan_settings</code> (306), <code>deny=</code> (352), <code>common=</code> (382), settings string (384), <code>stack_whatif_gate</code> (388), summary line <code>head=</code> (452), <code>write_summary</code> call with <code>stackSettings</code> (~468), <code>az stack create</code> (526), deployed message (528).</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code> — inputs (line 52 area) and the <code>What-if</code> step env (line 224 onward).</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/deploy/action.yml</code> — inputs (line 42 area) and the <code>Create deployment</code> step env (line 175 onward).</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code> — <code>SCRIPTS</code> download list (line 76 onward). Stack variables arrive as environment variables from pipeline variables, so no per-variable change.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/deploy-stage.yml</code> — <code>SCRIPTS</code> download list (line 91 onward); <code>PLAN_STACK_SETTINGS</code> mapping (line 73) is unchanged.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/ms.azure.deploy.yml</code> — two <code>SCRIPTS</code> lists (lines 87 and 312 onward) and the <code>variables:</code> block (line 12 onward) for commented examples.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/pr-comment.sh</code> — reads every <code>step_*.md</code>, so the new comment line needs no change here; checked, not edited.</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code> — table lines 45 to 49, stack sections 123 to 166, output table line 262, defaults table line 289.</li>
+      <li><span class="tag existing">existing</span> <code>docs/how-it-works.md</code> — settings bullet line 103, deny bullet line 164, summary JSON example lines 276 to 296.</li>
+      <li><span class="tag existing">existing</span> <code>docs/troubleshooting.md</code> — rows at lines 12 and 52.</li>
+      <li><span class="tag existing">existing</span> <code>docs/examples/README.md</code>, <code>docs/examples/github/recommended.yml</code> — index row and a commented hint.</li>
+    </ul>
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>scripts/stack-settings.sh</code> — sourced helper: <code>parse_stack_settings</code>, <code>describe_stack_settings</code>, <code>settings_diff</code>. No side effects on source.</li>
+      <li><span class="tag new">new</span> <code>tests/stack-settings.test.sh</code> — plain bash test cases for the helper (no new test framework; the repo has none).</li>
+      <li><span class="tag new">new</span> <code>docs/examples/github/deny-write-and-delete.yml</code> — <code>denyWriteAndDelete</code> with an excluded pipeline principal.</li>
+      <li><span class="tag new">new</span> <code>docs/examples/azure-devops/deny-write-and-delete.yml</code> — the same for Azure DevOps.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: Spike the real CLI behaviour</h3>
+      <p>Settle the facts the design rests on, with a throwaway resource group, before writing code. Use a newer Azure CLI than 2.87.0 if needed, because <code>az stack-whatif</code> is missing from it.</p>
+      <h4>1. Confirm flag behaviour</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Find an Azure CLI that has <code>stack-whatif</code> (<code>az upgrade</code>, or the hosted runner image) and record its version in the ADR.</span></li>
+        <li><code class="status">[]</code> <span>Run <code>az stack-whatif group create --help | grep -E "deny-settings|description|tags"</code> and record which flags it accepts. This decides whether <code>stack_whatif_gate</code> passes the exclusions (probe) or leaves them out.</span></li>
+        <li><code class="status">[]</code> <span>Create a stack at group scope with <code>--deny-settings-mode denyWriteAndDelete --deny-settings-excluded-principals ID1 ID2 --deny-settings-excluded-actions A1 A2 --deny-settings-apply-to-child-scopes --description "x" --tags a=1 b=2</code>. Check the list arguments are accepted as separate words and not only as one quoted string (the CLI help example quotes <code>"test1 test2"</code>).</span></li>
+        <li><code class="status">[]</code> <span>Run <code>az stack group show -n NAME -g RG -o json</code> and record the exact paths for deny mode, principals, actions, child scopes, description and tags (expected <code>.properties.denySettings.*</code>, <code>.properties.description</code>, <code>.tags</code>). Phase 3 verification reads these.</span></li>
+        <li><code class="status">[]</code> <span>Repeat the create at sub and mg scope. Record whether child scopes behave differently, and whether the stack's own deploying identity needs to be excluded to update or delete the stack later.</span></li>
+        <li><code class="status">[]</code> <span>Update the stack with no <code>--tags</code> and no <code>--description</code>: record whether existing tags and description are kept or cleared. This defines what "default reproduces today" means for a stack that already has them.</span></li>
+      </ul>
+      <h4>2. Testing Strategy</h4>
+      <p>Observation only; results go into the ADR as a short "Verified behaviour" list and change the plan where they contradict it.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>az stack group delete -n NAME -g RG --action-on-unmanage deleteAll --yes</code> — the spike stack and resource group are removed.</span></li>
+        <li><code class="status">[]</code> <span><code>git diff --stat docs/adr/0002-stack-deny-settings.md</code> — verified facts are written back.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: The settings helper</h3>
+      <p>All parsing, validation and normalisation in one sourced file, so GitHub and Azure DevOps share it and it can be tested without Azure.</p>
+      <h4>1. Create <code>scripts/stack-settings.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Header and licence lines as in <code>scripts/bicep-version.sh</code>. No <code>set -e</code> and no output when sourced.</span></li>
+        <li><code class="status">[]</code> <span><code>parse_stack_settings</code>: reads <code>DENY_MODE</code> (argument 1) and the five <code>STACK_*</code> variables. On success it sets <code>STACK_EXTRA_ARGS</code> (array), <code>STACK_EXTRA_SEGMENTS</code> (string, empty by default), <code>STACK_EXTRA_JSON</code> (object for the summary file) and <code>STACK_EXTRA_TEXT</code> (comment line, empty by default). On failure it sets <code>STACK_SETTINGS_ERROR</code> and returns 1.</span></li>
+        <li><code class="status">[]</code> <span>List fields: split on commas, spaces and newlines (<code>tr '[:space:],' '\n'</code>), drop empties, de-duplicate, sort. Principals: lower-case, match <code>^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$</code>, at most 5. Actions: match <code>^[A-Za-z0-9._-]+(/[A-Za-z0-9._*-]+)+$</code>, at most 200.</span></li>
+        <li><code class="status">[]</code> <span>Child scopes: accept <code>true</code>/<code>false</code> in any case (empty is <code>false</code>); anything else is an error. Pass <code>--deny-settings-apply-to-child-scopes</code> only for <code>true</code>.</span></li>
+        <li><code class="status">[]</code> <span>Tags: if the trimmed value starts with <code>{</code>, parse with <code>jq -e 'type=="object"'</code> and turn each value into a string; otherwise read one <code>key=value</code> per line (a value may hold spaces and commas, a key may not hold <code>=</code>). At most 50 tags, key at most 512 and value at most 256 characters. Sort by key. Each tag becomes one array element <code>key=value</code> after <code>--tags</code>, so spaces survive.</span></li>
+        <li><code class="status">[]</code> <span>Description: trim, one line only, at most 512 characters (a limit of our own, stricter than Azure's; see Questionables).</span></li>
+        <li><code class="status">[]</code> <span>Reject any value containing a run of three or more <code>*</code> (a masked secret) with a message that says the settings must not come from secrets.</span></li>
+        <li><code class="status">[]</code> <span>If <code>DENY_MODE</code> is <code>none</code> and any of principals, actions or child scopes is set, fail: "Deny settings exclusions need a deny mode other than none." Description and tags are allowed with <code>none</code>.</span></li>
+        <li><code class="status">[]</code> <span>Segments, appended only when non-default, always in this order: <code>;excludedPrincipals=id1,id2</code> · <code>;excludedActions=N:HASH</code> · <code>;childScopes=true</code> · <code>;tags=N:HASH</code> · <code>;description=HASH</code>. <code>HASH</code> is the first 12 hex characters of the SHA-256 of the sorted, newline-joined (or canonical <code>jq -S -c</code>) value; use <code>sha256sum</code> with a <code>shasum -a 256</code> fallback.</span></li>
+        <li><code class="status">[]</code> <span><code>settings_diff PLANNED CURRENT</code>: split both on <code>;</code>, compare key by key, print one line per difference, for example <code>excludedPrincipals: planned (none), now id1</code>. Used for the mismatch message.</span></li>
+      </ul>
+<pre><code># parse_stack_settings sketch (the non-obvious parts)
+split_list() { tr '[:space:],' '\n\n\n' &lt;&lt;&lt; "${1-}" | sed '/^$/d' | sort -u; }
+hash12() { { sha256sum 2&gt;/dev/null || shasum -a 256; } | cut -c1-12; }
+parse_stack_settings() {
+  STACK_EXTRA_ARGS=(); STACK_EXTRA_SEGMENTS=''; STACK_SETTINGS_ERROR=''
+  local mode="${1}" principals actions
+  principals=$(split_list "${STACK_DENY_SETTINGS_EXCLUDED_PRINCIPALS-}" | tr '[:upper:]' '[:lower:]' | sort -u)
+  if test -n "${principals}"; then
+    [ "$(wc -l &lt;&lt;&lt; "${principals}")" -le 5 ] || { STACK_SETTINGS_ERROR='At most 5 excluded principals are allowed.'; return 1; }
+    # each line must match the GUID regex, else error naming the bad value
+    mapfile -t pl &lt;&lt;&lt; "${principals}"            # bash 4; the runner and AzureCLI@2 have it
+    STACK_EXTRA_ARGS+=(--deny-settings-excluded-principals "${pl[@]}")
+    STACK_EXTRA_SEGMENTS+=";excludedPrincipals=$(paste -sd, - &lt;&lt;&lt; "${principals}")"
+  fi
+  # ... actions, child scopes, tags, description likewise
+}</code></pre>
+      <div class="callout">GitHub's <code>ubuntu-24.04</code> and the Azure DevOps <code>ubuntu-latest</code> image both have bash 5, so <code>mapfile</code> is fine. A self-hosted macOS agent with bash 3.2 would not run it; use a <code>while read</code> loop instead of <code>mapfile</code> to stay portable.</div>
+      <h4>2. Create <code>tests/stack-settings.test.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>A tiny <code>assert_eq</code> and <code>assert_fail</code> in the file, then cases: empty input gives empty segments and empty args; principals in mixed case with duplicates normalise to one sorted list; 6 principals fail; a non-GUID fails; 201 actions fail; a malformed action fails; tags as JSON and as lines give identical args and identical hash; two orderings of the same input give identical segments; <code>***</code> in any field fails; <code>none</code> plus principals fails; <code>none</code> plus tags passes; <code>settings_diff</code> names exactly the differing keys.</span></li>
+      </ul>
+      <h4>3. Testing Strategy</h4>
+      <p>Pure shell, run on the dev machine and in CI by hand (the repo has no test workflow; adding one is out of scope).</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/stack-settings.sh tests/stack-settings.test.sh</code> — no findings (the repo already uses shellcheck directives such as <code># shellcheck source=</code>).</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/stack-settings.test.sh</code> — all cases pass.</span></li>
+        <li><code class="status">[]</code> <span><code>env -i bash -c 'source scripts/stack-settings.sh; parse_stack_settings none; echo "[${STACK_EXTRA_SEGMENTS}] ${#STACK_EXTRA_ARGS[@]}"'</code> — prints <code>[] 0</code>: the default path adds nothing.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: Wire the helper into <code>scripts/az-deploy.sh</code></h3>
+      <p>All five behaviours (arguments, record, enforce, show, verify) are in one script that both platforms run. The edits stay inside the stack block, after <code>deny=</code> is read (line 352).</p>
+      <h4>1. Parse and build arguments</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Near the top of the stack block, source the helper like <code>bicep-version.sh</code> is sourced: <code>source "$(dirname "${BASH_SOURCE[0]}")/stack-settings.sh"</code> with the <code># shellcheck source=stack-settings.sh</code> directive.</span></li>
+        <li><code class="status">[]</code> <span>After <code>deny="${STACK_DENY_SETTINGS_MODE:-none}"</code> (line 352): <code>parse_stack_settings "${deny}" || stack_fail "${STACK_SETTINGS_ERROR}"</code>. <code>stack_fail</code> already writes the <code>.md</code>, so the PR comment shows the reason and the job exits 1 before any Azure call.</span></li>
+        <li><code class="status">[]</code> <span>Keep <code>common</code> (line 382) exactly as it is. Add <code>extra=("${STACK_EXTRA_ARGS[@]}")</code> and use it in the <code>az stack "${stack_scope}" create</code> command (line 526): <code>... "${common[@]}" "${extra[@]}" "${stack_args[@]}" --yes</code>.</span></li>
+        <li><code class="status">[]</code> <span>For <code>stack_whatif_gate</code> (line 396): pass only the deny flags, and only if the Phase 1 spike showed <code>az stack-whatif</code> accepts them. Build <code>whatif_extra</code> by probing: <code>az stack-whatif "${stack_scope}" create --help 2&gt;/dev/null | grep -q -- '--deny-settings-excluded-principals'</code>. Description and tags are never passed to what-if (they do not change resource changes).</span></li>
+      </ul>
+      <h4>2. Record in the plan</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Change line 384 to <code>check_plan_settings "stack;id=${stack_id};unmanage=${unmanage};deny=${deny}${STACK_EXTRA_SEGMENTS}"</code>. With defaults <code>STACK_EXTRA_SEGMENTS</code> is empty, so the string is identical to today's.</span></li>
+        <li><code class="status">[]</code> <span>In the <code>write_summary</code> call (line ~468) merge the new object into <code>--argjson settings</code>: <code>jq -n --arg u ... --arg d ... --argjson x "${STACK_EXTRA_JSON}" '{actionOnUnmanage: $u, denySettingsMode: $d} + $x'</code>. <code>STACK_EXTRA_JSON</code> is always an object with <code>excludedPrincipals: []</code>, <code>excludedActions: []</code>, <code>applyToChildScopes: false</code>, <code>description: null</code>, <code>tags: null</code> by default, so the shape is stable.</span></li>
+      </ul>
+      <h4>3. Enforce at deploy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>In <code>check_plan_settings</code> (line 306), keep the whole-string comparison and its existing message prefix (the troubleshooting row matches on it). Append the diff: <code>stack_fail "The deployment settings (${current}) differ from the settings the plan used (${planned}). Run the plan again with the settings you deploy with." "$(settings_diff "${planned}" "${current}")"</code>. <code>stack_fail</code> takes a second argument already (line 295).</span></li>
+        <li><code class="status">[]</code> <span>The existing branch at line 322 ("A stack deployment needs the settings the plan used") needs no change; <code>[ "${current}" != 'deployment' ]</code> still holds.</span></li>
+        <li><code class="status">[]</code> <span>Verify after create. Following the <code>az stack create</code> command (line 526), read the stack back and compare with the intended values, using the paths recorded in Phase 1: <code>az stack "${stack_scope}" show --name "${stack_name}" "${scope_args[@]}" -o json</code>. Compare sorted principals, sorted actions, child scopes and deny mode. On a difference call <code>stack_fail "Azure stored different deny settings than requested."</code> with the diff. A failed <code>show</code> is a warning, not a failure, because the deployment itself succeeded.</span></li>
+      </ul>
+      <h4>4. Show in the PR comment</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Line 452: leave <code>head=</code> unchanged and append <code>${STACK_EXTRA_TEXT:+${nl}${nl}${STACK_EXTRA_TEXT}}</code> to <code>body</code> (line ~496). <code>STACK_EXTRA_TEXT</code> is empty by default, so existing comments are byte-identical. Format: <code>**Deny settings:** `denyWriteAndDelete`; excluded principals: `id1`, `id2`; excluded actions: 3; child scopes: yes. **Description:** ... **Tags:** `a=1`, `b=2`.</code> List actions in a <code>&lt;details&gt;</code> block when more than 5.</span></li>
+        <li><code class="status">[]</code> <span>Line 528 ("Stack ... deployed"): append the same <code>STACK_EXTRA_TEXT</code> so the deploy comment repeats what was enforced.</span></li>
+        <li><code class="status">[]</code> <span>Never print the settings with <code>set -x</code> or <code>--debug</code>; <code>IN_SEVERITY=DEBUG</code> only adds <code>--debug</code> to the classic command (line 574), not to the stack commands, so no change is needed. Confirm by reading the file.</span></li>
+      </ul>
+      <h4>5. Testing Strategy</h4>
+      <p>Static checks plus a dry run that stubs <code>az</code> with a shell function, so the argument list and the settings string can be asserted without Azure.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck scripts/az-deploy.sh</code> — no new findings against the current baseline (run it on <code>main</code> first and diff).</span></li>
+        <li><code class="status">[]</code> <span>Defaults: run with <code>DEPLOYMENT_MODE=stack SCRIPT_ACTION=create</code> and a stub <code>az</code> that prints its arguments; diff the printed <code>az stack ... create</code> line and the <code>stack_settings</code> output against the same run on <code>main</code>. They must be identical.</span></li>
+        <li><code class="status">[]</code> <span>Non-default: set <code>STACK_DENY_SETTINGS_MODE=denyWriteAndDelete</code>, two principals, one action, child scopes, a tag. Assert the printed command has each flag once and the settings string ends in the expected segments.</span></li>
+        <li><code class="status">[]</code> <span>Mismatch: plan with one principal, deploy with another; assert exit 1 and a message naming <code>excludedPrincipals</code>. Same for a changed tag and a changed description.</span></li>
+        <li><code class="status">[]</code> <span>Old plan, new deploy with no new inputs: set <code>PLAN_STACK_SETTINGS</code> to the exact pre-change string; assert the deploy passes the check.</span></li>
+        <li><code class="status">[]</code> <span>Masked value: <code>STACK_TAGS='k=***'</code>; assert the job fails and the <code>.md</code> and log do not contain the value.</span></li>
+        <li><code class="status">[]</code> <span><code>jq -e '.stackSettings.excludedPrincipals | type=="array"' $LOG_PATH/whatif-summary.json</code> — the summary file has the new shape in both default and non-default runs.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: GitHub actions</h3>
+      <p>Expose the five inputs on both composite actions and pass them to the script as environment variables. Plan and deploy must define identical inputs.</p>
+      <h4>1. Inputs and env</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>In <code>.github/actions/plan/action.yml</code>, after <code>stack_deny_settings_mode</code> (line 52), add the five inputs, each <code>required: false</code>, defaults <code>""</code> except child scopes <code>"false"</code>. Description text must state the format and the limits (5 principals, 200 actions, one-line description, 50 tags), and that values are shown in the PR comment, so they must not be secrets.</span></li>
+        <li><code class="status">[]</code> <span>Same five inputs in <code>.github/actions/deploy/action.yml</code> after line 42, with the same text.</span></li>
+        <li><code class="status">[]</code> <span>In the plan <code>What-if</code> step env (after line 239) and the deploy <code>Create deployment</code> step env (after line 188) add <code>STACK_DENY_SETTINGS_EXCLUDED_PRINCIPALS: ${{ inputs.stack_deny_settings_excluded_principals }}</code> and the four others. Multi-line values are safe in env.</span></li>
+        <li><code class="status">[]</code> <span>Update the descriptions of <code>plan_stack_settings</code> (deploy, line 47) and <code>stack_settings</code> output (plan, line 125) to say they cover the deny exclusions, description and tags.</span></li>
+      </ul>
+      <h4>2. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/actions/plan/action.yml .github/actions/deploy/action.yml</code> — both parse (use <code>uv run --with pyyaml</code> if PyYAML is missing).</span></li>
+        <li><code class="status">[]</code> <span><code>actionlint .github/actions/*/action.yml docs/examples/github/*.yml</code> where actionlint is installed (it is not on the dev machine; install with <code>brew install actionlint</code>), otherwise skip and say so.</span></li>
+        <li><code class="status">[]</code> <span><code>diff &lt;(yq '.inputs | keys' .github/actions/plan/action.yml | grep stack) &lt;(yq '.inputs | keys' .github/actions/deploy/action.yml | grep stack)</code> — plan and deploy expose the same stack inputs, except <code>plan_stack_settings</code> (deploy only). Skip <code>yq</code> lines if <code>yq</code> is absent and compare by eye.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Azure DevOps</h3>
+      <p>Azure DevOps exposes pipeline variables as environment variables, which is how <code>STACK_NAME</code> and <code>STACK_DENY_SETTINGS_MODE</code> already reach the script (no <code>STACK_*</code> entry exists in the templates). So the new variables work without YAML wiring. What changes is that the new helper script must be downloaded, because each stage fetches its scripts by name.</p>
+      <h4>1. Script lists and variables</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add <code>"stack-settings"</code> to the <code>SCRIPTS</code> list in <code>.azuredevops/templates/plan-stage.yml</code> (after <code>"psrule-report"</code>, line ~90) and <code>.azuredevops/templates/deploy-stage.yml</code> (line ~97). Keep alphabetical-or-existing order; the helper is sourced from the same directory as <code>az-deploy.sh</code>, so the download directory matches.</span></li>
+        <li><code class="status">[]</code> <span>In <code>.azuredevops/ms.azure.deploy.yml</code> add <code>"stack-settings"</code> to both lists (plan job near line 93, deploy job near line 318).</span></li>
+        <li><code class="status">[]</code> <span>In <code>ms.azure.deploy.yml</code> <code>variables:</code> add the five as commented examples under <code>DEPLOYMENT_MODE</code> (line 17), in the style of the <code>EXISTING_TAGS_KEYS</code> comment: a one-line explanation each. A block scalar (<code>value: |</code>) shows the multi-line form for principals.</span></li>
+        <li><code class="status">[]</code> <span>Check <code>.azuredevops/README.md</code> (parameters table, line 30) and add one sentence that the new variables are read from pipeline variables.</span></li>
+        <li><code class="status">[]</code> <span>Confirm there is nothing to do in <code>deploy-stage.yml</code> line 73: <code>PLAN_STACK_SETTINGS</code> is the plan job's <code>what_if.stack_settings</code> output and now carries the segments. Because the output is a single-line variable, the helper must never emit a newline into the string (descriptions are single line by validation; tags and actions are hashed).</span></li>
+      </ul>
+      <h4>2. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml; [yaml.safe_load(open(f)) for f in ['.azuredevops/ms.azure.deploy.yml','.azuredevops/templates/plan-stage.yml','.azuredevops/templates/deploy-stage.yml']]"</code> — all parse. (Azure DevOps expressions such as <code>$[ ... ]</code> are plain strings to YAML.)</span></li>
+        <li><code class="status">[]</code> <span><code>grep -c '"stack-settings"' .azuredevops/ms.azure.deploy.yml .azuredevops/templates/*.yml</code> — 2, 1 and 1.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn 'stack-settings' .azuredevops | wc -l</code> against <code>grep -rn '"bicep-version"' .azuredevops | wc -l</code> — equal; every list that downloads <code>bicep-version</code> also downloads the new script.</span></li>
+        <li><code class="status">[]</code> <span>Pipeline run (manual, see global validation): an Azure DevOps pipeline using the single-file YAML with <code>STACK_DENY_SETTINGS_EXCLUDED_PRINCIPALS</code> set, then a deploy stage with the variable changed, which must fail.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 6: Documentation and examples</h3>
+      <p>The acceptance criteria require an inputs reference and a <code>denyWriteAndDelete</code> example with an excluded pipeline principal.</p>
+      <h4>1. Reference and explanation</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>: add five rows to the table after line 47 (<code>P D</code>, defaults as above). Add a subsection per input after <code>stack_deny_settings_mode</code> (line 148): accepted formats, limits (5 principals, 200 actions, 50 tags, 512-character description), that exclusions need a deny mode other than <code>none</code>, that tags go on the stack resource only, and that nothing here may come from a secret.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code> line 262: change the <code>stack_settings</code> example to show a longer string, for example <code>stack;id=&lt;stack id&gt;;unmanage=detachAll;deny=denyWriteAndDelete;excludedPrincipals=&lt;id&gt;;childScopes=true</code>, and say the segments appear only when used.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/how-it-works.md</code>: extend the "same mode and stack settings" bullet (line 103) with the new fields and the example "a different excluded principal after a plan fails". Extend the deny bullet (line 164) with what the exclusions mean. Add the new <code>stackSettings</code> keys to the JSON example (lines 276 to 296) and a bullet that they are additive.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/troubleshooting.md</code>: extend the row at line 12 (deny settings need <code>manageDenySetting</code>); add rows for "Deny settings exclusions need a deny mode other than none", "At most 5 excluded principals", and "Azure stored different deny settings than requested".</span></li>
+        <li><code class="status">[]</code> <span>Document the break-glass use: an excluded principal can still change or delete the stack's resources, so the list is part of the security review. Put this in <code>docs/configuration.md</code>, not only in the example.</span></li>
+      </ul>
+      <h4>2. Examples</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>docs/examples/github/deny-write-and-delete.yml</code> by copying <code>recommended.yml</code> and adding, in the shared <code>env:</code> block, <code>stack_deny_settings_mode: denyWriteAndDelete</code>, <code>stack_deny_settings_excluded_principals</code> with a placeholder object ID for the pipeline's service principal (comment: the ID of the identity other pipelines use), <code>stack_deny_settings_apply_to_child_scopes: "true"</code>, <code>stack_description</code> and <code>stack_tags</code>. Pass them to both plan and deploy steps from <code>env</code>, as <code>recommended.yml</code> does for <code>stack_action_on_unmanage</code>.</span></li>
+        <li><code class="status">[]</code> <span>Create <code>docs/examples/azure-devops/deny-write-and-delete.yml</code> from <code>multi-environment.yml</code> or the single-file pipeline with the same five variables (<code>STACK_DENY_SETTINGS_MODE</code> etc.).</span></li>
+        <li><code class="status">[]</code> <span>Add rows for both to <code>docs/examples/README.md</code>, and a commented hint in <code>docs/examples/github/recommended.yml</code> pointing to the new example.</span></li>
+        <li><code class="status">[]</code> <span>Use only generic values: <code>00000000-0000-0000-0000-000000000000</code>, <code>app-prod</code>, <code>rg-app-prod</code>. No customer names.</span></li>
+      </ul>
+      <h4>3. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>grep -rn -E 'stack_deny_settings_excluded_principals|STACK_DENY_SETTINGS_EXCLUDED_PRINCIPALS' docs .github .azuredevops scripts | wc -l</code> — every place that lists stack inputs mentions all five (compare with <code>grep -rn stack_action_on_unmanage</code>).</span></li>
+        <li><code class="status">[]</code> <span>Extract each example's YAML with PyYAML as in phase 4 — all parse; run <code>actionlint</code> on the GitHub example when available.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn -i -E -f ~/.customer-denylist docs/examples/*/deny-write-and-delete.yml docs/adr specs/0002-stack-deny-settings.html</code> — no output apart from the repository name <code>innofactororg/bicep-action</code>.</span></li>
+        <li><code class="status">[]</code> <span>Read the changed docs once for plain, direct English and no marketing words; check relative links with <code>grep -o '](\./[^)]*)' docs/*.md</code> and open the targets.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 7: End-to-end deployment scenarios</h3>
+      <p>Prove the contract on real Azure, at all three scopes, on a throwaway subscription or management group, from a branch of this repository (use the branch ref as the action version).</p>
+      <h4>1. Scenarios</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Defaults: run plan and deploy with none of the new inputs against a resource group. Compare the stack with one made by the released version: same deny settings, no description, no tags, and the same <code>stack_settings</code> output.</span></li>
+        <li><code class="status">[]</code> <span>Full settings at group scope: <code>denyWriteAndDelete</code>, two excluded principals, one excluded action, child scopes, description, two tags. Check <code>az stack group show</code> and the PR comment line. Try to edit a managed resource as a non-excluded user (blocked) and as an excluded principal (allowed).</span></li>
+        <li><code class="status">[]</code> <span>Repeat at sub and mg scope. Child scopes at each scope behave as the spike recorded.</span></li>
+        <li><code class="status">[]</code> <span>Mismatch: plan with principal A, change the deploy input to B, deploy. The deploy fails before Azure is touched; the comment names <code>excludedPrincipals</code>.</span></li>
+        <li><code class="status">[]</code> <span>Validation: 6 principals, a bad GUID, mode <code>none</code> with a principal, a masked tag value. Each fails in the plan with a clear message and no Azure call.</span></li>
+        <li><code class="status">[]</code> <span>Azure DevOps: the same full-settings and mismatch scenarios using <code>.azuredevops/ms.azure.deploy.yml</code>.</span></li>
+        <li><code class="status">[]</code> <span>Mixed versions: plan with the new version, deploy with the previous release with exclusions set; the old deploy fails on the string mismatch (safe).</span></li>
+      </ul>
+      <h4>2. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>az stack group show -n NAME -g RG --query "{deny:properties.denySettings,desc:properties.description,tags:tags}" -o json</code> — equals the inputs (paths per Phase 1).</span></li>
+        <li><code class="status">[]</code> <span><code>jq '.stackSettings' whatif-summary.json</code> from the logs artifact — has the new keys and matches the stack.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn -F "$SECRET_LOOKING_VALUE" logs/ summary.md</code> where the test deliberately used a masked value — no hits.</span></li>
+        <li><code class="status">[]</code> <span>Clean up: <code>az stack group delete ... --action-on-unmanage deleteAll --yes</code>, then delete the resource groups.</span></li>
+      </ul>
+      <div class="loop">🔁 <strong>Do not exit this phase until every box above is checked.</strong> If any command fails, fix the cause and re-run — loop until all pass.</div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>shellcheck scripts/*.sh tests/*.sh</code> — no new findings.</span></li>
+      <li><code class="status">[]</code> <span><code>bash tests/stack-settings.test.sh</code> — helper cases pass.</span></li>
+      <li><code class="status">[]</code> <span><code>bicep build</code> of a small template used in the scenarios (<code>bicep build main.bicep --stdout | jq -e .resources</code>) — the scenario template compiles; the change itself touches no Bicep.</span></li>
+      <li><code class="status">[]</code> <span>YAML parse of both action files, the three Azure DevOps files and the two new examples (PyYAML one-liner from phases 4 and 5), plus <code>actionlint</code> if installed.</span></li>
+      <li><code class="status">[]</code> <span>Default-path comparison: the <code>az stack create</code> command line and <code>stack_settings</code> string produced with no new inputs are identical before and after the change (phase 3 stub run).</span></li>
+      <li><code class="status">[]</code> <span>Phase 7 scenarios pass at group, sub and mg scope on GitHub and Azure DevOps (manual; needs an Azure test tenant).</span></li>
+      <li><code class="status">[]</code> <span><code>git status --short</code> — only the files listed under Relevant Files changed.</span></li>
+    </ul>
+    <div class="loop">🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong></div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <details>
+      <summary>Input names: <code>stack_deny_settings_*</code> (this plan) or <code>deny_settings_*</code> (the issue)?</summary>
+      <p class="qa-answer">This plan prefixes with <code>stack_</code> to match <code>stack_deny_settings_mode</code>, <code>stack_name</code> and <code>stack_action_on_unmanage</code>. The issue's table uses the shorter names. It costs one rename if the maintainer prefers the issue text, but the choice must be made before release because renaming a public input breaks users.</p>
+    </details>
+    <details>
+      <summary>Does <code>az stack-whatif</code> accept the deny and metadata flags, and should the what-if pass them?</summary>
+      <p class="qa-answer">The installed CLI (2.87.0) has no <code>stack-whatif</code> command, so this could not be checked. The plan probes the help text at run time and passes exclusions only if listed. The assumption is that deny settings do not change the resource change set. If a newer CLI shows they do, the what-if must pass them.</p>
+    </details>
+    <details>
+      <summary>Tags and description on an existing stack: kept or cleared when the input is empty?</summary>
+      <p class="qa-answer">Today no <code>--tags</code> or <code>--description</code> is passed, and the plan assumes that leaves existing values alone. Azure may treat an omitted value as "clear". Phase 1 tests this. If it clears, an empty input must still mean "do not pass" to satisfy "defaults reproduce today", and clearing needs an explicit value (the CLI's <code>''</code>).</p>
+    </details>
+    <details>
+      <summary>Should the deploying identity itself be an excluded principal?</summary>
+      <p class="qa-answer">The issue's example excludes "a pipeline principal". Whether the identity that deploys the stack needs excluding to update or delete the stack under <code>denyWriteAndDelete</code> is not established. Phase 1 tests it. The docs example should recommend whatever the test shows, and say so plainly if it depends.</p>
+    </details>
+    <details>
+      <summary>Description limit: 512 characters (our own) or Azure's limit?</summary>
+      <p class="qa-answer">The CLI help states no limit. 512 characters and one line is a conservative choice to keep the PR comment and the output variable safe. If Azure allows more and users need it, raise the constant; the value is hashed in the settings string, so the length does not matter there.</p>
+    </details>
+    <details>
+      <summary>Hash versus show the full values in the settings string?</summary>
+      <p class="qa-answer">Principals are shown in full (short, useful in the mismatch message). Actions, tags and description are hashed to keep the output single-line and short; the mismatch message then says which field changed, not the old value. Showing full tags in the string would be readable but risks length and unsafe characters in an Azure DevOps output variable.</p>
+    </details>
+    <details>
+      <summary>Fail or warn when exclusions are set with deny mode <code>none</code>?</summary>
+      <p class="qa-answer">The plan fails, because a user who sets a principal expects protection that does not exist. A warning is the softer option. Failing is safe for new inputs since no existing pipeline can have them.</p>
+    </details>
+    <details>
+      <summary>Principals as object IDs only?</summary>
+      <p class="qa-answer">Azure takes AAD principal IDs, and the plan validates GUIDs. A user who passes a service connection name or app (client) ID gets a validation error, not Azure's. Resolving names to IDs would need Graph permissions the pipeline identity may not have, so it is out of scope.</p>
+    </details>
+    <details>
+      <summary>Add a unit-test workflow to CI?</summary>
+      <p class="qa-answer">The repository has no test workflow (<code>.github/workflows</code> holds only <code>release.yml</code>). The plan adds <code>tests/stack-settings.test.sh</code> and runs it by hand. A workflow would help but is a separate decision for the maintainer.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+    <h3>How the plan/deploy contract is extended, not bypassed</h3>
+    <p>There is one comparison point: <code>check_plan_settings</code>. The new settings are folded into the string it compares, so there is no second path that could be skipped. The deploy recomputes the string from its own inputs, so a changed principal, action, tag or description cannot reach Azure unplanned.</p>
+    <table>
+      <tr><th>Case</th><th><code>stack_settings</code></th></tr>
+      <tr><td>Defaults (today and after)</td><td><code>stack;id=ID;unmanage=detachAll;deny=none</code></td></tr>
+      <tr><td>Deny mode only</td><td><code>stack;id=ID;unmanage=detachAll;deny=denyWriteAndDelete</code></td></tr>
+      <tr><td>Full</td><td><code>stack;id=ID;unmanage=detachAll;deny=denyWriteAndDelete;excludedPrincipals=P1,P2;excludedActions=3:1a2b3c4d5e6f;childScopes=true;tags=2:6f5e4d3c2b1a;description=0a1b2c3d4e5f</code></td></tr>
+    </table>
+    <h3>Alternatives rejected</h3>
+    <ul>
+      <li>A second output and input for the new settings: an older deploy action would ignore it and skip the check.</li>
+      <li>One <code>stack_deny_settings</code> JSON input: harder to write in YAML and variable groups, and less readable in a diff.</li>
+      <li>Passing the values straight to Azure and relying on Azure's errors: late, unclear, and nothing would be recorded in the plan.</li>
+    </ul>
+    <h3>Risks</h3>
+    <ul>
+      <li>Excluded principals weaken the protection by design. The docs treat the list as part of the security review.</li>
+      <li>Reading the stack back after create depends on the show output shape, which is confirmed in Phase 1. A read failure is a warning, not a failure.</li>
+      <li>The new helper is another script that every Azure DevOps stage must download. The grep check in phase 5 guards that.</li>
+      <li>Adding keys to <code>whatif-summary.json</code> is additive. <code>schemaVersion</code> stays 1.</li>
+    </ul>
+    <h3>Out of scope</h3>
+    <p>Changing the deny mode itself, resolving principal names, a CI workflow for the shell tests, and tenant-scope stacks (not available, handled by the existing fallback).</p>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet.</p>
+  </section>
+
+</main>
+</body>
+</html>
