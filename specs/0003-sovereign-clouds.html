@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Sovereign cloud support (azure_environment)</title>
+<style>
+  :root {
+    --paper: #f7f5f0; --ink: #1f2a33; --ink-soft: #55616b; --rule: #d8d3c8;
+    --accent: #0f766e; --accent-2: #c2410c; --muted: #6b7280; --warn: #b45309; --code-bg: #ecebe6;
+    --font-body: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  header h1 { font-family: var(--font-ui); font-size: 2rem; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-family: var(--font-ui); font-size: 1.45rem; margin: 56px 0 12px; padding-top: 16px; border-top: 2px solid var(--ink); }
+  h3 { font-family: var(--font-ui); font-size: 1.15rem; margin: 32px 0 8px; }
+  h4 { font-family: var(--font-ui); font-size: 1rem; margin: 24px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { background: var(--code-bg); padding: 14px 16px; overflow-x: auto; border-left: 3px solid var(--accent); font-size: 0.82rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: none; padding: 0; }
+  details.meta { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 20px; }
+  details.meta dl { display: grid; grid-template-columns: 9em 1fr; gap: 4px 12px; margin: 8px 0 0; }
+  details.meta dt { font-weight: 600; } details.meta dd { margin: 0; overflow-wrap: anywhere; }
+  figure { margin: 24px 0; padding: 18px; border: 1px dashed var(--rule); background: #fbfaf7; text-align: center; }
+  figure img { max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
+  figcaption { font-family: var(--font-ui); font-size: 0.85rem; color: var(--ink-soft); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--font-ui); font-size: 0.9rem; margin: 14px 0 22px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-weight: 600; color: var(--ink-soft); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tag { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 3px; color: #fff; }
+  .tag.existing { background: var(--muted); } .tag.new { background: var(--accent); }
+  .phase { margin: 28px 0 44px; padding: 20px 22px; border: 1px solid var(--rule); border-left: 5px solid var(--accent); background: #fbfaf7; }
+  .phase h3 { margin-top: 0; }
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li { padding: 4px 0; display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; align-items: start; }
+  ul.checklist li > span { min-width: 0; overflow-wrap: anywhere; }
+  code.status { font-weight: 700; color: var(--ink-soft); text-align: center; white-space: nowrap; }
+  .loop { margin: 16px 0 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; font-family: var(--font-ui); font-size: 0.9rem; }
+  .callout { padding: 12px 16px; margin: 16px 0; border-left: 4px solid var(--warn); background: #fffbeb; font-family: var(--font-ui); font-size: 0.95rem; }
+  #notes details, #questionables details { margin: 10px 0; } #notes summary, #questionables summary { font-family: var(--font-ui); font-weight: 600; cursor: pointer; }
+  .qa-answer { color: var(--ink-soft); }
+  @media (max-width: 640px) { body { font-size: 16px; } main { padding: 20px 16px 64px; } details.meta dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Plan: Sovereign cloud support (azure_environment)</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-11-13</dd>
+        <dt>modified</dt>     <dd>2026-11-13</dd>
+        <dt>commits</dt>      <dd>pending</dd>
+        <dt>agent name</dt>   <dd>claude-opus-5-5 (adr-56)</dd>
+        <dt>session id</dt>   <dd>81cde364-0184-4d31-8419-4456be2d3b66</dd>
+        <dt>back refs</dt>    <dd>issue #56 (https://github.com/innofactororg/bicep-action/issues/56), docs/adr/0003-sovereign-clouds.md</dd>
+        <dt>forward refs</dt> <dd>none yet</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <img src="0003-sovereign-clouds/hero.png" alt="Three clouds, each with its own lock and key, and one pipeline choosing between them" width="1152" height="768">
+    <figcaption>One pipeline, three clouds, one chosen per run.</figcaption>
+  </figure>
+
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Make plan and deploy work against Azure US Government and Azure China, from GitHub Actions with OpenID Connect and from Azure DevOps with a service connection, without changing anything for existing public-cloud users. The design is in <code>docs/adr/0003-sovereign-clouds.md</code>.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>Today the sign-in assumes the public cloud. <code>scripts/az-login.sh:77</code> asks GitHub for a token with the audience <code>api://AzureADTokenExchange</code>, and <code>az login</code> runs with no <code>az cloud set</code> first. The plan records the Bicep version and the stack settings so that the deploy matches the plan, but not the cloud. Two steps need public-cloud services: the cost estimate (<code>scripts/azure-cost.sh</code>, public retail prices) and, for some users, Bicep module restore from <code>mcr.microsoft.com</code>.</p>
+    <p>The issue also asks for a review of hard-coded endpoints. That review is done: there is no portal link, <code>management.azure.com</code> or <code>login.microsoftonline.com</code> anywhere in <code>scripts/</code>, <code>.github/</code>, <code>.azuredevops/</code> or <code>docs/</code>, and the PR comment contains no Azure links. The acceptance item "links in the PR comment point at the right portal" therefore has nothing to act on today. See Questionables.</p>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>One setting, <code>azure_environment</code> / <code>AZURE_ENVIRONMENT</code> (<code>AzureCloud</code>, <code>AzureUSGovernment</code>, <code>AzureChinaCloud</code>), and one new sourced script, <code>scripts/azure-cloud.sh</code>. On GitHub it runs <code>az cloud set</code> and picks the token audience before sign-in. On Azure DevOps it only checks that the connection's cloud matches the variable when the variable is set. The plan records the active cloud as the <code>azure_environment</code> output; the deploy compares it with <code>plan_azure_environment</code> / <code>PLAN_AZURE_ENVIRONMENT</code> and refuses to run on a mismatch. The cost estimate is skipped with a message outside the public cloud.</p>
+    <figure>
+      <img src="0003-sovereign-clouds/solution.png" alt="Flow: set cloud, sign in, plan records the cloud, deploy checks it; cost estimate skipped" width="1152" height="768">
+      <figcaption>Set the cloud first, sign in, record it in the plan, check it at deploy. The cost estimate is skipped.</figcaption>
+    </figure>
+  </section>
+
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>scripts/az-login.sh</code> — GitHub sign-in. Line 77 holds the fixed audience; lines 66-99 build <code>az login</code> with no <code>az cloud set</code>.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/az-deploy.sh</code> — runs validate, what-if and create. Lines 254-285 select the Bicep version and the subscription; lines 304-325 hold <code>check_plan_settings</code>, the pattern to follow for the cloud.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/azure-cost.sh</code> — ACE cost estimate. <code>fail</code> (from line 49) and <code>report_only</code> (from line 22) decide report-only versus failing; the download starts at line 161.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/pr-comment.sh</code> — builds the comment header (lines 44-60); precedent for an optional line is the <code>VERSION_BICEP_CLI</code> block.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/debug-info.sh</code> — lists settings (lines 68-75); the env filter at line 196 already passes <code>AZURE_*</code>.</li>
+      <li><span class="tag existing">existing</span> <code>scripts/azure-subscription.sh</code>, <code>scripts/bicep-version.sh</code> — sourced helpers; the style to copy. The subscription error text matches "doesn't exist in cloud" for any cloud, so it needs no change.</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/plan/action.yml</code> — inputs (lines 10-116), outputs (117-129), Azure login step (150-162), Cost estimate step (287-305), debug step (357-385).</li>
+      <li><span class="tag existing">existing</span> <code>.github/actions/deploy/action.yml</code> — inputs, Azure login step (133-145), Create deployment step (175-197), debug step.</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/plan-stage.yml</code> — <code>SCRIPTS</code> list (lines 78-91), what_if step named <code>what_if</code> (156-166), debug env (231-257).</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/templates/deploy-stage.yml</code> — <code>SCRIPTS</code> list, deploy job variables (lines 70-74).</li>
+      <li><span class="tag existing">existing</span> <code>.azuredevops/ms.azure.deploy.yml</code> — the single-file pipeline: variables (lines 12-60), plan <code>SCRIPTS</code> list (line 78 onwards), deploy variables (lines 291-295), deploy <code>SCRIPTS</code> list.</li>
+      <li><span class="tag existing">existing</span> <code>docs/configuration.md</code>, <code>docs/how-it-works.md</code>, <code>docs/setup-github.md</code>, <code>docs/setup-azure-devops.md</code>, <code>docs/troubleshooting.md</code>, <code>docs/examples/github/*.yml</code>, <code>docs/examples/azure-devops/*.yml</code>, <code>README.md</code>, <code>.azuredevops/README.md</code> — documentation and examples.</li>
+    </ul>
+
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>scripts/azure-cloud.sh</code> — sourced helper: <code>cloud_name</code>, <code>cloud_audience</code>, <code>select_cloud</code>, <code>check_plan_cloud</code>, <code>cloud_is_public</code>.</li>
+      <li><span class="tag new">new</span> <code>docs/adr/0003-sovereign-clouds.md</code> — the ADR (already written).</li>
+      <li><span class="tag new">new</span> <code>docs/examples/github/sovereign-us-government.yml</code> — a workflow example for Azure US Government.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>.</p>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 1: The cloud helper, <code>scripts/azure-cloud.sh</code></h3>
+      <p>One sourced script so GitHub and Azure DevOps share the logic. It follows the style of <code>azure-subscription.sh</code>: functions, an error variable, no <code>exit</code> inside functions. It must work with bash 4+ (no <code>${var,,}</code>, so it also lints clean on older shells).</p>
+
+      <h4>1. Write the script</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create <code>scripts/azure-cloud.sh</code> with the licence header used by the other scripts, executable (<code>chmod +x</code>), and <code># shellcheck disable=SC2034</code> for <code>CLOUD_SELECTED</code> and <code>CLOUD_ERROR</code>, which the caller reads.</span></li>
+        <li><code class="status">[]</code> <span><code>cloud_name VALUE</code>: print the canonical name, or print nothing for an empty value or an unset Azure DevOps variable (the literal <code>$(NAME)</code>, as <code>azure-cost.sh</code> already handles for <code>IN_CURRENCY</code>). Return 1 for any other value.</span></li>
+        <li><code class="status">[]</code> <span><code>cloud_audience NAME</code>: print the OIDC audience for the canonical name.</span></li>
+        <li><code class="status">[]</code> <span><code>active_cloud</code>: <code>az cloud show --query name -o tsv</code>, empty on error.</span></li>
+        <li><code class="status">[]</code> <span><code>select_cloud</code> (GitHub sign-in): validate, then <code>az cloud set --name</code> when the active cloud differs. Sets <code>CLOUD_SELECTED</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>verify_cloud</code> (any later step): when <code>AZURE_ENVIRONMENT</code> is set, fail if it differs from the active cloud. Never changes the cloud. This is the Azure DevOps check, where the task has already signed in.</span></li>
+        <li><code class="status">[]</code> <span><code>check_plan_cloud</code>: record or compare the cloud (see Phase 3).</span></li>
+        <li><code class="status">[]</code> <span><code>cloud_is_public</code>: true when the active cloud is <code>AzureCloud</code>.</span></li>
+      </ul>
+<pre><code>cloud_name() {
+  local v="${1-}"
+  if [[ "${v}" == *'$('* ]] || test -z "${v//[[:space:]]/}"; then return 0; fi
+  case "$(printf '%s' "${v}" | tr '[:upper:]' '[:lower:]')" in
+    azurecloud)        echo 'AzureCloud';;
+    azureusgovernment) echo 'AzureUSGovernment';;
+    azurechinacloud)   echo 'AzureChinaCloud';;
+    *) return 1;;
+  esac
+}
+cloud_audience() {
+  case "${1}" in
+    AzureUSGovernment) echo 'api://AzureADTokenExchangeUSGov';;
+    AzureChinaCloud)   echo 'api://AzureADTokenExchangeChina';;
+    *)                 echo 'api://AzureADTokenExchange';;
+  esac
+}
+select_cloud() {
+  local want
+  CLOUD_ERROR=''
+  if ! want=$(cloud_name "${AZURE_ENVIRONMENT-}"); then
+    CLOUD_ERROR="Unsupported azure_environment '${AZURE_ENVIRONMENT}'. Use AzureCloud, AzureUSGovernment or AzureChinaCloud."
+    return 1
+  fi
+  CLOUD_SELECTED="${want:-AzureCloud}"
+  if [ "$(active_cloud)" != "${CLOUD_SELECTED}" ] &amp;&amp; \
+     ! az cloud set --name "${CLOUD_SELECTED}" &gt;/dev/null 2&gt;&amp;1; then
+    CLOUD_ERROR="Unable to select the Azure cloud ${CLOUD_SELECTED} (az cloud set failed)."
+    return 1
+  fi
+}</code></pre>
+      <div class="callout">A default run must be identical to today: with the value empty or <code>AzureCloud</code> and the CLI already on <code>AzureCloud</code>, <code>select_cloud</code> runs no <code>az cloud set</code> at all, and the audience is the current one.</div>
+
+      <h4>2. Testing Strategy</h4>
+      <p>The functions are tested without a sovereign tenant by putting a fake <code>az</code> first on <code>PATH</code>. The shim answers <code>cloud show</code> from a state file and records <code>cloud set</code>. Cases: each of the three names, mixed case, empty, <code>$(AZURE_ENVIRONMENT)</code>, an invalid value, and an <code>az cloud set</code> that fails.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck -x scripts/azure-cloud.sh</code> — no findings.</span></li>
+        <li><code class="status">[]</code> <span><code>bash tests/azure-cloud.sh</code> (new file, plain bash with <code>assert_eq</code>; shim in a temp dir) — all cases pass, including "default makes no <code>az cloud set</code> call".</span></li>
+        <li><code class="status">[]</code> <span><code>bash -n scripts/azure-cloud.sh</code> — it parses.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 2: GitHub sign-in and the new inputs</h3>
+      <p>Select the cloud before <code>az login</code> and request the token with the cloud's audience. Add the inputs to both composite actions.</p>
+
+      <h4>1. <code>scripts/az-login.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>After the <code>log_severity</code> case (ends at line 65) and before <code>cmd="az login ..."</code> (line 66), source <code>azure-cloud.sh</code> and call <code>select_cloud</code>. On failure print the error with the same <code>::error::</code> / <code>##[error]</code> pattern, call <code>log_output "${log}" "${CLOUD_ERROR}" ''</code> and <code>exit 1</code>.</span></li>
+        <li><code class="status">[]</code> <span>Replace line 77 <code>--data-urlencode "audience=api://AzureADTokenExchange"</code> with <code>--data-urlencode "audience=$(cloud_audience "${CLOUD_SELECTED}")"</code>. The audience is not a secret, so it may be echoed. Keep <code>echo "::add-mask::${token}"</code> and the <code>shown</code> variable untouched: the token and the secret stay masked.</span></li>
+        <li><code class="status">[]</code> <span>Add <code>echo "Azure cloud: ${CLOUD_SELECTED}"</code> before <code>az login</code> so the log states the cloud (it also goes to the log file for the logs artifact; no secret is involved).</span></li>
+      </ul>
+<pre><code># az-login.sh, after the log_severity case
+# shellcheck source=azure-cloud.sh
+source "$(dirname "${BASH_SOURCE[0]}")/azure-cloud.sh"
+if ! select_cloud; then
+  if test -n "${TF_BUILD-}"; then echo "##[error]${CLOUD_ERROR}"; else echo "::error::${CLOUD_ERROR}"; fi
+  log_output "${log}" "${CLOUD_ERROR}" ''
+  exit 1
+fi
+echo "Azure cloud: ${CLOUD_SELECTED}"</code></pre>
+
+      <h4>2. <code>.github/actions/plan/action.yml</code> and <code>.github/actions/deploy/action.yml</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add input <code>azure_environment</code> (required false, default <code>"AzureCloud"</code>) after <code>azure_client_secret</code>, with a description that names the three values and says it must match in both actions.</span></li>
+        <li><code class="status">[]</code> <span>In the "Azure login" step of both files add <code>AZURE_ENVIRONMENT: ${{ inputs.azure_environment }}</code> to <code>env:</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add <code>IN_AZURE_ENVIRONMENT: ${{ inputs.azure_environment }}</code> to the "Show debug info" step <code>env:</code> in both files, next to <code>IN_CURRENCY</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add the optional line in <code>pr-comment.sh</code> (Phase 4) by passing <code>AZURE_ENVIRONMENT: ${{ inputs.azure_environment }}</code> in the "Add comment" step <code>env:</code> of both files.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Static checks plus a dry run of the sign-in script against a shim for <code>az</code> and <code>curl</code>, to prove the audience that is requested. A real sovereign sign-in is Phase 6.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck -x scripts/az-login.sh</code> — no new findings.</span></li>
+        <li><code class="status">[]</code> <span><code>actionlint .github/actions/*/action.yml</code> if installed (not on this machine; otherwise <code>python3 -c "import yaml,sys;[yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/actions/*/action.yml</code>) — the YAML parses.</span></li>
+        <li><code class="status">[]</code> <span>Run <code>scripts/az-login.sh</code> with <code>AZURE_ENVIRONMENT=AzureUSGovernment</code>, no client secret, and shims for <code>curl</code> (log its <code>--data-urlencode</code> arguments and write a fake token response) and <code>az</code> (log arguments). Expect <code>audience=api://AzureADTokenExchangeUSGov</code> and <code>az cloud set --name AzureUSGovernment</code> before <code>az login</code>. Repeat for <code>AzureChinaCloud</code>.</span></li>
+        <li><code class="status">[]</code> <span>Same run with the variable empty — expect <code>audience=api://AzureADTokenExchange</code> and no <code>az cloud set</code>: default unchanged.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rn "AzureADTokenExchange" scripts .github</code> — the only match is in <code>azure-cloud.sh</code>.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 3: Record the cloud in the plan, check it at deploy (both platforms)</h3>
+      <p>This extends "deploy exactly what was planned". The pattern is <code>check_plan_settings</code> in <code>scripts/az-deploy.sh:304-325</code>: the what-if writes an output, <code>create</code> compares it with the value passed in.</p>
+
+      <h4>1. <code>scripts/azure-cloud.sh</code>: <code>check_plan_cloud</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Implement it to read <code>SCRIPT_ACTION</code> (set by <code>az-deploy.sh</code>). <code>validate</code>: call <code>verify_cloud</code> only. <code>what-if</code>: call <code>verify_cloud</code>, then write the active cloud as <code>azure_environment</code> (Azure DevOps: <code>##vso[task.setvariable variable=azure_environment;isOutput=true]</code>; GitHub: <code>echo "azure_environment=..." &gt;&gt; "${GITHUB_OUTPUT:-/dev/null}"</code>, the same two lines <code>check_plan_settings</code> uses). <code>create</code>: compare with <code>PLAN_AZURE_ENVIRONMENT</code>.</span></li>
+      </ul>
+<pre><code>check_plan_cloud() {
+  local current planned
+  CLOUD_ERROR=''
+  current=$(active_cloud)
+  verify_cloud || return 1
+  case "${SCRIPT_ACTION}" in
+    what-if)
+      if test -n "${TF_BUILD-}"; then
+        echo "##vso[task.setvariable variable=azure_environment;isOutput=true]${current}"
+      else
+        echo "azure_environment=${current}" &gt;&gt; "${GITHUB_OUTPUT:-/dev/null}"
+      fi;;
+    create)
+      planned="${PLAN_AZURE_ENVIRONMENT-}"
+      if [[ "${planned}" == *'$('* ]]; then planned=''; fi   # unset in Azure DevOps
+      if test -n "${planned}" &amp;&amp; [ "${planned}" != "${current}" ]; then
+        CLOUD_ERROR="The deployment signed in to ${current}, but the plan used ${planned}. Run the plan again with the cloud you deploy to."
+        return 1
+      elif test -z "${planned}" &amp;&amp; [ "${current}" != 'AzureCloud' ]; then
+        CLOUD_ERROR="A deployment to ${current} needs the cloud the plan used (the plan's azure_environment output). Pass it to the deployment (plan_azure_environment)."
+        return 1
+      fi;;
+  esac
+}</code></pre>
+      <div class="callout">The empty-planned, public-cloud case must keep passing: it is what every existing workflow does today, and what plans made before this change look like.</div>
+
+      <h4>2. <code>scripts/az-deploy.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Source <code>azure-cloud.sh</code> and call <code>check_plan_cloud</code> immediately before the "Select the subscription" block (around line 270, after the Bicep selection at 254-268). On failure, print the error, write <code>printf '%s\n' "## Azure cloud" "" "${CLOUD_ERROR}❗" &gt; "${log/.log/.md}"</code> and <code>exit 1</code>, exactly like the Bicep and subscription failures next to it.</span></li>
+      </ul>
+
+      <h4>3. GitHub plumbing</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>plan/action.yml</code> outputs: add <code>azure_environment</code> with <code>value: ${{ steps.what_if.outputs.azure_environment }}</code> and a description that says to pass it to the deploy action.</span></li>
+        <li><code class="status">[]</code> <span><code>deploy/action.yml</code> inputs: add <code>plan_azure_environment</code> (default empty), and in the "Create deployment" step <code>env:</code> add <code>PLAN_AZURE_ENVIRONMENT: ${{ inputs.plan_azure_environment }}</code> beside <code>PLAN_STACK_SETTINGS</code>.</span></li>
+        <li><code class="status">[]</code> <span>In the "Validate" and "What-if" steps of the plan action add <code>AZURE_ENVIRONMENT: ${{ inputs.azure_environment }}</code> so <code>verify_cloud</code> can compare; same in the deploy "Create deployment" step.</span></li>
+      </ul>
+
+      <h4>4. Azure DevOps plumbing (templates and the single-file pipeline)</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>.azuredevops/templates/plan-stage.yml</code>: add <code>"azure-cloud"</code> to the <code>SCRIPTS</code> list (lines 78-91). Without it <code>az-deploy.sh</code> fails on <code>source</code>, because each script is downloaded by name. Add <code>AZURE_ENVIRONMENT: $(AZURE_ENVIRONMENT)</code> to the Debug information step <code>env:</code> (lines 231-257). The what-if step already has <code>name: what_if</code>, so the output is addressable.</span></li>
+        <li><code class="status">[]</code> <span><code>.azuredevops/templates/deploy-stage.yml</code>: add <code>"azure-cloud"</code> to its <code>SCRIPTS</code> list and, in the deploy job <code>variables:</code> (lines 70-74), <code>PLAN_AZURE_ENVIRONMENT: $[ stageDependencies.${{ parameters.planStageName }}.${{ parameters.planJobName }}.outputs['what_if.azure_environment'] ]</code>.</span></li>
+        <li><code class="status">[]</code> <span><code>.azuredevops/ms.azure.deploy.yml</code>: add <code>"azure-cloud"</code> to both <code>SCRIPTS</code> arrays (plan job and deploy job), a commented variable <code># - name: AZURE_ENVIRONMENT</code> with the three values in the comment (next to <code>ENVIRONMENT</code>; do not enable it, the connection decides), and <code>PLAN_AZURE_ENVIRONMENT: $[ stageDependencies.Plan.plan.outputs['what_if.azure_environment'] ]</code> in the Deploy job variables (lines 291-295).</span></li>
+        <li><code class="status">[]</code> <span>Do not add any <code>az cloud set</code> to Azure DevOps. <code>AzureCLI@2</code> already selected the cloud of the service connection; changing it after sign-in would break the session.</span></li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <p>Extend <code>tests/azure-cloud.sh</code> with a table for <code>check_plan_cloud</code> and run the real <code>az-deploy.sh</code> only as far as the check, using the shim.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>bash tests/azure-cloud.sh</code> — table: (what-if, active X) writes <code>azure_environment=X</code> to a temp <code>GITHUB_OUTPUT</code> and to stdout as <code>##vso</code> when <code>TF_BUILD=1</code>; (create, planned = current) passes; (create, planned differs) fails with the "run the plan again" text; (create, planned empty, AzureCloud) passes; (create, planned empty, AzureUSGovernment) fails; (create, planned <code>$(x)</code>, AzureCloud) passes; (any, <code>AZURE_ENVIRONMENT</code> set and differs from active) fails.</span></li>
+        <li><code class="status">[]</code> <span><code>shellcheck -x scripts/az-deploy.sh scripts/azure-cloud.sh</code> — no new findings against <code>git stash</code>-ed baseline (<code>git stash; shellcheck -x scripts/az-deploy.sh &gt; /tmp/base.txt; git stash pop</code>, then diff).</span></li>
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys;[yaml.safe_load(open(f)) for f in sys.argv[1:]]" .azuredevops/*.yml .azuredevops/templates/*.yml .github/actions/*/action.yml</code> — YAML parses. Azure DevOps expression syntax is not checked by it; confirm in Phase 6.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -c azure-cloud .azuredevops/templates/*.yml .azuredevops/ms.azure.deploy.yml</code> — plan-stage 1, deploy-stage 1, single-file 2.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 4: Skip public-cloud-only steps, show the cloud in the comment</h3>
+      <p>The cost estimate cannot price a sovereign cloud. Skip it with a message, but never skip a check the user asked for.</p>
+
+      <h4>1. <code>scripts/azure-cost.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Source <code>azure-cloud.sh</code> near the top. After the template existence check (line 158-160) and before the download (line 161), skip when <code>cloud_is_public</code> is false.</span></li>
+        <li><code class="status">[]</code> <span>Report-only (no numeric threshold): <code>notice warning "Cost estimate skipped: ..."</code>, write the "## Cost estimate" section to <code>${log/.log/.md}</code> so the PR comment shows it, and <code>exit 0</code>. The ERR trap is set, so use explicit <code>exit 0</code>.</span></li>
+        <li><code class="status">[]</code> <span>With a numeric threshold (<code>! report_only</code>): call <code>fail</code> with a message that names the cloud and says to clear <code>cost_threshold</code>. A threshold that is silently not checked would let a plan through that the user wanted blocked.</span></li>
+        <li><code class="status">[]</code> <span>Leave the GitHub step condition and the Azure DevOps condition as they are: the step runs and explains itself, which is better than a silent gap.</span></li>
+      </ul>
+<pre><code>if ! cloud_is_public; then
+  cloud=$(active_cloud)
+  msg="The cost estimate is skipped: it prices against the public Azure retail price list, which does not apply to ${cloud}."
+  if ! report_only; then
+    fail "${msg} A cost threshold is set, so the plan cannot check it. Clear cost_threshold (or set -1) for ${cloud}."
+  fi
+  notice warning "${msg}"
+  printf '%s\n' '## Cost estimate' '' "${msg}" &gt; "${log/.log/.md}"
+  exit 0
+fi</code></pre>
+
+      <h4>2. <code>scripts/pr-comment.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Next to the <code>VERSION_BICEP_CLI</code> block (line 49-51) add: when <code>AZURE_ENVIRONMENT</code> is set, not an unexpanded <code>$(</code> literal, and not <code>AzureCloud</code>, append <code>"Azure environment ${AZURE_ENVIRONMENT}\n\n"</code> to <code>summary</code>. Default comments stay identical.</span></li>
+        <li><code class="status">[]</code> <span>Do not add portal links: there are none today. Record the idea (<code>az cloud show --query endpoints.portal -o tsv</code>) in Notes only.</span></li>
+      </ul>
+
+      <h4>3. <code>scripts/debug-info.sh</code></h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Add <code>echo "Azure Environment: ${IN_AZURE_ENVIRONMENT:-${AZURE_ENVIRONMENT:-N/A}}"</code> after the Location line (line 71). The filter at line 196 already allows <code>AZURE_*</code> and <code>IN_*</code>; the name contains none of the blocked words.</span></li>
+      </ul>
+
+      <h4>4. Not changed, on purpose</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>PSRule (<code>psrule-*.sh</code>, the <code>microsoft/ps-rule</code> step): runs offline on the compiled template. Kept. If the Phase 6 run shows a cloud-specific failure, add a skip then, not now.</span></li>
+        <li><code class="status">[]</code> <span><code>br/public:</code> module restore and the Bicep CLI download: network access to <code>mcr.microsoft.com</code> and GitHub, not a cloud feature. Document it; add no code.</span></li>
+        <li><code class="status">[]</code> <span><code>bicep-snapshot.sh</code>: passes <code>--tenant-id</code> and <code>--subscription-id</code> to <code>bicep snapshot</code>. Whether that command resolves existing resources against the public endpoint is unknown. Test it in Phase 6 and decide there (see Questionables).</span></li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>shellcheck -x scripts/azure-cost.sh scripts/pr-comment.sh scripts/debug-info.sh</code> — no new findings.</span></li>
+        <li><code class="status">[]</code> <span>Run <code>azure-cost.sh</code> with the <code>az</code> shim answering <code>AzureUSGovernment</code>, a dummy <code>TEMPLATE_FILE</code>, <code>LOG_PATH</code>, <code>LOG_NAME=cost_estimate</code>, <code>LOG_ORDER=a2</code> and no <code>THRESHOLD</code>: expect exit 0, a warning line, no <code>curl</code> call, and <code>step_a2_cost_estimate.md</code> holding the skip text.</span></li>
+        <li><code class="status">[]</code> <span>Same with <code>THRESHOLD=100</code>: expect a non-zero exit and the "Clear cost_threshold" message in the <code>.md</code>.</span></li>
+        <li><code class="status">[]</code> <span>Same with the shim answering <code>AzureCloud</code>: the script proceeds to the download (stop it with a failing <code>curl</code> shim) — default path unchanged.</span></li>
+        <li><code class="status">[]</code> <span>Run <code>pr-comment.sh</code> with <code>COMMENTS_URL</code> pointing at a local <code>nc -l</code> or a <code>curl</code> shim; with <code>AZURE_ENVIRONMENT=AzureUSGovernment</code> the body has the extra line, with it unset or <code>AzureCloud</code> the body equals the output of the unmodified script (<code>diff</code> against <code>git stash</code> output).</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 5: Documentation and examples</h3>
+      <p>Write for a reader who runs Azure US Government or China for the first time. Plain sentences, the exact values, no promises that were not tested.</p>
+
+      <h4>1. Documents</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>docs/configuration.md</code>: add the rows <code>Azure environment | azure_environment | AZURE_ENVIRONMENT | P D | AzureCloud</code> (GitHub input and Azure DevOps variable) and <code>Plan Azure environment | plan_azure_environment | automatic | D | empty</code> to the table at lines 26-68. Add a section under "Azure connection": values, that GitHub runs <code>az cloud set</code> and picks the audience, that on Azure DevOps the service connection decides and the variable is only a check, and the table of audiences. Add <code>azure_environment</code> to the Outputs table (lines 256-262) and to the "Azure DevOps only" paragraph (line 254). In "Cost estimate" (line 185) add that the estimate is skipped outside <code>AzureCloud</code>, and that a numeric <code>cost_threshold</code> then fails the plan.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/how-it-works.md</code> lines 100-104: add a bullet "The same cloud. The plan records the Azure cloud it signed in to (<code>azure_environment</code> output). A deployment to another cloud fails."</span></li>
+        <li><code class="status">[]</code> <span><code>docs/setup-github.md</code> step 2: add a "Sovereign clouds" paragraph. The federated credential's audience must be the one for the cloud, the issuer stays <code>https://token.actions.githubusercontent.com</code>, and the application lives in a tenant of that cloud. Name the Entra admin centre of that cloud only by saying "the Microsoft Entra admin centre of that cloud".</span></li>
+        <li><code class="status">[]</code> <span><code>docs/setup-azure-devops.md</code> step 2: say the service connection must be created with the environment of the target cloud (Azure US Government or Azure China in the connection dialog), and that <code>AZURE_ENVIRONMENT</code> is optional and only turns a mismatch into a clear error.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/troubleshooting.md</code>: rows for "Unsupported azure_environment", "The deployment signed in to X, but the plan used Y", "A deployment to X needs the cloud the plan used", "AADSTS70021 / AADSTS700212 with a sovereign cloud: the audience on the federated credential does not match", and "The cost estimate is skipped".</span></li>
+        <li><code class="status">[]</code> <span><code>README.md</code> and <code>.azuredevops/README.md</code>: one line each. Add a "Network" note: runners need access to GitHub (Bicep CLI, ACE) and, for <code>br/public:</code> modules, to <code>mcr.microsoft.com</code>; a private registry in a sovereign cloud needs <code>cloud.currentProfile</code> in <code>bicepconfig.json</code>.</span></li>
+      </ul>
+
+      <h4>2. Examples</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>New <code>docs/examples/github/sovereign-us-government.yml</code>, a copy of <code>minimal.yml</code> with <code>azure_environment: AzureUSGovernment</code> in the workflow <code>env:</code> block, passed to both actions, <code>plan_azure_environment: ${{ needs.plan.outputs.azure_environment }}</code> in the deploy job, and <code>azure_environment: ${{ steps.plan.outputs.azure_environment }}</code> in the plan job outputs. <code>location</code> is a US Gov region name such as <code>usgovvirginia</code>.</span></li>
+        <li><code class="status">[]</code> <span>Add the <code>azure_environment</code> job output and <code>plan_azure_environment</code> input to the other four GitHub examples (<code>minimal</code>, <code>recommended</code>, <code>multi-environment</code>, <code>auto-approve-safe-plans</code>) next to <code>stack_settings</code>, so a copy of any example is correct for a sovereign cloud by changing one value. Their default stays <code>AzureCloud</code> (or is omitted).</span></li>
+        <li><code class="status">[]</code> <span><code>docs/examples/README.md</code>: list the new example.</span></li>
+        <li><code class="status">[]</code> <span><code>docs/examples/azure-devops/*.yml</code>: add a commented <code>AZURE_ENVIRONMENT</code> variable with the three values.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span><code>grep -rn "azure_environment\|AZURE_ENVIRONMENT" docs README.md .azuredevops/README.md | wc -l</code> — every file in the list above has at least one hit.</span></li>
+        <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys;[yaml.safe_load(open(f)) for f in sys.argv[1:]]" docs/examples/github/*.yml docs/examples/azure-devops/*.yml</code> — examples parse.</span></li>
+        <li><code class="status">[]</code> <span><code>grep -rniE "contoso|fabrikam|acme|customer" docs/adr docs/examples specs/0003-sovereign-clouds.html</code> — no customer names (public repository). Placeholder GUIDs only.</span></li>
+        <li><code class="status">[]</code> <span>Check every relative link added: <code>grep -o "](\./[^)]*)" docs/*.md</code> and confirm each target exists.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[]</code> Phase 6: Prove it against a real sovereign cloud, and release notes</h3>
+      <p>The unit tests use shims. The acceptance criteria need a real run. This phase needs an Azure US Government test subscription; Azure China is run only if one is available, and its result is stated either way.</p>
+
+      <h4>1. Live checks</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Create an application in the US Government tenant, a federated credential with audience <code>api://AzureADTokenExchangeUSGov</code> (pull request) and another for the environment, and a Reader/Contributor assignment on a test resource group. Record the exact audience the portal offers; it settles the first Questionable.</span></li>
+        <li><code class="status">[]</code> <span>GitHub: run <code>docs/examples/github/sovereign-us-government.yml</code> on a pull request. Expect: sign-in succeeds, the log says <code>Azure cloud: AzureUSGovernment</code>, the plan comment has the "Azure environment" line, the cost section says skipped, validate and what-if succeed. Approve the environment and expect a successful deployment.</span></li>
+        <li><code class="status">[]</code> <span>GitHub negative: pass a wrong <code>plan_azure_environment</code> (<code>AzureCloud</code>) to the deploy: expect the deploy to fail with the "plan used" message before anything is deployed. Omit it: expect the "needs the cloud the plan used" failure.</span></li>
+        <li><code class="status">[]</code> <span>Azure DevOps: a service connection to the US Government environment, the template or single-file pipeline, <code>AZURE_ENVIRONMENT</code> unset first (expect success, <code>PLAN_AZURE_ENVIRONMENT</code> flows through <code>stageDependencies</code>), then set to <code>AzureCloud</code> (expect the mismatch error).</span></li>
+        <li><code class="status">[]</code> <span>Public cloud regression: run the unchanged <code>minimal.yml</code> and an unchanged Azure DevOps pipeline. Compare the sign-in log, the audience and the PR comment with a run from <code>main</code>; there must be no difference except the new "Azure cloud:" log line.</span></li>
+        <li><code class="status">[]</code> <span>Check the three open behaviours: a template with a <code>br/public:</code> module, <code>bicep snapshot</code> with a <code>.snapshot.json</code>, and PSRule. Record pass or fail for each in the pull request; fix or skip per Questionables.</span></li>
+        <li><code class="status">[]</code> <span>Secrets: download the logs artifact and the PR comment of the sovereign run and search them for JWT strings (<code>grep -rE "eyJ[A-Za-z0-9_-]{10,}\." &lt;folder&gt;</code>) and, when a client secret was used, for that secret (read it from the secret store into a variable and use <code>grep -rF -- "$VALUE"</code> without printing it). Expect no match.</span></li>
+      </ul>
+
+      <h4>2. Release</h4>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>Conventional commit <code>feat: sovereign cloud support (azure_environment) (#56)</code>. The repository uses <code>.github/release.yml</code> to group notes; nothing else to edit. Mention in the pull request that the setting is opt-in and that existing workflows need no change.</span></li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>These are the acceptance criteria of the issue, one check each.</p>
+      <ul class="checklist">
+        <li><code class="status">[]</code> <span>US Government with OIDC (GitHub): the example workflow run above is green and deploys.</span></li>
+        <li><code class="status">[]</code> <span>US Government with a service connection (Azure DevOps): the pipeline run above is green.</span></li>
+        <li><code class="status">[]</code> <span>Links in the PR comment: <code>grep -oE "https?://[^ )]+" plan_comment.md</code> on a US Government run shows only the run URL on <code>github.com</code>; no public portal link. (Satisfied by there being none; see Questionables.)</span></li>
+        <li><code class="status">[]</code> <span>Default behaviour unchanged: the public-cloud regression comparison above shows no difference.</span></li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[]</code> <span><code>shellcheck -x scripts/*.sh</code> — no new findings compared with <code>main</code>.</span></li>
+      <li><code class="status">[]</code> <span><code>bash tests/azure-cloud.sh</code> — helper and check table pass.</span></li>
+      <li><code class="status">[]</code> <span><code>python3 -c "import yaml,sys;[yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/actions/*/action.yml .azuredevops/*.yml .azuredevops/templates/*.yml docs/examples/*/*.yml</code> — all YAML parses (use <code>actionlint</code> too where installed).</span></li>
+      <li><code class="status">[]</code> <span><code>git grep -n "api://AzureADTokenExchange" -- scripts .github</code> — only <code>scripts/azure-cloud.sh</code>.</span></li>
+      <li><code class="status">[]</code> <span><code>git grep -nE "portal\.azure\.com|management\.azure\.com|login\.microsoftonline\.com|prices\.azure\.com" -- scripts .github .azuredevops</code> — no hits (nothing hard-coded was introduced).</span></li>
+      <li><code class="status">[]</code> <span><code>git diff main --stat -- scripts/az-login.sh scripts/az-deploy.sh scripts/azure-cost.sh scripts/pr-comment.sh</code> — small, additive diffs only.</span></li>
+      <li><code class="status">[]</code> <span>The Phase 6 live runs (US Government on both platforms, public-cloud regression) are recorded in the pull request.</span></li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <section id="questionables">
+    <h2>Questionables</h2>
+    <details open>
+      <summary>Are the OIDC audience values right?</summary>
+      <p class="qa-answer">The three values come from the issue text. The Microsoft Learn federated-credential pages (checked 2026-11-13) document only <code>api://AzureADTokenExchange</code>, and the Azure/login README says only that the audience must be changed for other clouds without listing the values. Assumption: the issue is right. Settle it in Phase 6 by reading what the US Government and China Entra portals offer when a credential is created. If they differ, only <code>cloud_audience</code> changes. Consider an <code>azure_audience</code> override input if the values prove unstable.</p>
+    </details>
+    <details open>
+      <summary>The issue asks for portal links in the PR comment. There are none. Add them?</summary>
+      <p class="qa-answer">The comment holds no Azure link today, so the criterion is met vacuously. The ADR adds none. A useful addition would be a link to the deployment or stack in the portal, built from <code>az cloud show --query endpoints.portal</code>, but that is a new feature with its own link-format risk for three clouds. Recommendation: keep it out of this change and open a follow-up issue if wanted.</p>
+    </details>
+    <details open>
+      <summary>Cost estimate with a numeric <code>cost_threshold</code> in a sovereign cloud: fail, or skip?</summary>
+      <p class="qa-answer">The issue says skip with a message instead of failing. The plan skips, except when a numeric threshold is set, where it fails, because a gate that is silently off is a worse result than a clear error. The alternative is to skip with a prominent warning. Decision needed from the maintainer.</p>
+    </details>
+    <details>
+      <summary>Does <code>bicep snapshot</code> need the public cloud?</summary>
+      <p class="qa-answer">Unknown. <code>bicep-snapshot.sh</code> passes tenant and subscription ids, and the Bicep CLI may resolve existing resources through its own credential and cloud profile rather than the Azure CLI's. If it does, it needs <code>cloud.currentProfile</code> in <code>bicepconfig.json</code> or must be skipped outside <code>AzureCloud</code>. Test in Phase 6 before deciding.</p>
+    </details>
+    <details>
+      <summary>Is PSRule useful in sovereign clouds, and is <code>br/public</code> reachable?</summary>
+      <p class="qa-answer">Assumed yes to both, so neither is skipped: PSRule works on the compiled template and installs modules from the PowerShell Gallery, and <code>mcr.microsoft.com</code> is an internet host. This is not confirmed for Azure Government or China runners with restricted egress, and the Bicep registry documentation says nothing on sovereign clouds. Documented as a network requirement; verify in Phase 6.</p>
+    </details>
+    <details>
+      <summary>Azure DevOps: should <code>AZURE_ENVIRONMENT</code> be allowed to differ from the connection?</summary>
+      <p class="qa-answer">No. It is a check only, and a mismatch fails. The variable name was chosen to avoid <code>ENVIRONMENT</code>, which the starter pipeline already uses for the Azure DevOps environment (approvals). Confirm that no Azure DevOps task or tool in common use reads <code>AZURE_ENVIRONMENT</code> itself.</p>
+    </details>
+    <details>
+      <summary>Should <code>AzureGermanCloud</code> be accepted?</summary>
+      <p class="qa-answer">No. The Azure CLI still lists it, but the cloud is closed to new use. Rejected values list the three that are supported. Revisit only on request.</p>
+    </details>
+  </section>
+
+  <section id="notes">
+    <h2>Notes</h2>
+    <h3>Decisions that follow the existing design</h3>
+    <table>
+      <tr><th>Concern</th><th>Existing pattern</th><th>Used for</th></tr>
+      <tr><td>Plan records a setting</td><td><code>stack_settings</code> output and <code>plan_stack_settings</code> input, <code>az-deploy.sh:304-325</code></td><td><code>azure_environment</code> output and <code>plan_azure_environment</code> input</td></tr>
+      <tr><td>Azure DevOps hand-over</td><td><code>PLAN_STACK_SETTINGS: $[ stageDependencies...outputs['what_if.stack_settings'] ]</code></td><td><code>PLAN_AZURE_ENVIRONMENT</code></td></tr>
+      <tr><td>Unset Azure DevOps variable</td><td>The literal <code>$(NAME)</code> is treated as empty</td><td><code>cloud_name</code> and <code>check_plan_cloud</code></td></tr>
+      <tr><td>Sourced helper</td><td><code>azure-subscription.sh</code>, <code>bicep-version.sh</code>; error in a variable, caller prints</td><td><code>azure-cloud.sh</code></td></tr>
+      <tr><td>Script download in Azure DevOps</td><td>Named <code>SCRIPTS</code> arrays in three files</td><td>Add <code>azure-cloud</code> to all of them</td></tr>
+    </table>
+    <h3>Risks</h3>
+    <ul>
+      <li>Forgetting an Azure DevOps <code>SCRIPTS</code> array breaks the whole pipeline at <code>source</code>. The Phase 3 grep count guards it.</li>
+      <li>A change in the default path. The default-path tests in Phases 2 and 4 and the live regression in Phase 6 exist for this.</li>
+      <li>The audience values are unverified (first Questionable).</li>
+      <li><code>az cloud set</code> must run before <code>az login</code>, and the setting lives in the Azure CLI config of the job. Steps that run <code>az</code> in a separate job need their own sign-in, which they already have.</li>
+    </ul>
+    <h3>Future work</h3>
+    <ul>
+      <li>Portal links in the comment, from <code>az cloud show --query endpoints.portal -o tsv</code>.</li>
+      <li>An <code>azure_audience</code> override if the audience values change.</li>
+      <li>Cost estimation for sovereign clouds, if a price source exists.</li>
+    </ul>
+  </section>
+
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <p>None yet.</p>
+  </section>
+
+</main>
+</body>
+</html>
