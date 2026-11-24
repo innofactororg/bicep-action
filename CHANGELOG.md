@@ -107,7 +107,7 @@ Each release has a `## <version> (YYYY-MM-DD)` section. The Release workflow pub
 
 ### Added
 
-- Allow skipping the cost estimator
+- Allow skipping the cost estimator ([787929f](https://github.com/innofactororg/bicep-action/commit/787929f7a25cd83c420fef40c3c19559b1b6671b))
 
 ## 1.0.2 (2024-02-22)
 
