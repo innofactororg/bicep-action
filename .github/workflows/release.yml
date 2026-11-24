@@ -53,6 +53,7 @@ jobs:
         with:
           path: CHANGELOG.md
           version: ${{ inputs.tag }}
+          require-reference: true
 
       - name: "Find the previous release"
         id: previous
