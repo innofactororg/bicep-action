@@ -100,6 +100,15 @@ Read more in [How it works](./docs/how-it-works.md).
 
 Pin a release tag: `@v1` on GitHub, and `WORKFLOW_VERSION: v1` in Azure DevOps. See the [tags](https://github.com/innofactororg/bicep-action/tags) and [releases](https://github.com/innofactororg/bicep-action/releases). The Bicep CLI itself is not pinned: every plan uses the latest release, and the deployment uses the plan's version.
 
+## Releasing
+
+Releases are cut from `main` with the **Release** workflow.
+
+1. Add a section to [CHANGELOG.md](./CHANGELOG.md) in the pull request that makes the change, using the heading `## <version> (YYYY-MM-DD)` (for example `## 2026.11.20 (2026-11-20)`). Keep unreleased changes under `## Unreleased` and rename it when you release.
+2. After the pull request is merged, run the **Release** workflow (Actions tab) with the tag, for example `v2026.11.20`.
+
+The changelog section becomes the release notes. The workflow fails before it creates the tag if the section is missing, and it announces the release in Microsoft Teams. Moving a floating tag such as `v1` is still done by hand.
+
 ## License
 
 The code and documentation in this project are released under the [BSD 3-Clause License](./LICENSE).
